@@ -1,0 +1,50 @@
+{
+  "expo": {
+    "name": "saknew_frontend_clean",
+    "slug": "saknew_frontend_clean",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "plugins": [
+      [
+        "expo-location",
+        {
+          "locationAlwaysAndWhenInUsePermission": "Allow $(PRODUCT_NAME) to use your location."
+        }
+      ]
+    ],
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.saknew.frontend",
+      "edgeToEdgeEnabled": true,
+      "permissions": ["ACCESS_COARSE_LOCATION", "ACCESS_FINE_LOCATION"]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "SERVER_IP": "192.168.8.101",
+      "SERVER_PORT": "8000",
+      "API_BASE_URL": "http://192.168.8.101:8000/",
+      "IMAGE_BASE_URL": "http://192.168.8.101:8000",
+      "DEBUG": "true",
+      "APP_ENV": "development",
+      "eas": {
+        "projectId": "YOUR_EAS_PROJECT_ID_HERE"
+      }
+    }
+  }
+}
