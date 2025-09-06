@@ -1,7 +1,8 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMyCart, getMyOrders } from '../services/salesService';
-import { getMyWallet } from '../services/walletService';
-import { useAuth } from './AuthContext';
+import { getMyWallet, refreshWallet } from '../services/walletService';
+import { useAuth } from './AuthContext.minimal';
 
 interface BadgeContextType {
   cartCount: number;
@@ -28,24 +29,56 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
   const [cartCount, setCartCount] = useState(0);
   const [orderCount, setOrderCount] = useState(0);
   const [walletBalance, setWalletBalance] = useState('0.00');
-  const { user } = useAuth();
+  const { user, handleUnauthorized } = useAuth();
 
-  const refreshBadges = async () => {
-    if (!user) return;
+  const refreshBadges = async (isRetry = false) => {
+    if (!user) {
+      // No user, clear all badges and stop.
+      setCartCount(0);
+      setOrderCount(0);
+      setWalletBalance('0.00');
+      return;
+    }
 
     try {
-      const [cart, orders, wallet] = await Promise.all([
-        getMyCart(),
-        getMyOrders(),
-        getMyWallet()
+      console.log('Refreshing badges for user:', user.id);
+      
+      // Fetch cart and orders first. These might also fail, but the wallet is the one logging errors.
+      const [cart, orders] = await Promise.all([
+        getMyCart().catch(() => ({ items: [] })),
+        getMyOrders().catch(() => [])
       ]);
+      
+      // Now, fetch the wallet data, which is causing the token error
+      let wallet = { balance: '0.00' };
+      try {
+        console.log('Fetching wallet data...');
+        wallet = await refreshWallet();
+        console.log('Wallet data received:', wallet);
+      } catch (error: any) {
+        console.error('Wallet service error:', error);
 
-      const count = cart.items?.length || 0;
+        // Check if the error is a 401 Unauthorized from an expired token
+        const isTokenError = error?.response?.data?.code === 'token_not_valid';
+
+        if (isTokenError && !isRetry) {
+          console.log('Access token expired. Attempting to refresh...');
+          const refreshedSuccessfully = await handleUnauthorized();
+          if (refreshedSuccessfully) {
+            console.log('Token refresh successful. Retrying badge fetch.');
+            return refreshBadges(true); // Retry the entire function
+          }
+          // If refresh fails, the user is logged out by handleUnauthorized, and this function will exit.
+          return;
+        }
+      }
+
+      const count = cart?.items?.length || 0;
       console.log('Cart count updated:', count);
       setCartCount(count);
       
       if (user?.profile?.is_seller) {
-        const unshippedOrders = orders.filter(order => 
+        const unshippedOrders = (orders || []).filter(order => 
           (order.order_status === 'processing' || order.order_status === 'pending') && 
           order.items.some(item => item.product.shop?.user?.id === user.id) &&
           order.user.id !== user.id // Exclude orders where seller is also the buyer
@@ -56,15 +89,20 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
         setOrderCount(0);
       }
       
-      const balance = parseFloat(wallet.balance).toFixed(2);
-      console.log('Wallet balance updated:', balance);
-      setWalletBalance(balance);
+      const balance = wallet?.balance ? parseFloat(wallet.balance).toFixed(2) : '0.00';
+      if (balance !== walletBalance) {
+        console.log('Wallet balance updated from', walletBalance, 'to', balance);
+        setWalletBalance(balance);
+      }
     } catch (error) {
-      console.log('Error refreshing badges:', error);
+      console.error('Error refreshing badges:', error);
     }
   };
 
   useEffect(() => {
+    // This effect handles the case where the user logs in or out.
+    // The 'user' dependency will trigger a re-run. If the user logs out,
+    // the initial check `if (!user)` will clear the badges.
     if (user) {
       refreshBadges();
       const interval = setInterval(refreshBadges, 30000);

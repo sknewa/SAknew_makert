@@ -13,7 +13,8 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
+import { useBadges } from '../../context/BadgeContext';
 import { getMyWallet, getMyTransactions, Wallet, Transaction } from '../../services/walletService';
 
 // Define common colors - Consistent with other screens
@@ -42,7 +43,7 @@ const colors = {
 // Helper function to format currency
 const formatCurrency = (amount: string | number): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return `R${num.toFixed(2)}`;
+  return `R${(num || 0).toFixed(2)}`;
 };
 
 // Helper to get transaction icon
@@ -71,16 +72,16 @@ const getTransactionColor = (type: string) => {
 
 const WalletDashboardScreen: React.FC = () => {
   const navigation = useNavigation<MainNavigationProp>();
-  const { user, isAuthenticated, loading: authLoading } = useAuth(); // Get user from AuthContext
+  const { user, isAuthenticated, loading: authLoading } = useAuth();
+  const { walletBalance, refreshBadges } = useBadges();
 
-  const [walletBalance, setWalletBalance] = useState<string>('0.00');
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchWalletData = useCallback(async () => {
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     setError(null);
     try {
       if (!user?.id) {
@@ -88,17 +89,21 @@ const WalletDashboardScreen: React.FC = () => {
         setLoading(false);
         return;
       }
-      const wallet = await getMyWallet();
-      setWalletBalance(wallet.balance);
+      console.log('Fetching wallet data for user:', user.id);
+      
+      // Refresh badges (including wallet balance) and get transactions
+      await refreshBadges();
       const txns = await getMyTransactions();
+      console.log('Transactions loaded:', txns.length);
       setTransactions(txns);
     } catch (err: any) {
+      console.error('Error fetching wallet data:', err);
       setError("Failed to load wallet data. Please try again.");
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user]);
+  }, [user, refreshBadges, refreshing]);
 
   useFocusEffect(
     useCallback(() => {
@@ -109,6 +114,16 @@ const WalletDashboardScreen: React.FC = () => {
         setError("Please log in to view your wallet.");
       }
     }, [authLoading, isAuthenticated, fetchWalletData])
+  );
+
+  // Also refresh when screen gains focus (e.g., returning from AddFundsScreen)
+  useFocusEffect(
+    useCallback(() => {
+      if (isAuthenticated && !authLoading) {
+        console.log('Screen focused, refreshing wallet data');
+        fetchWalletData();
+      }
+    }, [isAuthenticated, authLoading, fetchWalletData])
   );
 
   const onRefresh = useCallback(() => {
@@ -187,7 +202,23 @@ const WalletDashboardScreen: React.FC = () => {
         }
       >
         <View style={styles.container}>
-          <Text style={styles.pageTitle}>My Wallet</Text>
+          <View style={styles.headerContainer}>
+            <Text style={styles.pageTitle}>My Wallet</Text>
+            <TouchableOpacity 
+              style={styles.refreshButton} 
+              onPress={() => {
+                console.log('Manual refresh triggered');
+                fetchWalletData();
+              }}
+              disabled={loading}
+            >
+              <Ionicons 
+                name="refresh" 
+                size={24} 
+                color={loading ? colors.textSecondary : colors.primary} 
+              />
+            </TouchableOpacity>
+          </View>
 
           {/* Wallet Balance Card */}
           <View style={styles.balanceCard}>
@@ -341,12 +372,25 @@ const styles = StyleSheet.create({
     paddingTop: 20,
     backgroundColor: colors.background,
   },
+  headerContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 25,
+  },
   pageTitle: {
     fontSize: 28,
     fontWeight: 'bold',
     color: colors.textPrimary,
-    marginBottom: 25,
+    flex: 1,
     textAlign: 'center',
+  },
+  refreshButton: {
+    padding: 8,
+    borderRadius: 20,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
 
   // Wallet Balance Card

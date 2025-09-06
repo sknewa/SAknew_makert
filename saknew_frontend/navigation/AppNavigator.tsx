@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 
 // Import AuthContext
-import { useAuth } from '../context/AuthContext';
+import { useAuth } from '../context/AuthContext.minimal';
 
 // Import Navigators and Screens
 import LoginScreen from '../screens/Auth/LoginScreen';
@@ -27,6 +27,9 @@ import OrderSuccessScreen from '../screens/Sales/OrderSuccessScreen';
 import AddFundsScreen from '../screens/Wallet/AddFundsScreen';
 import OrderDetailScreen from '../screens/ShopOwner/OrderDetailScreen';
 import PurchaseDetailScreen from '../screens/Sales/PurchaseDetailScreen';
+import StatusViewerScreen from '../screens/Status/StatusViewerScreen';
+import CreateStatusScreen from '../screens/Status/CreateStatusScreen';
+import StatusListScreen from '../screens/Status/StatusListScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -64,6 +67,9 @@ const AppNavigator = () => {
             <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
             <Stack.Screen name="Shipping" component={ShippingScreen} />
             <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} />
+            <Stack.Screen name="StatusViewer" component={StatusViewerScreen} />
+            <Stack.Screen name="CreateStatus" component={CreateStatusScreen} />
+            <Stack.Screen name="StatusList" component={StatusListScreen} />
           </Stack.Group>
         ) : (
           // Authentication screens (User is NOT logged in)

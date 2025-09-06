@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
-import DateTimePicker, { DateTimePickerEvent } from '@react-native-community/datetimepicker';
+
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
@@ -24,8 +24,7 @@ const AddPromotionScreen = () => {
   const [discount, setDiscount] = useState('');
   const [startDate, setStartDate] = useState(getDefaultDates().start);
   const [endDate, setEndDate] = useState(getDefaultDates().end);
-  const [showStartPicker, setShowStartPicker] = useState(false);
-  const [showEndPicker, setShowEndPicker] = useState(false);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -75,50 +74,12 @@ const AddPromotionScreen = () => {
         </View>
         <View style={styles.inputGroup}>
           <Ionicons name="calendar-outline" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            onPress={() => {
-              if (!showEndPicker) setShowStartPicker(true);
-            }}
-            disabled={loading || showEndPicker}
-          >
-            <Text style={styles.input}>{new Date(startDate).toLocaleString()}</Text>
-          </TouchableOpacity>
+          <Text style={styles.input}>Start: {new Date(startDate).toLocaleDateString()}</Text>
         </View>
-        {showStartPicker && !showEndPicker && (
-          <DateTimePicker
-            value={new Date(startDate)}
-            mode="datetime"
-            display="default"
-            onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-              setShowStartPicker(false);
-              if (selectedDate) setStartDate(selectedDate.toISOString());
-            }}
-          />
-        )}
         <View style={styles.inputGroup}>
           <Ionicons name="calendar" size={20} color={colors.primary} style={{ marginRight: 8 }} />
-          <TouchableOpacity
-            style={{ flex: 1 }}
-            onPress={() => {
-              if (!showStartPicker) setShowEndPicker(true);
-            }}
-            disabled={loading || showStartPicker}
-          >
-            <Text style={styles.input}>{new Date(endDate).toLocaleString()}</Text>
-          </TouchableOpacity>
+          <Text style={styles.input}>End: {new Date(endDate).toLocaleDateString()}</Text>
         </View>
-        {showEndPicker && !showStartPicker && (
-          <DateTimePicker
-            value={new Date(endDate)}
-            mode="datetime"
-            display="default"
-            onChange={(event: DateTimePickerEvent, selectedDate?: Date) => {
-              setShowEndPicker(false);
-              if (selectedDate) setEndDate(selectedDate.toISOString());
-            }}
-          />
-        )}
         {error && <Text style={styles.errorText}>{error}</Text>}
         <TouchableOpacity
           style={[styles.button, loading && styles.buttonDisabled]}

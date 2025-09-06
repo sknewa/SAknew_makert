@@ -6,21 +6,20 @@
 export interface User {
   id: number;
   email: string;
-  first_name?: string;
-  last_name?: string;
+  first_name: string;
+  last_name: string;
   is_active: boolean;
-  // If you have a nested profile in your UserSerializer, include it here:
-  // profile?: {
-  //   email_verified: boolean;
-  //   is_seller: boolean;
-  //   shop_slug?: string | null;
-  // };
+  profile: {
+    email_verified: boolean;
+    is_seller: boolean;
+    shop_slug: string | null;
+  };
 }
 
 export interface UserProfile {
   email_verified: boolean;
   is_seller: boolean;
-  shop_slug: string | null; // shop_slug is a string or null
+  shop_slug: string | null;
 }
 
 export interface Category {
@@ -37,28 +36,29 @@ export interface Category {
 
 export interface Shop {
   id: number;
-  user: User; // Nested User object
+  user: User;
   name: string;
   slug: string;
   description: string | null;
-  latitude: string | null; // DecimalField from Django often comes as string in JSON
-  longitude: string | null; // DecimalField from Django often comes as string in JSON
+  latitude: string | null;
+  longitude: string | null;
+  country: string | null;
+  province: string | null;
+  town: string | null;
+  phone_number: string | null;
+  email_contact: string | null;
+  social_links: Record<string, string> | null;
   is_active: boolean;
-  created_at: string; // ISO 8601 datetime string
-  updated_at: string; // ISO 8601 datetime string
-  products_count: number; // From SerializerMethodField
-  // Contact & Address fields
-  country?: string | null;
-  province?: string | null;
-  town?: string | null;
-  phone_number?: string | null;
-  email_contact?: string | null;
-  // REMOVED: website_url?: string | null;
-  // NEW: Social links
-  social_links?: Record<string, string> | null; // A dictionary of social media platform (string) to URL (string)
-  // Optional images
-  banner_image?: string | null;
-  logo?: string | null;
+  created_at: string;
+  updated_at: string;
+  products_count: number;
+  active_products_count: number;
+  // Statistics from backend
+  total_products?: number;
+  in_stock_products?: number;
+  out_of_stock_products?: number;
+  available_products_count?: number;
+  out_of_stock_products_count?: number;
 }
 
 export interface ProductImage {

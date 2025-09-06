@@ -20,7 +20,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { Product } from '../../types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { getReviewsByProduct, Review, addCartItem } from '../../services/salesService';
 
 
@@ -354,7 +354,7 @@ const ProductDetailScreen = () => {
               <View style={styles.reviewsSummary}>
                 <View style={styles.averageRating}>
                   <Text style={styles.ratingNumber}>
-                    {reviews.length > 0 ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1) : '0.0'}
+                    {reviews.length > 0 ? ((reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length) || 0).toFixed(1) : '0.0'}
                   </Text>
                   <View style={styles.starsContainer}>
                     {renderStars(reviews.length > 0 ? Math.round(reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) : 0)}

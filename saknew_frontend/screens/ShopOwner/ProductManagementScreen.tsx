@@ -4,7 +4,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { getReviewsByProduct, Review } from '../../services/salesService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { getFullImageUrl } from '../../utils/imageHelper';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';

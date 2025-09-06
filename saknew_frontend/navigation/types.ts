@@ -20,6 +20,7 @@ export type MainStackParamList = {
   ProductDetail: { productId: number; productName?: string };
   ShopDetail: { shopSlug: string };
   SearchResults: { query: string };
+  CategoryProducts: { categoryName: string; products: any[] };
   CategoryProductsScreen: { shopSlug: string; categorySlug: string; categoryName: string };
   CreateShop: undefined;
   AddProduct: undefined;
@@ -42,10 +43,10 @@ export type BottomTabParamList = {
 // Define the Root Stack Param List for the entire application
 // This combines AuthStack and MainStack
 export type RootStackParamList = {
-  
-  MainStack: NavigatorScreenParams<MainStackParamList>; // MainStack is a nested navigator
+  MainStack: NavigatorScreenParams<MainStackParamList>;
   Home: undefined;
   ProductDetail: { productId: number };
+  CategoryProducts: { categoryName: string; products: any[] };
   Cart: undefined;
   Shipping: undefined;
   Payment: { orderId: string };

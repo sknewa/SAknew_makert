@@ -6,26 +6,10 @@ import { getFullImageUrl } from '../utils/imageHelper';
 import { MainNavigationProp } from '../navigation/types';
 import shopService from '../services/shopService';
 import { addCartItem } from '../services/salesService';
-
-const colors = {
-  primary: '#28A745',
-  accent: '#FFC107',
-  background: '#F8F9FA',
-  card: '#FFFFFF',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  error: '#DC3545',
-  border: '#DEE2E6',
-  white: '#FFFFFF',
-  dangerAction: '#DC3545',
-  successText: '#28A745',
-  warningAction: '#FFC107',
-  infoAction: '#17a2b8',
-  shadowColor: '#000',
-};
+import { colors, spacing } from '../styles/globalStyles';
 
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - 48) / 2;
+const productCardWidth = (screenWidth - (spacing.md * 4)) / 3;
 
 interface ProductCardProps {
   product: Product;
@@ -49,9 +33,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   if (!product) return null;
   
   const allImages = [
-    ...(product.main_image_url ? [{ uri: getFullImageUrl(product.main_image_url) || '' }] : []),
-    ...((product.images || []).map(img => ({ uri: getFullImageUrl(img.image) || '' })))
-  ].filter(img => img.uri);
+    ...(product.main_image_url ? [{ uri: getFullImageUrl(product.main_image_url) || '', id: 'main' }] : []),
+    ...((product.images || []).map((img, idx) => ({ uri: getFullImageUrl(img.image) || '', id: `gallery-${idx}` })))
+  ].filter(img => img.uri)
+   .filter((img, index, self) => self.findIndex(i => i.uri === img.uri) === index);
 
   const handleAddToCart = async (e: any) => {
     e.stopPropagation();
@@ -129,7 +114,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           >
             {allImages.map((img, index) => (
               <Image
-                key={`image-${product.id}-${index}`}
+                key={`${product.id}-${img.id}-${index}`}
                 source={{ uri: img.uri }}
                 style={styles.productImage}
                 resizeMode="cover"
@@ -155,7 +140,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <View style={styles.paginationDots}>
             {allImages.map((_, index) => (
               <View
-                key={`dot-${product.id}-${index}`}
+                key={`${product.id}-dot-${index}`}
                 style={[styles.paginationDot, currentImageIndex === index && styles.activeDot]}
               />
             ))}
@@ -242,19 +227,20 @@ const styles = StyleSheet.create({
   productCard: {
     width: productCardWidth,
     backgroundColor: colors.card,
-    borderRadius: 12,
-    marginBottom: 16,
-    shadowColor: colors.shadowColor,
+    borderRadius: spacing.sm,
+    marginBottom: spacing.sm,
+    marginHorizontal: spacing.xs,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 3,
     overflow: 'hidden',
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 160,
+    height: 120,
     backgroundColor: colors.background,
   },
   imageScroller: {
@@ -263,12 +249,12 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: productCardWidth,
-    height: 160,
+    height: 120,
     backgroundColor: colors.background,
   },
   placeholderContainer: {
     width: '100%',
-    height: 160,
+    height: 120,
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: colors.background,
@@ -297,11 +283,11 @@ const styles = StyleSheet.create({
   },
   stockBadge: {
     position: 'absolute',
-    top: 8,
-    left: 8,
-    paddingHorizontal: 6,
+    top: spacing.sm,
+    left: spacing.sm,
+    paddingHorizontal: spacing.xs + 2,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
   },
   inStockBadge: { backgroundColor: colors.successText },
   lowStockBadge: { backgroundColor: colors.warningAction },
@@ -313,12 +299,12 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     position: 'absolute',
-    top: 8,
-    right: 8,
+    top: spacing.sm,
+    right: spacing.sm,
     backgroundColor: colors.error,
-    paddingHorizontal: 6,
+    paddingHorizontal: spacing.xs + 2,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: spacing.xs,
   },
   discountBadgeText: {
     color: colors.white,
@@ -326,19 +312,19 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   productDetails: {
-    padding: 12,
+    padding: spacing.sm,
   },
   productName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: 'bold',
     color: colors.textPrimary,
     marginBottom: 4,
-    lineHeight: 18,
+    lineHeight: 16,
   },
   shopName: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textSecondary,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   priceRow: {
     flexDirection: 'row',
@@ -346,10 +332,10 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: colors.primary,
-    marginRight: 8,
+    marginRight: 6,
   },
   originalPrice: {
     fontSize: 12,
@@ -389,7 +375,7 @@ const styles = StyleSheet.create({
   },
   addToCartText: {
     color: colors.white,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: 'bold',
     marginLeft: 4,
   },

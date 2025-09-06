@@ -12,7 +12,7 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';

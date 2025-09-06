@@ -16,14 +16,17 @@ import {
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShopOwnerStackParamList } from '../../navigation/ShopOwnerNavigator';
 import ProductCard from '../../components/ProductCard';
+import StatusSection from '../../components/StatusSection';
+import statusService from '../../services/statusService';
 
 // Import types from shop.types.ts instead of types.ts
 import { Shop, Product } from '../../services/shop.types';
+import { UserStatus } from '../../services/status.types';
 
 // Import shopService directly
 import shopService from '../../services/shopService';
@@ -54,6 +57,60 @@ const colors = {
 
 const screenWidth = Dimensions.get('window').width;
 const productCardWidth = (screenWidth - (20 * 2) - (10 * 2)) / 2;
+
+// Status Cards Component
+const StatusCards: React.FC<{ userId: number; onStatusPress: (userStatus: UserStatus) => void }> = ({ userId, onStatusPress }) => {
+  const [statuses, setStatuses] = useState<UserStatus[]>([]);
+  
+  useEffect(() => {
+    const fetchStatuses = async () => {
+      try {
+        const userStatuses = await statusService.getUserStatuses();
+        const myStatuses = userStatuses.filter(s => s.user.id === userId);
+        setStatuses(myStatuses);
+      } catch (error) {
+        console.log('Error fetching statuses:', error);
+      }
+    };
+    fetchStatuses();
+  }, [userId]);
+  
+  return (
+    <>
+      {statuses.map((userStatus) => (
+        <TouchableOpacity 
+          key={userStatus.user.id} 
+          style={styles.statusCard} 
+          onPress={() => onStatusPress(userStatus)}
+        >
+          <View style={[styles.statusPreview, { backgroundColor: userStatus.latest_status?.background_color || '#25D366' }]}>
+            <Text style={styles.statusContent} numberOfLines={3}>
+              {userStatus.latest_status?.content || userStatus.statuses[0]?.content}
+            </Text>
+          </View>
+          <Text style={styles.statusTime}>
+            {userStatus.latest_status ? 
+              formatStatusTime(userStatus.latest_status.created_at) : 
+              userStatus.statuses[0] ? formatStatusTime(userStatus.statuses[0].created_at) : ''}
+          </Text>
+        </TouchableOpacity>
+      ))}
+    </>
+  );
+};
+
+const formatStatusTime = (dateString: string): string => {
+  const date = new Date(dateString);
+  const now = new Date();
+  const diffMs = now.getTime() - date.getTime();
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  
+  if (diffMins < 1) return 'now';
+  if (diffMins < 60) return `${diffMins}m`;
+  if (diffHours < 24) return `${diffHours}h`;
+  return date.toLocaleDateString();
+};
 
 const MyShopScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<ShopOwnerStackParamList>>();
@@ -91,107 +148,88 @@ const MyShopScreen: React.FC = () => {
   }, []);
 
   const fetchShopData = useCallback(async () => {
-    setLoading(true);
+    if (!refreshing) setLoading(true);
     setError(null);
+    
     try {
-      // Ensure user data is up-to-date
+      console.log('🏪 MyShop Debug - Starting shop check');
+      console.log('🏪 User authenticated:', isAuthenticated);
+      console.log('🏪 User data:', user ? { id: user.id, profile: user.profile } : 'null');
+      
       if (!user || !isAuthenticated) {
-        // Not authenticated, let the UI handle this state
+        console.log('🏪 No user or not authenticated - showing login');
         setShop(null);
         setProducts([]);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
       
-      // Check if user is a seller
+      console.log('🏪 User is_seller:', user.profile?.is_seller);
+      console.log('🏪 User shop_slug:', user.profile?.shop_slug);
+      
       if (!user.profile?.is_seller) {
-        console.log('User is not a seller');
+        console.log('🏪 User is not a seller - showing access denied');
         setShop(null);
         setProducts([]);
-        setLoading(false);
-        setRefreshing(false);
         return;
       }
 
-      // Check if user has a shop_slug
-      if (!user.profile.shop_slug) {
-        console.log('User is a seller but has no shop_slug');
-        setShop(null);
-        setProducts([]);
-        setLoading(false);
-        setRefreshing(false);
-        return;
-      }
-      
-      console.log('Attempting to fetch shop with slug:', user.profile.shop_slug);
-      
+      // Try to fetch user's shop directly from API
       try {
-        // First, get shop details
-        const fetchedShop = await shopService.getShopBySlug(user.profile.shop_slug);
-        console.log('Fetched shop data:', fetchedShop ? 'SUCCESS' : 'NULL');
+        console.log('🏪 Calling getMyShop API...');
+        const fetchedShop = await shopService.getMyShop();
+        console.log('🏪 API Response - Shop found:', fetchedShop ? { name: fetchedShop.name, slug: fetchedShop.slug } : 'null');
         
-        if (!fetchedShop || !fetchedShop.id) {
-          console.log('Shop not found despite having shop_slug');
+        if (!fetchedShop) {
+          console.log('🏪 No shop returned from API - showing create shop form');
           setShop(null);
           setProducts([]);
-          setLoading(false);
-          setRefreshing(false);
           return;
         }
         
-        // Verify the shop belongs to the current user
-        if (fetchedShop.user?.id !== user.id) {
-          console.log('Shop belongs to another user:', fetchedShop.user?.id, 'vs', user.id);
-          setError('This shop belongs to another user.');
-          setShop(null);
-          setProducts([]);
-          setLoading(false);
-          setRefreshing(false);
-          return;
-        }
-        
-        console.log('Shop verified as belonging to current user');
+        console.log('🏪 Setting shop data and fetching products...');
         setShop(fetchedShop);
 
-        // Then get products
-        const fetchedProducts = await shopService.getShopProducts(user.profile.shop_slug);
-        console.log(`Fetched ${fetchedProducts.length} products`);
-        setProducts(fetchedProducts);
+        // Get products for the shop
+        // The service might be typed to return Product[], but the API can return a paginated object.
+        const productResponse: any = await shopService.getShopProducts(fetchedShop.slug);
         
-        // If shop stats are missing, calculate them from products
-        // Optionally, update shop with calculated stats if needed (remove total_orders, pending_orders, total_sales_value if not in Shop type)
-        const outOfStockCount = fetchedProducts.filter(p => p.stock === 0).length;
-        const inStockCount = fetchedProducts.length - outOfStockCount;
-        setShop(prev => prev ? {
-          ...prev,
-          available_products_count: inStockCount,
-          out_of_stock_products_count: outOfStockCount,
-        } : prev);
+        // FIX: Handle paginated response from the API
+        if (productResponse && Array.isArray(productResponse.results)) {
+          console.log('🏪 Products fetched:', productResponse.results.length);
+          setProducts(productResponse.results);
+        } else if (Array.isArray(productResponse)) {
+          // Handle cases where the API might just return an array directly.
+          console.log('🏪 Products fetched:', productResponse.length);
+          setProducts(productResponse);
+        } else {
+          console.error('🏪 Unexpected product data structure:', productResponse);
+          setProducts([]);
+        }
+        
       } catch (shopError: any) {
-        console.error('Error fetching shop:', shopError?.message || shopError);
-        setShop(null);
-        setProducts([]);
+        console.log('🏪 Shop API Error:', shopError.response?.status, shopError?.message);
+        if (shopError.response?.status === 404) {
+          console.log('🏪 404 - User has no shop - showing create shop form');
+          setShop(null);
+          setProducts([]);
+        } else {
+          console.log('🏪 Other shop error - re-throwing');
+          throw shopError;
+        }
       }
     } catch (err: any) {
-      console.error('Error fetching shop data:', err.response?.data || err.message);
-      // Provide more user-friendly error messages based on status codes if needed
-      if (err.response?.status === 404) {
-        setError('Shop not found. It might not exist or you haven\'t created one yet.');
-        setShop(null); // Ensure shop is null if not found
-      } else if (err.response?.status === 401) {
+      console.error('🏪 General error:', err.response?.data || err.message);
+      if (err.response?.status === 401) {
         setError('Authentication required. Please log in again.');
-        // Optionally, force logout here if the token is invalid/expired
-        // logout();
       } else {
-        setError('Failed to load shop data. Please check your internet connection or try again.');
+        setError('Failed to load shop data. Please try again.');
       }
       setProducts([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
     }
-  }, [user, isAuthenticated]); // Dependency on `user` and `isAuthenticated`
+  }, [user, isAuthenticated, refreshing]);
 
   useFocusEffect(
     useCallback(() => {
@@ -245,6 +283,14 @@ const MyShopScreen: React.FC = () => {
     } else {
       Alert.alert('Shop Not Found', 'Cannot view category products without a shop context.');
     }
+  };
+
+  const handleStatusPress = (userStatus: UserStatus) => {
+    navigation.getParent()?.navigate('StatusViewer', { userStatus });
+  };
+
+  const handleCreateStatus = () => {
+    navigation.getParent()?.navigate('CreateStatus');
   };
 
   // Check if the current user is the shop owner
@@ -304,7 +350,8 @@ const MyShopScreen: React.FC = () => {
     );
   }
 
-  if (!shop) { // This state is for a logged-in seller who hasn't created a shop yet
+  if (!shop) {
+    console.log('🏪 Rendering create shop form - no shop found');
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView 
@@ -329,6 +376,8 @@ const MyShopScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
+  
+  console.log('🏪 Rendering shop dashboard for:', shop.name);
 
   const { groupedArray: groupedProducts, ungrouped: ungroupedProducts } = groupProductsByCategory(products ?? []);
 
@@ -396,13 +445,6 @@ const MyShopScreen: React.FC = () => {
               <View style={styles.statsSectionHeader}>
                 <Text style={styles.statsSectionTitle}>Shop Statistics</Text>
                 <View style={styles.headerButtons}>
-                  <TouchableOpacity 
-                    style={styles.statsButton} 
-                    onPress={() => navigation.navigate('ShopStatistics', { shopSlug: shop.slug })}
-                  >
-                    <Ionicons name="stats-chart" size={14} color={colors.buttonText} />
-                    <Text style={styles.shareButtonText}>Details</Text>
-                  </TouchableOpacity>
                   <TouchableOpacity style={styles.shareButton} onPress={handleShareShopLink}>
                     <Ionicons name="share-social-outline" size={14} color={colors.buttonText} />
                     <Text style={styles.shareButtonText}>Share</Text>
@@ -411,49 +453,59 @@ const MyShopScreen: React.FC = () => {
               </View>
               
               <View style={styles.statsGrid}>
-                {/* Total Products */}
                 <TouchableOpacity 
                   style={styles.statCard}
                   onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'all', categoryName: 'All Products' })}
                 >
                   <Ionicons name="cube-outline" size={18} color={colors.primary} />
-                  <Text style={styles.statValue}>{products.length}</Text>
-                  <Text style={styles.statLabel}>Products</Text>
+                  <Text style={styles.statValue}>{shop.products_count || products.length}</Text>
+                  <Text style={styles.statLabel}>Total Products</Text>
                 </TouchableOpacity>
                 
-                {/* Complete Orders (replace with real data if available) */}
                 <TouchableOpacity 
                   style={styles.statCard}
-                  onPress={() => navigation.navigate('SellerOrders')}
+                  onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'in-stock', categoryName: 'In Stock' })}
                 >
-                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.infoAction} />
-                  <Text style={styles.statValue}>{shop?.products_count ?? 0 /* Replace with real complete order count */}</Text>
-                  <Text style={styles.statLabel}>Complete</Text>
+                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.successText} />
+                  <Text style={styles.statValue}>{shop.active_products_count || products.filter(p => p.stock > 0).length}</Text>
+                  <Text style={styles.statLabel}>In Stock</Text>
                 </TouchableOpacity>
                 
-                {/* Incomplete Orders (replace with real data if available) */}
-                <TouchableOpacity 
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate('SellerOrders')}
-                >
-                  <Ionicons name="hourglass-outline" size={18} color={colors.warningAction} />
-                  <Text style={styles.statValue}>{0 /* Replace with real incomplete order count */}</Text>
-                  <Text style={styles.statLabel}>Incomplete</Text>
-                </TouchableOpacity>
-                
-                {/* Out of Stock */}
                 <TouchableOpacity 
                   style={styles.statCard}
                   onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'out-of-stock', categoryName: 'Out of Stock' })}
                 >
                   <Ionicons name="alert-circle-outline" size={18} color={colors.errorText} />
-                  <Text style={styles.statValue}>{products.filter(p => p.stock === 0).length}</Text>
+                  <Text style={styles.statValue}>{(shop.products_count || 0) - (shop.active_products_count || 0)}</Text>
                   <Text style={styles.statLabel}>Out of Stock</Text>
+                </TouchableOpacity>
+                
+                <TouchableOpacity 
+                  style={styles.statCard}
+                  onPress={() => navigation.navigate('SellerOrders')}
+                >
+                  <Ionicons name="bag-handle-outline" size={18} color={colors.infoAction} />
+                  <Text style={styles.statValue}>0</Text>
+                  <Text style={styles.statLabel}>Orders</Text>
                 </TouchableOpacity>
               </View>
             </View>
 
-
+            {/* Status Section */}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScrollView}>
+              {/* My Status Button */}
+              <TouchableOpacity style={styles.myStatusCard} onPress={handleCreateStatus}>
+                <View style={styles.myStatusContent}>
+                  <Ionicons name="add" size={24} color="#25D366" />
+                  <Text style={styles.myStatusText}>My Status</Text>
+                </View>
+              </TouchableOpacity>
+              
+              {/* Status Cards */}
+              {shop?.user?.id && (
+                <StatusCards userId={shop.user.id} onStatusPress={handleStatusPress} />
+              )}
+            </ScrollView>
           </View>
 
           {/* Product Listing Section */}
@@ -499,6 +551,7 @@ const MyShopScreen: React.FC = () => {
                             key={product.id}
                             product={product}
                             isShopOwner={isShopOwner}
+                            navigation={navigation.getParent()}
                             onPress={() => {
                               if (isShopOwner) {
                                 navigation.getParent()?.navigate('ProductManagement', { productId: product.id });
@@ -536,6 +589,7 @@ const MyShopScreen: React.FC = () => {
                             key={product.id}
                             product={product}
                             isShopOwner={isShopOwner}
+                            navigation={navigation.getParent()}
                             onPress={() => {
                               if (isShopOwner) {
                                 navigation.getParent()?.navigate('ProductManagement', { productId: product.id });
@@ -774,6 +828,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginRight: 8,
   },
+
   shareButton: {
     backgroundColor: colors.shareAction,
     paddingVertical: 5,
@@ -878,6 +933,63 @@ const styles = StyleSheet.create({
   },
   productCarousel: {
     paddingRight: 10, // Add some padding so the last item isn't cut off
+  },
+  statusScrollView: {
+    paddingLeft: 15,
+    marginTop: 12,
+  },
+  myStatusCard: {
+    width: 80,
+    height: 100,
+    marginRight: 12,
+    borderRadius: 12,
+    backgroundColor: colors.background,
+    borderWidth: 2,
+    borderColor: colors.primary,
+    borderStyle: 'dashed',
+  },
+  myStatusContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  myStatusText: {
+    marginTop: 8,
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.primary,
+  },
+  statusCard: {
+    width: 80,
+    height: 100,
+    marginRight: 12,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  statusPreview: {
+    flex: 1,
+    borderTopLeftRadius: 12,
+    borderTopRightRadius: 12,
+    padding: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  statusContent: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  statusTime: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    paddingVertical: 6,
   },
 });
 

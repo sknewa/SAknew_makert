@@ -22,13 +22,23 @@ export const isValidPassword = (password: string): boolean => {
 };
 
 /**
- * Validates that two passwords match
+ * Validates that two passwords match using time-safe comparison
  * @param password First password
  * @param confirmPassword Second password to compare
  * @returns True if matching, false otherwise
  */
 export const passwordsMatch = (password: string, confirmPassword: string): boolean => {
-  return password === confirmPassword;
+  // Use time-safe comparison to prevent timing attacks
+  if (password.length !== confirmPassword.length) {
+    return false;
+  }
+  
+  let result = 0;
+  for (let i = 0; i < password.length; i++) {
+    result |= password.charCodeAt(i) ^ confirmPassword.charCodeAt(i);
+  }
+  
+  return result === 0;
 };
 
 /**

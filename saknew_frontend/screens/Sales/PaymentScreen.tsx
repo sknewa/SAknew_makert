@@ -7,12 +7,14 @@ import {
   ActivityIndicator, 
   Alert, 
   SafeAreaView,
-  ScrollView 
+  ScrollView,
+  Modal,
+  TextInput
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getMyWallet } from '../../services/walletService';
-import { processPayment, getOrderById } from '../../services/salesService';
+import { processPayment, verifyPayment, getOrderById } from '../../services/salesService';
 import { useBadges } from '../../context/BadgeContext';
 
 const colors = {
@@ -32,7 +34,7 @@ const colors = {
 
 const formatCurrency = (amount: string | number): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return `R${num.toFixed(2)}`;
+  return `R${(num || 0).toFixed(2)}`;
 };
 
 const PaymentScreen: React.FC = () => {
@@ -45,6 +47,9 @@ const PaymentScreen: React.FC = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
+  const [showVerificationModal, setShowVerificationModal] = useState(false);
+  const [verificationCode, setVerificationCode] = useState('');
+  const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -106,30 +111,63 @@ const PaymentScreen: React.FC = () => {
   };
 
   const processWalletPayment = async () => {
-  setPaying(true);
-  try {
-    const result = await processPayment(orderId, 'wallet');
-    
-    // Refresh badges after successful payment
-    await refreshBadges();
-    
-    Alert.alert(
-      'Payment Successful!',
-      'Your order has been paid and is being processed.',
-      [
-        { 
-          text: 'View Orders', 
-          onPress: () => navigation.navigate('MainTabs', { screen: 'OrdersTab' })
-        }
-      ]
-    );
-  } catch (err: any) {
-    const errorMessage = err?.response?.data?.detail || 'Payment failed. Please try again.';
-    Alert.alert('Payment Failed', errorMessage);
-  } finally {
-    setPaying(false);
-  }
-};
+    setPaying(true);
+    try {
+      const result = await processPayment(orderId, 'wallet');
+      
+      // Refresh badges after successful payment
+      await refreshBadges();
+      
+      Alert.alert(
+        'Payment Successful!',
+        'Your order has been paid and is being processed. Seller will be paid upon delivery confirmation.',
+        [
+          { 
+            text: 'View Orders', 
+            onPress: () => navigation.navigate('MainTabs', { screen: 'OrdersTab' })
+          }
+        ]
+      );
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.detail || 'Payment failed. Please try again.';
+      Alert.alert('Payment Failed', errorMessage);
+    } finally {
+      setPaying(false);
+    }
+  };
+
+  const handleVerifyPayment = async () => {
+    if (!verificationCode.trim()) {
+      Alert.alert('Error', 'Please enter the verification code.');
+      return;
+    }
+
+    setVerifying(true);
+    try {
+      await verifyPayment(orderId, verificationCode);
+      
+      // Refresh badges after successful verification
+      await refreshBadges();
+      
+      setShowVerificationModal(false);
+      
+      Alert.alert(
+        'Payment Verified!',
+        'Your payment has been confirmed and your order is being processed.',
+        [
+          { 
+            text: 'View Orders', 
+            onPress: () => navigation.navigate('MainTabs', { screen: 'OrdersTab' })
+          }
+        ]
+      );
+    } catch (err: any) {
+      const errorMessage = err?.response?.data?.detail || 'Verification failed. Please try again.';
+      Alert.alert('Verification Failed', errorMessage);
+    } finally {
+      setVerifying(false);
+    }
+  };
 
 
   if (loading) {
@@ -237,6 +275,8 @@ const PaymentScreen: React.FC = () => {
           </TouchableOpacity>
         </View>
       </ScrollView>
+
+
     </SafeAreaView>
   );
 };
@@ -273,6 +313,16 @@ const styles = StyleSheet.create({
   cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   backButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   buttonText: { color: colors.buttonText, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
+  modalContent: { backgroundColor: colors.card, borderRadius: 12, padding: 24, width: '90%', maxWidth: 400 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 },
+  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 18, marginBottom: 20, textAlign: 'center', letterSpacing: 4 },
+  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
+  cancelModalButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 12, borderRadius: 8, marginRight: 8, alignItems: 'center' },
+  verifyButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 8, marginLeft: 8, alignItems: 'center' },
+  verifyButtonDisabled: { opacity: 0.6 },
 });
 
 export default PaymentScreen;

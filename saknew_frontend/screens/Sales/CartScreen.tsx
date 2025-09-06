@@ -54,7 +54,7 @@ const CartScreen: React.FC = () => {
 
   // Function to format currency
   const formatCurrency = (amount: number): string => {
-    return `R${amount.toFixed(2)}`;
+    return `R${(amount || 0).toFixed(2)}`;
   };
 
   // Calculate cart totals from backend cart
@@ -252,11 +252,11 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                 )}
                 <Text style={styles.unitPriceDisplay}>
                   <Text style={styles.detailLabel}>Unit Price:</Text>{' '}
-                  <Text style={styles.unitPrice}>{formatCurrency(parseFloat(item.product.price))}</Text>
+                  <Text style={styles.unitPrice}>{formatCurrency(parseFloat(item.product.price || '0'))}</Text>
                 </Text>
                 <Text style={styles.lineTotalDisplay}>
                   <Text style={styles.detailLabel}>Line Total:</Text>{' '}
-                  <Text style={styles.lineTotal}>{formatCurrency(parseFloat(item.product.price) * item.quantity)}</Text>
+                  <Text style={styles.lineTotal}>{formatCurrency((parseFloat(item.product.price || '0')) * item.quantity)}</Text>
                 </Text>
               </View>
             </View>

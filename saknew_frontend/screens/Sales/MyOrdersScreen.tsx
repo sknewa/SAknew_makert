@@ -16,20 +16,21 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { getMyOrders, updateOrderStatus, Order, createReview } from '../../services/salesService';
 import colors from '../../theme/colors';
+import { SecurityUtils } from '../../utils/securityUtils';
 
 const formatCurrency = (amount: string | number): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-  return `R${num.toFixed(2)}`;
+  return `R${(num || 0).toFixed(2)}`;
 };
 
 const getOrderStatusDisplay = (status: string): string => {
   const statusMap: { [key: string]: string } = {
-    'pending': 'Pending',
+    'pending': 'Pending Payment',
     'processing': 'Processing',
-    'shipped': 'Shipped',
+    'ready_for_delivery': 'Ready for Delivery',
     'delivered': 'Delivered',
     'completed': 'Completed',
     'cancelled': 'Cancelled',
@@ -44,6 +45,7 @@ const MyOrdersScreen: React.FC = () => {
   const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'pending' | 'received'>('pending');
   const [verificationModal, setVerificationModal] = useState<{
     visible: boolean;
     orderId: string;
@@ -59,6 +61,8 @@ const MyOrdersScreen: React.FC = () => {
   }>({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
 
   const fetchOrders = useCallback(async () => {
+    if (!user?.id) return;
+    
     setLoading(true);
     try {
       const orderData = await getMyOrders();
@@ -66,7 +70,8 @@ const MyOrdersScreen: React.FC = () => {
       const buyerOrders = orderData.filter(order => order.user.id === user?.id);
       setOrders(buyerOrders);
     } catch (err: any) {
-      console.error('Failed to load orders');
+      SecurityUtils.safeLog('error', 'Failed to load orders:', err);
+      Alert.alert('Error', 'Failed to load your orders. Please try again.');
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -93,8 +98,8 @@ const MyOrdersScreen: React.FC = () => {
     }
 
     try {
-      await updateOrderStatus(verificationModal.orderId, 'verify_delivery', verificationModal.code);
-      Alert.alert('Success', 'Delivery verified successfully!');
+      await updateOrderStatus(verificationModal.orderId, 'verify_delivery_code', verificationModal.code);
+      Alert.alert('Success', 'Delivery verified successfully! Your order is now complete.');
       setVerificationModal({ visible: false, orderId: '', code: '' });
       fetchOrders();
     } catch (err: any) {
@@ -102,14 +107,40 @@ const MyOrdersScreen: React.FC = () => {
     }
   };
 
-  const handleMarkAsReceived = async (orderId: string) => {
+  const handleRequestCode = async (orderId: string) => {
     try {
-      await updateOrderStatus(orderId, 'verify_delivery', '');
-      Alert.alert('Success', 'Order marked as received!');
-      fetchOrders();
+      const response = await updateOrderStatus(orderId, 'request_code');
+      Alert.alert(
+        'Delivery Code',
+        `Your delivery code is: ${response.delivery_code}\n\nShow this code to the seller when they deliver your order.`,
+        [{ text: 'OK', onPress: () => fetchOrders() }]
+      );
     } catch (err: any) {
-      Alert.alert('Error', 'Failed to mark as received.');
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to get delivery code.');
     }
+  };
+
+  const handleCancelOrder = async (orderId: string) => {
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order? This action cannot be undone.',
+      [
+        { text: 'No', style: 'cancel' },
+        { 
+          text: 'Yes, Cancel', 
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateOrderStatus(orderId, 'cancel_order');
+              Alert.alert('Success', 'Order cancelled successfully!');
+              fetchOrders();
+            } catch (err: any) {
+              Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel order.');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const openReviewModal = (product: any, orderId: string) => {
@@ -201,20 +232,54 @@ const MyOrdersScreen: React.FC = () => {
       >
         <Text style={styles.pageTitle}>My Purchase History</Text>
 
-        {orders.length === 0 ? (
+        {/* Tab Navigation */}
+        <View style={styles.tabContainer}>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
+            onPress={() => setActiveTab('pending')}
+          >
+            <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>Pending</Text>
+          </TouchableOpacity>
+          <TouchableOpacity 
+            style={[styles.tab, activeTab === 'received' && styles.activeTab]}
+            onPress={() => setActiveTab('received')}
+          >
+            <Text style={[styles.tabText, activeTab === 'received' && styles.activeTabText]}>Received</Text>
+          </TouchableOpacity>
+        </View>
+
+        {(() => {
+          const filteredOrders = orders.filter(order => {
+            if (activeTab === 'pending') {
+              return !order.delivery_verified && order.order_status !== 'cancelled' && order.order_status !== 'completed';
+            } else {
+              return order.delivery_verified || order.order_status === 'completed' || order.order_status === 'cancelled';
+            }
+          });
+          
+          return filteredOrders.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="bag-outline" size={80} color={colors.textSecondary} />
-            <Text style={styles.emptyTitle}>No purchases yet</Text>
-            <Text style={styles.emptySubtitle}>Start shopping to see your order history</Text>
-            <TouchableOpacity
-              style={styles.shopButton}
-              onPress={() => navigation.navigate('Home')}
-            >
-              <Text style={styles.buttonText}>Start Shopping</Text>
-            </TouchableOpacity>
+            <Text style={styles.emptyTitle}>
+              {activeTab === 'pending' ? 'No pending orders' : 'No completed orders'}
+            </Text>
+            <Text style={styles.emptySubtitle}>
+              {activeTab === 'pending' 
+                ? 'Your pending purchases will appear here' 
+                : 'Your completed purchases will appear here'
+              }
+            </Text>
+            {activeTab === 'pending' && (
+              <TouchableOpacity
+                style={styles.shopButton}
+                onPress={() => navigation.navigate('Home')}
+              >
+                <Text style={styles.buttonText}>Start Shopping</Text>
+              </TouchableOpacity>
+            )}
           </View>
-        ) : (
-          orders.map((order) => (
+          ) : (
+            filteredOrders.map((order) => (
             <TouchableOpacity 
               key={order.id} 
               style={styles.orderCard}
@@ -236,7 +301,7 @@ const MyOrdersScreen: React.FC = () => {
                     styles.statusBadge,
                     order.order_status === 'pending' && styles.statusPending,
                     order.order_status === 'processing' && styles.statusProcessing,
-                    order.order_status === 'shipped' && styles.statusShipped,
+                    order.order_status === 'ready_for_delivery' && styles.statusShipped,
                     order.order_status === 'delivered' && styles.statusDelivered,
                     order.order_status === 'completed' && styles.statusCompleted,
                     order.order_status === 'cancelled' && styles.statusCancelled,
@@ -277,13 +342,23 @@ const MyOrdersScreen: React.FC = () => {
                     <Text style={styles.linkText}>View Details</Text>
                   </TouchableOpacity>
 
-                  {order.order_status === 'shipped' && !order.delivery_verified && (
+                  {order.order_status === 'processing' && (
                     <TouchableOpacity
                       style={styles.quickActionButton}
-                      onPress={() => handleMarkAsReceived(order.id)}
+                      onPress={() => handleRequestCode(order.id)}
                     >
-                      <Ionicons name="checkmark-circle-outline" size={14} color={colors.buttonText} />
-                      <Text style={styles.quickActionText}>Mark Received</Text>
+                      <Ionicons name="code-outline" size={14} color={colors.buttonText} />
+                      <Text style={styles.quickActionText}>Request Code</Text>
+                    </TouchableOpacity>
+                  )}
+
+                  {(order.order_status === 'pending' || order.order_status === 'processing') && (
+                    <TouchableOpacity
+                      style={styles.cancelActionButton}
+                      onPress={() => handleCancelOrder(order.id)}
+                    >
+                      <Ionicons name="close-circle-outline" size={14} color={colors.buttonText} />
+                      <Text style={styles.cancelActionText}>Cancel</Text>
                     </TouchableOpacity>
                   )}
 
@@ -299,14 +374,22 @@ const MyOrdersScreen: React.FC = () => {
                 </View>
 
                 <View style={styles.mainActions}>
-                  {order.order_status === 'shipped' && !order.delivery_verified && (
+                  {order.order_status === 'processing' && (
                     <TouchableOpacity
                       style={styles.markReceivedButton}
-                      onPress={() => handleMarkAsReceived(order.id)}
+                      onPress={() => handleRequestCode(order.id)}
                     >
-                      <Ionicons name="checkmark-circle-outline" size={16} color={colors.buttonText} />
-                      <Text style={styles.mainActionText}>Mark as Received</Text>
+                      <Ionicons name="code-outline" size={16} color={colors.buttonText} />
+                      <Text style={styles.mainActionText}>Request Delivery Code</Text>
                     </TouchableOpacity>
+                  )}
+
+                  {order.delivery_verification_code && order.order_status === 'ready_for_delivery' && (
+                    <View style={styles.codeDisplayContainer}>
+                      <Text style={styles.codeLabel}>Your Delivery Code:</Text>
+                      <Text style={styles.deliveryCode}>{order.delivery_verification_code}</Text>
+                      <Text style={styles.codeInstruction}>Show this code to the seller</Text>
+                    </View>
                   )}
 
                   {(order.order_status === 'completed' || order.delivery_verified) && (
@@ -322,14 +405,15 @@ const MyOrdersScreen: React.FC = () => {
                   {order.delivery_verified && (
                     <View style={styles.verifiedContainer}>
                       <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
-                      <Text style={styles.verifiedText}>Received</Text>
+                      <Text style={styles.verifiedText}>Delivered & Verified</Text>
                     </View>
                   )}
                 </View>
               </View>
             </TouchableOpacity>
           ))
-        )}
+        );
+        })()}
       </ScrollView>
 
       <Modal
@@ -341,14 +425,15 @@ const MyOrdersScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Verify Delivery</Text>
-            <Text style={styles.modalSubtitle}>Enter the code provided by the seller:</Text>
+            <Text style={styles.modalSubtitle}>Enter the delivery code shown by the seller:</Text>
             
             <TextInput
               style={styles.codeInput}
-              placeholder="Enter verification code"
+              placeholder="Enter delivery code"
               value={verificationModal.code}
-              onChangeText={(text) => setVerificationModal(prev => ({ ...prev, code: text }))}
+              onChangeText={(text) => setVerificationModal(prev => ({ ...prev, code: text.toUpperCase() }))}
               autoCapitalize="characters"
+              maxLength={8}
             />
 
             <View style={styles.modalButtons}>
@@ -464,6 +549,19 @@ const styles = StyleSheet.create({
   
   verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.successText + '10', paddingVertical: 8, borderRadius: 6 },
   verifiedText: { fontSize: 12, color: colors.successText, fontWeight: '600', marginLeft: 4 },
+  codeDisplayContainer: { backgroundColor: colors.successText + '10', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
+  codeLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
+  deliveryCode: { fontSize: 20, fontWeight: 'bold', color: colors.successText, letterSpacing: 2, marginBottom: 4 },
+  codeInstruction: { fontSize: 11, color: colors.textSecondary, textAlign: 'center' },
+  
+  tabContainer: { flexDirection: 'row', marginBottom: 16, backgroundColor: colors.border, borderRadius: 8, padding: 4 },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  activeTab: { backgroundColor: colors.primary },
+  tabText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
+  activeTabText: { color: colors.buttonText },
+  
+  cancelActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.dangerAction, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
+  cancelActionText: { color: colors.buttonText, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   productName: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },

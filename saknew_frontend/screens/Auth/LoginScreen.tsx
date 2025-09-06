@@ -15,9 +15,10 @@ import {
   Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
-import { AuthNavigationProp } from '../../navigation/types'; // Ensure AuthNavigationProp is imported
+import { AuthNavigationProp } from '../../navigation/types';
+import { globalStyles, colors, spacing } from '../../styles/globalStyles';
 
 
 const LoginScreen: React.FC = () => {
@@ -93,12 +94,12 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={globalStyles.safeContainer}>
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
         style={styles.keyboardAvoidingContainer}
       >
-        <View style={styles.container}>
+        <View style={[globalStyles.container, styles.centerContent]}>
           {/* Header Section */}
           <View style={styles.header}>
             <Image
@@ -113,7 +114,7 @@ const LoginScreen: React.FC = () => {
           </View>
 
           {/* Input Card */}
-          <View style={styles.card}>
+          <View style={[globalStyles.card, styles.inputCard]}>
             <Text style={styles.inputLabel}>Email Address</Text>
             <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
@@ -195,49 +196,34 @@ const LoginScreen: React.FC = () => {
   );
 };
 
-const colors = {
-  primary: '#2ECC71',       // Vivid green (replaces dull #4CAF50)
-  accent: '#FFB300',        // Deep amber with good contrast
-  background: '#F9FAFB',    // Very soft light gray
-  card: '#FFFFFF',          // Clean white for card surfaces
-  textPrimary: '#1A1A1A',   // Near-black for good readability
-  textSecondary: '#4F4F4F', // Softer but clear secondary text
-  error: '#E53935',         // Rich red for errors
-  border: '#DADDE1',        // Subtle gray for dividers/borders
-  iconColor: '#5C6BC0',     // Blue-purple for modern feel
-  backendBaseUrl: 'http://192.168.8.102:8000', // This should ideally be in a config file
-};
-
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   keyboardAvoidingContainer: {
     flex: 1,
   },
-  container: {
-    flex: 1,
-    padding: 20,
+  centerContent: {
     justifyContent: 'center',
     alignItems: 'center',
   },
+  inputCard: {
+    width: '100%',
+    maxWidth: 400,
+    marginBottom: spacing.xl,
+  },
   logoImage: {
-  width: 100,
-  height: 100,
-  borderRadius: 100,
-  marginBottom: 10,
-
-},
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    marginBottom: spacing.sm,
+  },
   header: {
-    marginBottom: 40,
-    alignItems: 'center',  
+    marginBottom: spacing.xl + spacing.sm,
+    alignItems: 'center',
   },
   logoText: {
     fontSize: 18,
     fontWeight: '800',
     color: colors.iconColor,
-    marginBottom: 10,
+    marginBottom: spacing.sm,
   },
   welcomeTitle: {
     fontSize: 28,
@@ -275,9 +261,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
     height: 55,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
+    borderRadius: spacing.sm,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -324,7 +310,7 @@ const styles = StyleSheet.create({
   registerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: spacing.md,
   },
   registerText: {
     fontSize: 14,

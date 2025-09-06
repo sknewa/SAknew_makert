@@ -1,20 +1,31 @@
 // saknew_frontend/config.ts
-import Constants from 'expo-constants';
 
-// Access variables directly from Constants.expoConfig.extra
-// We use non-null assertions (!) here because we expect these to be defined
-// in app.json's 'extra' field. If they are truly missing,
-// the app will crash early, indicating a configuration error.
-export const SERVER_IP = Constants.expoConfig?.extra?.SERVER_IP || '192.168.8.101';
-export const SERVER_PORT = Constants.expoConfig?.extra?.SERVER_PORT || '8000';
+// Use static configuration to avoid Constants issues
+const getConfigValue = (key: string, fallback: string): string => {
+  // For now, use static values to avoid PlatformConstants error
+  const staticConfig: Record<string, string> = {
+    SERVER_IP: '192.168.8.101',
+    SERVER_PORT: '8000',
+    API_BASE_URL: 'http://192.168.8.101:8000/',
+    IMAGE_BASE_URL: 'http://192.168.8.101:8000',
+    DJOSER_FRONTEND_DOMAIN: '192.168.8.101:8081',
+    DEBUG: 'true',
+    APP_ENV: 'development'
+  };
+  
+  return staticConfig[key] || fallback;
+};
 
-export const API_BASE_URL = Constants.expoConfig?.extra?.API_BASE_URL || `http://${SERVER_IP}:${SERVER_PORT}/`;
-export const IMAGE_BASE_URL = Constants.expoConfig?.extra?.IMAGE_BASE_URL || `http://${SERVER_IP}:${SERVER_PORT}`;
-export const DJOSER_FRONTEND_DOMAIN = Constants.expoConfig?.extra?.DJOSER_FRONTEND_DOMAIN || `${SERVER_IP}:8081`;
+export const SERVER_IP = getConfigValue('SERVER_IP', '192.168.8.101');
+export const SERVER_PORT = getConfigValue('SERVER_PORT', '8000');
+
+export const API_BASE_URL = getConfigValue('API_BASE_URL', `http://${SERVER_IP}:${SERVER_PORT}/`);
+export const IMAGE_BASE_URL = getConfigValue('IMAGE_BASE_URL', `http://${SERVER_IP}:${SERVER_PORT}`);
+export const DJOSER_FRONTEND_DOMAIN = getConfigValue('DJOSER_FRONTEND_DOMAIN', `${SERVER_IP}:8081`);
 
 
-export const DEBUG = Constants.expoConfig?.extra?.DEBUG === 'true';
-export const APP_ENV = Constants.expoConfig?.extra?.APP_ENV as string || 'development';
+export const DEBUG = getConfigValue('DEBUG', 'true') === 'true';
+export const APP_ENV = getConfigValue('APP_ENV', 'development');
 
 // Log configuration in development
 if (DEBUG) {

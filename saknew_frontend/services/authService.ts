@@ -2,6 +2,8 @@
 import apiClient from './apiClient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, UserProfile } from '../types';
+import { SecureLogger } from '../utils/secureLogger';
+import { InputValidator } from '../utils/inputValidator';
 // Removed: import { DJOSER_FRONTEND_DOMAIN } from '../config'; // This import is not used here
 
 // Define interfaces for API responses and request data
@@ -44,11 +46,10 @@ const AuthService = {
    */
   async login(email: string, password: string): Promise<LoginResponse> {
     try {
-      console.log('AuthService: Attempting login to custom endpoint...');
+      SecureLogger.info('Attempting login');
       const response = await apiClient.post<LoginResponse>('/api/accounts/login/', { email, password });
       
-      // Log the full response structure for debugging
-      console.log('AuthService: Login response structure:', JSON.stringify(response.data));
+      SecureLogger.info('Login response received');
       
       // Check if tokens exist before storing them
       if (response.data && response.data.access) {
@@ -57,7 +58,7 @@ const AuthService = {
         // Alternative structure where tokens might be nested under 'token'
         await AsyncStorage.setItem('access_token', response.data.token.access);
       } else {
-        console.error('AuthService: No access token in response');
+        SecureLogger.error('No access token in response');
         throw new Error('No access token received from server');
       }
       
@@ -67,7 +68,7 @@ const AuthService = {
         // Alternative structure where tokens might be nested under 'token'
         await AsyncStorage.setItem('refresh_token', response.data.token.refresh);
       } else {
-        console.error('AuthService: No refresh token in response');
+        SecureLogger.error('No refresh token in response');
         throw new Error('No refresh token received from server');
       }
       
@@ -79,13 +80,12 @@ const AuthService = {
         refresh: response.data.refresh || (response.data.token?.refresh),
       };
       
-      console.log('AuthService: Login successful, tokens stored.');
+      SecureLogger.info('Login successful, tokens stored');
       return normalizedResponse;
     } catch (error: any) {
       // Handle 401 Unauthorized errors specifically
       if (error.response && error.response.status === 401) {
-        console.error('AuthService: Login failed - Invalid credentials');
-        console.log('Response data:', JSON.stringify(error.response.data));
+        SecureLogger.error('Login failed - Invalid credentials');
         
         // Check the exact error format from the backend
         if (error.response.data && typeof error.response.data === 'string') {
@@ -97,7 +97,7 @@ const AuthService = {
         }
       }
       
-      console.error('AuthService: Login failed:', error.response?.data || error.message);
+      SecureLogger.error('Login failed', { status: error.response?.status });
       throw error;
     }
   },
@@ -109,11 +109,23 @@ const AuthService = {
    */
   async register(data: RegisterData): Promise<any> {
     try {
-      console.log('AuthService: Attempting registration to custom endpoint...');
-      console.log('Registration URL:', '/api/accounts/register/');
+      // Validate and sanitize input
+      if (!InputValidator.validateEmail(data.email)) {
+        throw new Error('Invalid email format');
+      }
+      
+      const sanitizedData = {
+        ...data,
+        email: InputValidator.sanitizeString(data.email),
+        password: InputValidator.sanitizeString(data.password),
+        first_name: data.first_name ? InputValidator.sanitizeString(data.first_name) : undefined,
+        last_name: data.last_name ? InputValidator.sanitizeString(data.last_name) : undefined,
+      };
+      
+      SecureLogger.info('Attempting registration');
       
       // Try with direct axios call to bypass any interceptors
-      const response = await apiClient.post('/api/accounts/register/', data, {
+      const response = await apiClient.post('/api/accounts/register/', sanitizedData, {
         timeout: 15000, // Increase timeout for registration
         headers: {
           'Content-Type': 'application/json',
@@ -121,17 +133,10 @@ const AuthService = {
         }
       });
       
-      console.log('AuthService: Registration successful. A verification code has been sent.');
+      SecureLogger.info('Registration successful');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Registration failed:', error.response?.data || error.message);
-      
-      // More detailed error logging
-      if (error.code === 'ECONNABORTED') {
-        console.error('Registration request timed out. Check server availability.');
-      } else if (!error.response) {
-        console.error('Network error. Check if the server is running and accessible.');
-      }
+      SecureLogger.error('Registration failed', { status: error.response?.status, code: error.code });
       
       throw error;
     }
@@ -143,21 +148,21 @@ const AuthService = {
    * @returns Promise resolving when logout is complete.
    */
   async logout(): Promise<void> {
-    console.log('AuthService: Attempting logout...');
+    SecureLogger.info('Attempting logout');
     try {
       const refreshToken = await AsyncStorage.getItem('refresh_token');
       if (refreshToken) {
         await apiClient.post('/api/accounts/logout/', { refresh_token: refreshToken });
-        console.log('AuthService: Refresh token blacklisted on backend.');
+        SecureLogger.info('Refresh token blacklisted');
       } else {
-        console.warn('AuthService: No refresh token found to blacklist.');
+        SecureLogger.warn('No refresh token found to blacklist');
       }
     } catch (error: any) {
-      console.error('AuthService: Backend logout failed (token might be invalid/expired):', error.response?.data || error.message);
+      SecureLogger.error('Backend logout failed', { status: error.response?.status });
     } finally {
       await AsyncStorage.removeItem('access_token');
       await AsyncStorage.removeItem('refresh_token');
-      console.log('AuthService: Tokens removed from local storage.');
+      SecureLogger.info('Tokens removed from local storage');
     }
   },
 
@@ -167,25 +172,25 @@ const AuthService = {
    */
   async getUserProfile(): Promise<UserProfileResponse> {
     try {
-      console.log('AuthService: Fetching user profile from custom endpoint...');
+      SecureLogger.info('Fetching user profile');
       const response = await apiClient.get<UserProfileResponse>('/api/accounts/me/');
       
       // Validate the response data
       if (!response.data || !response.data.id) {
-        console.error('AuthService: Invalid user profile data received');
+        SecureLogger.error('Invalid user profile data received');
         throw new Error('Invalid user profile data');
       }
       
       // Check for token error response
       if (response.data && response.data.code === 'token_not_valid') {
-        console.error('AuthService: Token not valid:', response.data.detail);
+        SecureLogger.error('Token not valid');
         throw new Error('Token not valid: ' + response.data.detail);
       }
       
-      console.log('AuthService: User profile fetched successfully.');
+      SecureLogger.info('User profile fetched successfully');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Failed to fetch user profile:', error.response?.data || error.message);
+      SecureLogger.error('Failed to fetch user profile', { status: error.response?.status });
       throw error;
     }
   },
@@ -196,10 +201,10 @@ const AuthService = {
    */
   async refreshToken(): Promise<string | null> {
     try {
-      console.log('AuthService: Attempting to refresh token...');
+      SecureLogger.info('Attempting to refresh token');
       const refreshToken = await AsyncStorage.getItem('refresh_token');
       if (!refreshToken) {
-        console.warn('AuthService: No refresh token found.');
+        SecureLogger.warn('No refresh token found');
         return null;
       }
       // Corrected: Use apiClient directly as it's configured with the base URL
@@ -208,15 +213,15 @@ const AuthService = {
       // Check if access token exists before storing it
       if (response.data && response.data.access) {
         await AsyncStorage.setItem('access_token', response.data.access);
-        console.log('AuthService: Token refreshed successfully.');
+        SecureLogger.info('Token refreshed successfully');
         return response.data.access;
       } else {
-        console.error('AuthService: No access token in refresh response');
+        SecureLogger.error('No access token in refresh response');
         await this.logout(); // Clear tokens on refresh failure
         return null;
       }
     } catch (error: any) {
-      console.error('AuthService: Token refresh failed:', error.response?.data || error.message);
+      SecureLogger.error('Token refresh failed', { status: error.response?.status });
       await this.logout(); // Clear tokens on refresh failure
       throw error;
     }
@@ -229,13 +234,13 @@ const AuthService = {
    */
   async activateAccount(data: ActivationData): Promise<any> {
     try {
-      console.log('AuthService: Activating account with custom endpoint...');
+      SecureLogger.info('Activating account');
       // Assuming /api/accounts/activate/ is the correct endpoint based on previous context
       const response = await apiClient.post('/api/accounts/activate/', data);
-      console.log('AuthService: Account activated successfully.');
+      SecureLogger.info('Account activated successfully');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Account activation failed:', error.response?.data || error.message);
+      SecureLogger.error('Account activation failed', { status: error.response?.status });
       throw error;
     }
   },
@@ -247,13 +252,13 @@ const AuthService = {
    */
   async resendActivationCode(email: string): Promise<any> {
     try {
-      console.log('AuthService: Resending activation code to custom endpoint...');
+      SecureLogger.info('Resending activation code');
       // Use the correct endpoint path that matches the backend URL configuration
       const response = await apiClient.post('/api/accounts/resend-verification-code/', { email, code: '' });
-      console.log('AuthService: New activation code sent.');
+      SecureLogger.info('New activation code sent');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Resend activation code failed:', error.response?.data || error.message);
+      SecureLogger.error('Resend activation code failed', { status: error.response?.status });
       throw error;
     }
   },
@@ -265,12 +270,17 @@ const AuthService = {
    */
   async requestPasswordReset(email: string): Promise<any> {
     try {
-      console.log('AuthService: Requesting password reset from custom endpoint...');
+      // Validate email before making request
+      if (!InputValidator.validateEmail(email)) {
+        throw new Error('Invalid email format');
+      }
+      
+      SecureLogger.info('Requesting password reset');
       const response = await apiClient.post('/api/accounts/password-reset-request/', { email });
-      console.log('AuthService: Password reset request sent.');
+      SecureLogger.info('Password reset request sent');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Password reset request failed:', error.response?.data || error.message);
+      SecureLogger.error('Password reset request failed', { status: error.response?.status });
       throw error;
     }
   },
@@ -285,12 +295,22 @@ const AuthService = {
    */
   async confirmPasswordReset(uid: string, token: string, new_password: string, new_password2: string): Promise<any> {
     try {
-      console.log('AuthService: Confirming password reset with custom endpoint...');
+      // Validate passwords match
+      if (new_password !== new_password2) {
+        throw new Error('Passwords do not match');
+      }
+      
+      // Validate password strength
+      if (!InputValidator.validatePassword(new_password)) {
+        throw new Error('Password does not meet security requirements');
+      }
+      
+      SecureLogger.info('Confirming password reset');
       const response = await apiClient.post('/api/accounts/password-reset-confirm/', { uid, token, new_password, new_password2 });
-      console.log('AuthService: Password reset confirmed successfully.');
+      SecureLogger.info('Password reset confirmed successfully');
       return response.data;
     } catch (error: any) {
-      console.error('AuthService: Password reset confirmation failed:', error.response?.data || error.message);
+      SecureLogger.error('Password reset confirmation failed', { status: error.response?.status });
       throw error;
     }
   },

@@ -3,9 +3,11 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useNavigation } from '@react-navigation/native';
 import colors from '../../theme/colors';
 import { addFunds } from '../../services/walletService';
+import { useBadges } from '../../context/BadgeContext';
 
 const AddFundsScreen: React.FC = () => {
   const navigation = useNavigation();
+  const { refreshBadges } = useBadges();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -17,12 +19,22 @@ const AddFundsScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      await addFunds(amt);
-      Alert.alert('Success', 'Funds added successfully!', [
+      console.log('Adding funds:', amt);
+      const result = await addFunds(amt);
+      console.log('Funds added successfully:', result);
+      
+      // Refresh wallet balance in context
+      await refreshBadges();
+      console.log('Badges refreshed after adding funds');
+      
+      Alert.alert('Success', `R${amt.toFixed(2)} added successfully!`, [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);
+      setAmount(''); // Clear the input
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Could not add funds.');
+      console.error('Error adding funds:', err);
+      const errorMessage = err?.response?.data?.detail || err?.response?.data?.amount?.[0] || 'Could not add funds. Please try again.';
+      Alert.alert('Error', errorMessage);
     } finally {
       setLoading(false);
     }

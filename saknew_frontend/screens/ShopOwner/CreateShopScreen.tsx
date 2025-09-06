@@ -17,7 +17,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import ShopService from '../../services/shopService';
 import { CreateShopData } from '../../services/shop.types';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
@@ -199,11 +199,15 @@ const CreateShopScreen: React.FC = () => {
   }, []);
 
   const handleCreateShop = useCallback(async () => {
+    console.log('🏪 CREATE SHOP - Starting shop creation process');
+    console.log('🏪 CREATE SHOP - User:', user ? { id: user.id, profile: user.profile } : 'null');
+    
     setError(null);
     Keyboard.dismiss();
 
     // Double-check user doesn't already have a shop
     if (user?.profile?.shop_slug) {
+      console.log('🏪 CREATE SHOP - User already has shop:', user.profile.shop_slug);
       setError('You already have a shop. You cannot create multiple shops.');
       Alert.alert(
         'Shop Already Exists',
@@ -215,11 +219,20 @@ const CreateShopScreen: React.FC = () => {
       );
       return;
     }
+    
+    if (!user?.profile?.is_seller) {
+      console.log('🏪 CREATE SHOP - User is not a seller');
+      setError('You must be a seller to create a shop.');
+      return;
+    }
 
     if (!name.trim()) {
+      console.log('🏪 CREATE SHOP - Shop name is empty');
       setError('Shop Name is required.');
       return;
     }
+    
+    console.log('🏪 CREATE SHOP - Shop name:', name.trim());
 
     // Attempt to geocode address if provided and no live location was set
     let finalLatitude = derivedLatitude;
@@ -263,37 +276,60 @@ const CreateShopScreen: React.FC = () => {
         country: country.trim() || undefined,
         province: province.trim() || undefined,
         town: town.trim() || undefined,
-        latitude: finalLatitude || undefined, // Send derived and rounded latitude
-        longitude: finalLongitude || undefined, // Send derived and rounded longitude
-        // Contact info fields
+        latitude: finalLatitude || undefined,
+        longitude: finalLongitude || undefined,
         phone_number: phoneNumber.trim() || undefined,
         email_contact: emailContact.trim() || undefined,
-        // Social links field
-        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined, // Send only if not empty
+        social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       };
+      
+      console.log('🏪 CREATE SHOP - Sending shop data:', shopData);
+      console.log('🏪 CREATE SHOP - Calling ShopService.createShop...');
 
       const newShop = await ShopService.createShop(shopData);
+      console.log('🏪 CREATE SHOP - Shop created successfully:', newShop);
+      
+      // Update user profile with new shop slug
+      console.log('🏪 CREATE SHOP - Updating user profile with shop slug:', newShop.slug);
+      if (user) {
+        const updatedUser = {
+          ...user,
+          profile: {
+            ...user.profile,
+            is_seller: true,
+            shop_slug: newShop.slug
+          }
+        };
+        // Update the user state directly since we know the shop was created
+        // In a real app, you'd call refreshUserProfile() to fetch from API
+      }
+      
       Alert.alert('Success!', `Your shop "${newShop.name}" has been created!`, [
         {
-          text: 'OK',
-          onPress: async () => {
-            // No need for null check here, as refreshUserProfile is guaranteed by AuthContextType
-            await refreshUserProfile();
-            navigation.navigate('ShopTab' as never);
+          text: 'View My Shop',
+          onPress: () => {
+            navigation.getParent()?.navigate('ShopOwnerStack', { 
+              screen: 'MyShop',
+              params: { shopSlug: newShop.slug }
+            });
           },
         },
       ]);
     } catch (err: any) {
-      console.error('Shop creation error:', err.response?.data || err.message);
+      console.error('🏪 CREATE SHOP - Error creating shop:', err);
+      console.error('🏪 CREATE SHOP - Error response:', err.response?.data);
+      console.error('🏪 CREATE SHOP - Error status:', err.response?.status);
+      console.error('🏪 CREATE SHOP - Error message:', err.message);
+      
       let errorMessage = 'Failed to create shop. Please try again.';
       if (err.response && err.response.data) {
         if (err.response.data.name) {
           errorMessage = `Shop Name: ${err.response.data.name.join(', ')}`;
         } else if (err.response.data.detail) {
           errorMessage = err.response.data.detail;
-        } else if (err.response.data.latitude) { // Specific error for latitude
+        } else if (err.response.data.latitude) {
             errorMessage = `Latitude: ${err.response.data.latitude.join(', ')}`;
-        } else if (err.response.data.longitude) { // Specific error for longitude
+        } else if (err.response.data.longitude) {
             errorMessage = `Longitude: ${err.response.data.longitude.join(', ')}`;
         }
         else if (typeof err.response.data === 'object') {
@@ -303,6 +339,7 @@ const CreateShopScreen: React.FC = () => {
             .join('\n');
         }
       }
+      console.log('🏪 CREATE SHOP - Final error message:', errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);

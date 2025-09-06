@@ -12,11 +12,13 @@ import {
   Image,
   StatusBar,
   RefreshControl,
-  Dimensions
+  Dimensions,
+  ScrollView
 } from 'react-native';
+import { globalStyles, colors, spacing } from '../../styles/globalStyles';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { Product as AppProduct } from '../../types';
 import { Product as ServiceProduct } from '../../services/shop.types';
 import { PaginatedResponse } from '../../types/api.types';
@@ -24,24 +26,10 @@ import { MainNavigationProp } from '../../navigation/types';
 import { shopService } from '../../services/apiService';
 import { getImageUrl, isImageAccessible } from '../../utils/imageUtils';
 import { testApiConnectivity } from '../../utils/apiTest';
+import StatusSection from '../../components/StatusSection';
 
 const { width } = Dimensions.get('window');
-const CARD_WIDTH = width / 2 - 24; // 2 cards per row with margins
-
-// Modern color palette
-const colors = {
-  background: '#F8F9FA',
-  card: '#FFFFFF',
-  primary: '#3498DB',
-  secondary: '#2ECC71',
-  accent: '#F39C12',
-  text: '#2C3E50',
-  textLight: '#7F8C8D',
-  border: '#E0E6ED',
-  error: '#E74C3C',
-  shadow: 'rgba(0, 0, 0, 0.1)',
-  white: '#FFFFFF', // Adding white color
-};
+const CARD_WIDTH = width / 3 - spacing.md;
 
 const HomeScreen = () => {
   const { logout, loading } = useAuth();
@@ -51,16 +39,23 @@ const HomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  // Removed categories and selectedCategory state
-  // Add cartUpdated state to trigger UI updates when cart changes
   const [cartUpdated, setCartUpdated] = useState(0);
+  const [groupedProducts, setGroupedProducts] = useState<{[key: string]: AppProduct[]}>({});
+
+  const handleStatusPress = (userStatus: any) => {
+    navigation.navigate('StatusViewer', { userStatus });
+  };
+
+  const handleCreateStatus = () => {
+    navigation.navigate('CreateStatus');
+  };
 
   // getImageUrl is now imported from utils/imageUtils
 
   // Format currency
   const formatCurrency = (amount: string | number): string => {
     const num = typeof amount === 'string' ? parseFloat(amount) : amount;
-    return `R${num.toFixed(2)}`;
+    return `R${(num || 0).toFixed(2)}`;
   };
 
   // Removed fetchCategories logic
@@ -114,6 +109,15 @@ const HomeScreen = () => {
         });
         
         setProducts(convertedProducts);
+        
+        // Group products by category
+        const grouped = convertedProducts.reduce((acc, product) => {
+          const categoryName = product.category_name || 'Other';
+          if (!acc[categoryName]) acc[categoryName] = [];
+          acc[categoryName].push(product);
+          return acc;
+        }, {} as {[key: string]: AppProduct[]});
+        setGroupedProducts(grouped);
       } else {
         setProducts([]);
         // Don't set error, just show empty state
@@ -188,58 +192,90 @@ const HomeScreen = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Render product item using shared ProductCard, pass onCartUpdated
-  const renderProductItem = ({ item }: { item: AppProduct }) => {
-    // Ensure images is always an array for ProductCard
-    const productWithImages = {
-      ...item,
-      images: item.images ?? [],
-    };
-    return (
-      <ProductCard
-        key={item.id}
-        product={productWithImages}
-        isShopOwner={false}
-        navigation={navigation as any}
-        onCartUpdated={() => setCartUpdated(c => c + 1)}
+  // Render category section
+  const renderCategorySection = (categoryName: string, categoryProducts: AppProduct[]) => (
+    <View key={categoryName} style={styles.categorySection}>
+      <Text style={styles.categoryTitle}>{categoryName}</Text>
+      <FlatList
+        data={categoryProducts.slice(0, 6)}
+        renderItem={({ item }) => {
+          const productWithImages = { ...item, images: item.images ?? [] };
+          return (
+            <ProductCard
+              key={item.id}
+              product={productWithImages}
+              isShopOwner={false}
+              navigation={navigation as any}
+              onCartUpdated={() => setCartUpdated(c => c + 1)}
+            />
+          );
+        }}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={3}
+        scrollEnabled={false}
+        contentContainerStyle={styles.categoryGrid}
       />
-    );
-  };
+      {categoryProducts.length > 6 && (
+        <TouchableOpacity 
+          style={styles.viewMoreButton}
+          onPress={() => navigation.navigate('CategoryProducts', {
+            categoryName,
+            products: categoryProducts
+          })}
+        >
+          <Text style={styles.viewMoreText}>View More ({categoryProducts.length - 6})</Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={globalStyles.safeContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={[styles.headerTitle, { fontWeight: '900' }]}>Discover</Text>
+        <View style={styles.headerContent}>
+          <Text style={styles.headerTitle}>Discover</Text>
+          <Text style={styles.headerSubtitle}>Find amazing products</Text>
+        </View>
         <TouchableOpacity
+          style={styles.logoutButton}
           onPress={logout}
           disabled={loading}
           accessibilityLabel="Logout"
         >
-          <Ionicons name="log-out-outline" size={24} color={colors.error} />
+          <Ionicons name="log-out-outline" size={20} color={colors.white} />
         </TouchableOpacity>
       </View>
       
       {/* Search Bar */}
       <View style={styles.searchContainer}>
-        <Ionicons name="search" size={20} color={colors.textLight} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Search products..."
-          placeholderTextColor={colors.textLight}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          onSubmitEditing={handleSearch}
-          returnKeyType="search"
-        />
-        {searchQuery ? (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={colors.textLight} />
-          </TouchableOpacity>
-        ) : null}
+        <View style={styles.searchBar}>
+          <Ionicons name="search" size={18} color={colors.textLight} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Search products..."
+            placeholderTextColor={colors.textLight}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            onSubmitEditing={handleSearch}
+            returnKeyType="search"
+          />
+          {searchQuery ? (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={18} color={colors.textLight} />
+            </TouchableOpacity>
+          ) : null}
+        </View>
       </View>
+      
+      {/* Status Section */}
+      <StatusSection 
+        onStatusPress={handleStatusPress}
+        onCreateStatus={handleCreateStatus}
+      />
       
       {/* Main Content */}
       {productsLoading && !refreshing ? (
@@ -259,50 +295,33 @@ const HomeScreen = () => {
         <>
           {/* Categories removed */}
           
-          {/* Products */}
-          <View style={styles.productsContainer}>
-            <View style={styles.sectionHeader}>
-              <Text style={styles.sectionTitle}>New Arrivals</Text>
-              <TouchableOpacity onPress={() => navigation.navigate('SearchResults', { query: '' })}>
-                <Text style={styles.seeAllText}>See All</Text>
-              </TouchableOpacity>
-            </View>
-            
-            <FlatList
-              data={products}
-              renderItem={renderProductItem}
-              keyExtractor={(item) => item.id.toString()}
-              numColumns={2}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.productsList}
-              refreshControl={
-                <RefreshControl 
-                  refreshing={refreshing} 
-                  onRefresh={onRefresh}
-                  colors={[colors.primary]}
-                  tintColor={colors.primary}
-                />
-              }
-              ListEmptyComponent={
-                <View style={styles.emptyContainer}>
-                  <Ionicons name="basket-outline" size={60} color={colors.textLight} />
-                  <Text style={styles.emptyText}>No products found</Text>
-                  <Text style={styles.emptySubText}>
-                    {searchQuery
-                      ? `No results for "${searchQuery}". Try a different search term`
-                      : `Check back later for new products`}
-                  </Text>
-                  <TouchableOpacity 
-                    style={styles.refreshButton}
-                    onPress={onRefresh}
-                  >
-                    <Ionicons name="refresh-outline" size={16} color={colors.white} />
-                    <Text style={styles.refreshButtonText}>Refresh</Text>
-                  </TouchableOpacity>
-                </View>
-              }
-            />
-          </View>
+          {/* Products by Category */}
+          <ScrollView 
+            style={styles.productsContainer}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl 
+                refreshing={refreshing} 
+                onRefresh={onRefresh}
+                colors={[colors.primary]}
+                tintColor={colors.primary}
+              />
+            }
+          >
+            {Object.keys(groupedProducts).length > 0 ? (
+              Object.entries(groupedProducts).map(([categoryName, categoryProducts]) =>
+                renderCategorySection(categoryName, categoryProducts)
+              )
+            ) : (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="basket-outline" size={60} color={colors.textSecondary} />
+                <Text style={styles.emptyText}>No products found</Text>
+                <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+                  <Text style={styles.refreshButtonText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+          </ScrollView>
         </>
       )}
     </SafeAreaView>
@@ -310,44 +329,67 @@ const HomeScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
   header: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingVertical: 20,
-    paddingTop: 36, // Increased top padding for visibility and to avoid cut-off
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.md,
+    paddingTop: spacing.xl + spacing.md,
+    backgroundColor: colors.primary,
+    borderBottomLeftRadius: spacing.lg,
+    borderBottomRightRadius: spacing.lg,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  headerContent: {
+    flex: 1,
   },
   headerTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.text,
+    fontSize: 28,
+    fontWeight: '800',
+    color: colors.white,
+    letterSpacing: -0.5,
+  },
+  headerSubtitle: {
+    fontSize: 14,
+    color: colors.white,
+    opacity: 0.8,
+    marginTop: 2,
+  },
+  logoutButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+    padding: 10,
+    borderRadius: 12,
   },
   searchContainer: {
+    paddingHorizontal: spacing.md,
+    marginTop: -spacing.md - spacing.xs,
+    marginBottom: spacing.md,
+    zIndex: 1,
+  },
+  searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: 12,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    shadowColor: colors.shadow,
+    borderRadius: spacing.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm + spacing.xs,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowRadius: 4,
+    elevation: 3,
   },
   searchIcon: {
-    marginRight: 8,
+    marginRight: 12,
   },
   searchInput: {
     flex: 1,
-    height: 40,
+    height: 24,
     fontSize: 16,
     color: colors.text,
   },
@@ -393,7 +435,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.md,
+    paddingHorizontal: spacing.xs,
+  },
+  seeAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: colors.primary + '10',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
   },
   titleWithIcon: {
     flexDirection: 'row',
@@ -403,13 +454,16 @@ const styles = StyleSheet.create({
     marginLeft: 4,
   },
   sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 22,
+    fontWeight: '700',
     color: colors.text,
+    letterSpacing: -0.3,
   },
   seeAllText: {
     fontSize: 14,
+    fontWeight: '600',
     color: colors.primary,
+    marginRight: 4,
   },
   categoriesList: {
     paddingVertical: 8,
@@ -443,23 +497,50 @@ const styles = StyleSheet.create({
   },
   productsContainer: {
     flex: 1,
-    marginTop: 16,
-    paddingHorizontal: 16,
+    paddingHorizontal: spacing.md,
+  },
+  categorySection: {
+    marginBottom: spacing.lg,
+  },
+  categoryTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: colors.textPrimary,
+    marginBottom: spacing.sm,
+  },
+  categoryGrid: {
+    paddingBottom: spacing.sm,
+  },
+  viewMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'center',
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.background,
+    borderRadius: spacing.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  viewMoreText: {
+    color: colors.primary,
+    fontSize: 14,
+    fontWeight: '600',
   },
   productsList: {
-    paddingBottom: 16,
+    paddingBottom: 20,
   },
   productCard: {
     width: CARD_WIDTH,
     backgroundColor: colors.card,
-    borderRadius: 12,
-    marginBottom: 16,
-    marginHorizontal: 4,
+    borderRadius: 16,
+    marginBottom: 12,
+    marginHorizontal: 2,
     shadowColor: colors.shadow,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.12,
+    shadowRadius: 16,
+    elevation: 6,
     overflow: 'hidden',
   },
   imageContainer: {
@@ -523,8 +604,17 @@ const styles = StyleSheet.create({
   emptyContainer: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 40,
+    paddingVertical: 60,
     paddingHorizontal: 20,
+    backgroundColor: colors.card,
+    borderRadius: 20,
+    marginHorizontal: 8,
+    marginTop: 20,
+    shadowColor: colors.shadow,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.08,
+    shadowRadius: 12,
+    elevation: 4,
   },
   emptyText: {
     marginTop: 12,
@@ -543,9 +633,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.primary,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 16,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   refreshButtonText: {
     color: colors.white,

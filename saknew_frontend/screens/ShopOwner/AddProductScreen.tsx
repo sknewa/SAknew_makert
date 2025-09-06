@@ -17,7 +17,7 @@ import {
   Keyboard,
 } from 'react-native';
 import apiClient from '../../services/apiClient';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, CommonActions } from '@react-navigation/native'; // Import CommonActions

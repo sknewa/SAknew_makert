@@ -1,6 +1,7 @@
 // saknew_frontend/services/shopService.ts
 import apiClient from './apiClient';
-import publicApiClient from './publicApiClient'; // Keep this for truly public endpoints
+import publicApiClient from './publicApiClient';
+import { SecurityUtils } from '../utils/securityUtils';
 import {
   Product,
   Shop,
@@ -43,12 +44,12 @@ const ShopService = {
    */
   async getShops(page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Shop>> {
     try {
-      console.log('ShopService: Fetching all shops...');
+      SecurityUtils.safeLog('info', 'Fetching all shops');
       // This is likely a public endpoint, so publicApiClient is appropriate here.
       const response = await publicApiClient.get<PaginatedResponse<Shop>>(`/api/shops/?page=${page}&page_size=${pageSize}`);
       return response.data;
     } catch (error: any) {
-      console.error('ShopService: Error fetching shops:', error.response?.data || error.message);
+      SecurityUtils.safeLog('error', 'Error fetching shops', error.response?.status);
       throw error;
     }
   },
@@ -60,12 +61,28 @@ const ShopService = {
    */
   async getShopBySlug(slug: string): Promise<Shop> {
     try {
-      console.log(`ShopService: Fetching shop by slug: ${slug}...`);
-      // CHANGED: Use apiClient instead of publicApiClient for authenticated access
-      const response = await apiClient.get<Shop>(`/api/shops/${slug}/`);
+      const sanitizedSlug = SecurityUtils.sanitizeSlug(slug);
+      SecurityUtils.safeLog('info', 'Fetching shop by slug');
+      const response = await apiClient.get<Shop>(`/api/shops/${sanitizedSlug}/`);
       return response.data;
     } catch (error: any) {
-      console.error(`ShopService: Error fetching shop ${slug}:`, error.response?.data || error.message);
+      SecurityUtils.safeLog('error', 'Error fetching shop', error.response?.status);
+      throw error;
+    }
+  },
+
+  /**
+   * Fetches the authenticated user's shop.
+   * @returns Promise<Shop> The user's shop object.
+   */
+  async getMyShop(): Promise<Shop> {
+    try {
+      console.log('🏪 SHOP SERVICE - Fetching my shop from /api/shops/my_shop/');
+      const response = await apiClient.get<Shop>('/api/shops/my_shop/');
+      console.log('🏪 SHOP SERVICE - My shop response:', response.data);
+      return response.data;
+    } catch (error: any) {
+      console.log('🏪 SHOP SERVICE - Error fetching my shop:', error.response?.status, error.response?.data);
       throw error;
     }
   },
@@ -77,18 +94,19 @@ const ShopService = {
    */
   async getShopProducts(shopSlug: string): Promise<Product[]> {
     try {
-      console.log(`ShopService: Fetching products for shop: ${shopSlug}...`);
+      const sanitizedShopSlug = SecurityUtils.sanitizeSlug(shopSlug);
+      SecurityUtils.safeLog('info', 'Fetching shop products');
       // CHANGED: Use apiClient instead of publicApiClient for authenticated access
-      const response = await apiClient.get<Product[]>(`/api/shops/${shopSlug}/products/`);
+      const response = await apiClient.get<Product[]>(`/api/shops/${sanitizedShopSlug}/products/`);
 
       // Log the first product's image URL to debug
       if (response.data && response.data.length > 0) {
-        console.log('First product image URL:', response.data[0].main_image_url);
+        SecurityUtils.safeLog('info', 'Products fetched successfully');
       }
 
       return response.data;
     } catch (error: any) {
-      console.error(`ShopService: Error fetching products for shop ${shopSlug}:`, error.response?.data || error.message);
+      SecurityUtils.safeLog('error', 'Error fetching shop products', error.response?.status);
       throw error;
     }
   },
@@ -151,11 +169,21 @@ const ShopService = {
    */
   async createShop(shopData: CreateShopData): Promise<Shop> {
     try {
-      console.log('ShopService: Creating new shop...');
+      console.log('🏪 SHOP SERVICE - Creating new shop with data:', shopData);
+      console.log('🏪 SHOP SERVICE - Making POST request to /api/shops/');
+      
       const response = await apiClient.post<Shop>('/api/shops/', shopData);
+      
+      console.log('🏪 SHOP SERVICE - Response status:', response.status);
+      console.log('🏪 SHOP SERVICE - Response data:', response.data);
+      console.log('🏪 SHOP SERVICE - Shop created successfully:', response.data.name);
+      
       return response.data;
     } catch (error: any) {
-      console.error('ShopService: Error creating shop:', error.response?.data || error.message);
+      console.error('🏪 SHOP SERVICE - Error creating shop:', error);
+      console.error('🏪 SHOP SERVICE - Error response:', error.response?.data);
+      console.error('🏪 SHOP SERVICE - Error status:', error.response?.status);
+      console.error('🏪 SHOP SERVICE - Error config:', error.config?.url);
       throw error;
     }
   },
@@ -258,18 +286,10 @@ const ShopService = {
       console.log(`ShopService: Fetching all products (page ${page})...`);
       // Use publicApiClient for this public endpoint
       const response = await publicApiClient.get<PaginatedResponse<Product>>(`/api/products/?page=${page}&page_size=${pageSize}`);
-      console.log('Products response status:', response.status);
-      console.log('Products data:', JSON.stringify(response.data).substring(0, 200) + '...');
+      SecurityUtils.safeLog('info', 'Products fetched successfully', `Count: ${response.data.count}`);
       return response.data;
     } catch (error: any) {
-      console.error('ShopService: Error fetching products:', error.response?.data || error.message);
-      // Log more details about the error
-      if (error.response) {
-        console.error('Response status:', error.response.status);
-        console.error('Response headers:', error.response.headers);
-      } else if (error.request) {
-        console.error('No response received:', error.request);
-      }
+      SecurityUtils.safeLog('error', 'Error fetching products', error.response?.status || 'Network error');
       // Return empty results instead of throwing
       return { count: 0, next: null, previous: null, results: [] };
     }
@@ -286,15 +306,16 @@ const ShopService = {
    */
   async searchProducts(query: string, userLat?: number, userLon?: number, page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Product>> {
     try {
-      console.log(`ShopService: Searching products for query: "${query}"...`);
-      let url = `/api/products/search/?q=${encodeURIComponent(query)}&page=${page}&page_size=${pageSize}`;
+      const sanitizedQuery = SecurityUtils.sanitizeInput(query);
+      SecurityUtils.safeLog('info', 'Searching products');
+      let url = `/api/products/search/?q=${encodeURIComponent(sanitizedQuery)}&page=${page}&page_size=${pageSize}`;
       if (userLat !== undefined && userLon !== undefined) {
         url += `&user_lat=${userLat}&user_lon=${userLon}`;
       }
       const response = await publicApiClient.get<PaginatedResponse<Product>>(url);
       return response.data;
     } catch (error: any) {
-      console.error(`ShopService: Error searching products for query "${query}":`, error.response?.data || error.message);
+      SecurityUtils.safeLog('error', 'Error searching products', error.response?.status);
       throw error;
     }
   },

@@ -1,5 +1,6 @@
 // saknew_frontend/services/salesService.ts
 import apiClient from './apiClient'; // Assuming apiClient is configured with the base URL
+import { SecurityUtils } from '../utils/securityUtils';
 import { Product } from './shop.types'; // Import Product interface from shop.types
 
 // --- Interfaces for Data Types (matching Django Serializers) ---
@@ -116,7 +117,7 @@ const getMyCart = async (): Promise<Cart> => {
     const response = await apiClient.get('/api/carts/my_cart/');
     return response.data;
   } catch (error: any) {
-    console.error('Error fetching cart:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error fetching cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -126,7 +127,7 @@ const addCartItem = async (productId: number, quantity: number = 1): Promise<Car
     const response = await apiClient.post('/api/carts/add/', { product_id: productId, quantity });
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    console.error('Error adding item to cart:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error adding item to cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -141,7 +142,7 @@ const updateCartItemQuantity = async (productId: number, quantity: number): Prom
     const response = await apiClient.patch('/api/carts/update-quantity/', { product_id: productId, quantity });
     return response.data;
   } catch (error: any) {
-    console.error('Error updating cart item quantity:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error updating cart item quantity:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -151,7 +152,7 @@ const removeCartItem = async (productId: number): Promise<Cart> => {
     const response = await apiClient.post('/api/carts/remove/', { product_id: productId });
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    console.error('Error removing item from cart:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error removing item from cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -161,7 +162,7 @@ const clearCart = async (): Promise<Cart> => {
     const response = await apiClient.post('/api/carts/clear/');
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    console.error('Error clearing cart:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error clearing cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -173,7 +174,7 @@ const createOrderFromCart = async (shippingAddress: ShippingAddress): Promise<Or
     const response = await apiClient.post('/api/orders/create-from-cart/', { shipping_address: shippingAddress });
     return response.data;
   } catch (error: any) {
-    console.error('Error creating order from cart:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error creating order from cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -183,7 +184,7 @@ const getOrderById = async (orderId: string): Promise<Order> => {
     const response = await apiClient.get(`/api/orders/${orderId}/`);
     return response.data;
   } catch (error: any) {
-    console.error(`Error fetching order ${orderId}:`, error.response?.data || error.message);
+    SecurityUtils.safeLog('error', `Error fetching order ${SecurityUtils.sanitizeForLogging(orderId)}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -193,7 +194,7 @@ const getMyOrders = async (): Promise<Order[]> => {
     const response = await apiClient.get('/api/orders/'); // Assumes backend filters by user automatically
     return response.data.results; // Assuming pagination, so results array
   } catch (error: any) {
-    console.error('Error fetching my orders:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error fetching my orders:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -207,19 +208,42 @@ const updateOrderStatus = async (orderId: string, actionType: string, verificati
     const response = await apiClient.patch(`/api/orders/${orderId}/status-update/`, payload);
     return response.data.order; // Backend returns {"detail": ..., "order": OrderData}
   } catch (error: any) {
-    console.error(`Error updating order ${orderId} status (${actionType}):`, error.response?.data || error.message);
+    SecurityUtils.safeLog('error', `Error updating order ${SecurityUtils.sanitizeForLogging(orderId)} status (${SecurityUtils.sanitizeForLogging(actionType)}):`, error.response?.data || error.message);
+    throw error;
+  }
+};
+
+const verifyDeliveryCode = async (orderId: string, verificationCode: string): Promise<{ detail: string; order: Order }> => {
+  try {
+    const response = await apiClient.patch(`/api/orders/${orderId}/status-update/`, {
+      action_type: 'verify_delivery_code',
+      verification_code: verificationCode
+    });
+    return response.data;
+  } catch (error: any) {
+    SecurityUtils.safeLog('error', `Error verifying delivery code for order ${SecurityUtils.sanitizeForLogging(orderId)}:`, error.response?.data || error.message);
     throw error;
   }
 };
 
 // --- API Functions for Payments ---
 
-const processPayment = async (orderId: string, paymentMethod: 'wallet' | 'stripe'): Promise<{ detail: string; order_id: string }> => {
+const processPayment = async (orderId: string, paymentMethod: 'wallet' | 'stripe'): Promise<{ detail: string; order_id: string; verification_code?: string }> => {
   try {
     const response = await apiClient.post('/api/payments/', { order_id: orderId, payment_method: paymentMethod });
     return response.data;
   } catch (error: any) {
-    console.error('Error processing payment:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error processing payment:', error.response?.data || error.message);
+    throw error;
+  }
+};
+
+const verifyPayment = async (orderId: string, verificationCode: string): Promise<{ detail: string; order_id: string }> => {
+  try {
+    const response = await apiClient.post('/api/payments/verify/', { order_id: orderId, verification_code: verificationCode });
+    return response.data;
+  } catch (error: any) {
+    SecurityUtils.safeLog('error', 'Error verifying payment:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -238,7 +262,7 @@ const createReview = async (reviewData: CreateReviewData): Promise<Review> => {
     const response = await apiClient.post('/api/reviews/', reviewData);
     return response.data;
   } catch (error: any) {
-    console.error('Error creating review:', error.response?.data || error.message);
+    SecurityUtils.safeLog('error', 'Error creating review:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -253,7 +277,7 @@ const updateReview = async (reviewId: number, reviewData: UpdateReviewData): Pro
     const response = await apiClient.patch(`/api/reviews/${reviewId}/`, reviewData);
     return response.data;
   } catch (error: any) {
-    console.error(`Error updating review ${reviewId}:`, error.response?.data || error.message);
+    SecurityUtils.safeLog('error', `Error updating review ${SecurityUtils.sanitizeForLogging(reviewId)}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -262,7 +286,7 @@ const deleteReview = async (reviewId: number): Promise<void> => {
   try {
     await apiClient.delete(`/api/reviews/${reviewId}/`);
   } catch (error: any) {
-    console.error(`Error deleting review ${reviewId}:`, error.response?.data || error.message);
+    SecurityUtils.safeLog('error', `Error deleting review ${SecurityUtils.sanitizeForLogging(reviewId)}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -272,7 +296,7 @@ const getReviewsByProduct = async (productId: number): Promise<Review[]> => {
     const response = await apiClient.get(`/api/reviews/?product_id=${productId}`);
     return response.data.results || []; // Assuming pagination, so results array
   } catch (error: any) {
-    console.error(`Error fetching reviews for product ${productId}:`, error.response?.data || error.message);
+    SecurityUtils.safeLog('error', `Error fetching reviews for product ${SecurityUtils.sanitizeForLogging(productId)}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -288,7 +312,9 @@ export {
   getOrderById,
   getMyOrders,
   updateOrderStatus,
+  verifyDeliveryCode,
   processPayment,
+  verifyPayment,
   createReview,
   updateReview,
   deleteReview,
