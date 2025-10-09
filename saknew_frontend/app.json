@@ -7,7 +7,8 @@
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
-    "sdkVersion": "51.0.0",
+    "jsEngine": "hermes",
+    "sdkVersion": "54.0.0",
     "plugins": [
       [
         "expo-location",
@@ -32,7 +33,7 @@
       "package": "com.saknew.frontend",
       "edgeToEdgeEnabled": true,
       "permissions": [
-        "ACCESS_COARSE_LOCATION", 
+        "ACCESS_COARSE_LOCATION",
         "ACCESS_FINE_LOCATION",
         "CAMERA",
         "READ_EXTERNAL_STORAGE",
@@ -43,15 +44,13 @@
       "favicon": "./assets/favicon.png"
     },
     "extra": {
-      "SERVER_IP": "192.168.8.101",
-      "SERVER_PORT": "8000",
-      "API_BASE_URL": "http://192.168.8.101:8000/",
-      "IMAGE_BASE_URL": "http://192.168.8.101:8000",
-      "DEBUG": "true",
-      "APP_ENV": "development",
-      "eas": {
-        "projectId": "YOUR_EAS_PROJECT_ID_HERE"
-      }
+      "SERVER_IP": "saknew-makert-e7ac1361decc.herokuapp.com",
+      "SERVER_PORT": "443",
+      "API_BASE_URL": "https://saknew-makert-e7ac1361decc.herokuapp.com/",
+      "IMAGE_BASE_URL": "https://saknew-makert-e7ac1361decc.herokuapp.com",
+      "DEBUG": "false",
+      "APP_ENV": "production",
+
     }
   }
 }

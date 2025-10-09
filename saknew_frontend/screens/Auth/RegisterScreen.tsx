@@ -74,36 +74,65 @@ const RegisterScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      await AuthService.register({ email: email.trim(), password, re_password: rePassword });
-
-      Alert.alert(
-        'Registration Successful!',
-        'A verification code has been sent to your email. Please check your inbox (and spam folder) to activate your account.',
-        [
-          {
-            text: 'OK',
-            // Navigate to 'ActivateAccount' after successful registration
-            onPress: () => navigation.navigate('ActivateAccount', { userEmail: email.trim() }),
-          },
-        ]
-      );
+      const result = await AuthService.register({ email: email.trim(), password, re_password: rePassword });
+      
+      console.log('Registration successful:', result);
+      console.log('Current navigation state before redirect:', navigation.getState());
+      console.log('Navigation object:', navigation);
+      
+      // Add window location tracking for web
+      if (typeof window !== 'undefined') {
+        console.log('Current window location:', window.location.href);
+      }
+      
+      // Force navigation using replace to ensure it works
+      console.log('Attempting navigation to ActivateAccount with email:', email.trim());
+      navigation.replace('ActivateAccount', { userEmail: email.trim() });
+      console.log('Navigation replace call completed');
+      
+      // Check navigation state after
+      setTimeout(() => {
+        console.log('Navigation state after redirect:', navigation.getState());
+        if (typeof window !== 'undefined') {
+          console.log('Window location after redirect:', window.location.href);
+        }
+      }, 500);
     } catch (err: any) {
-      console.error('Registration error:', err.response?.data || err.message);
+      console.log('AuthService registration error details:', {
+        errorType: typeof err,
+        errorConstructor: err?.constructor?.name,
+        message: err?.message,
+        response: err?.response ? {
+          status: err.response.status,
+          data: err.response.data
+        } : null,
+        hasRequest: !!err?.request
+      });
+      console.error('Registration failed', { status: err?.response?.status, code: err?.code });
+      console.error('Registration error:', err?.response?.data || err?.message || err);
+      
+      // Don't show success message on error
+      console.log('Registration error: ' + (err?.message || 'Unknown error'));
 
       let errorMessage = 'An unexpected error occurred during registration.';
-      if (err.response && err.response.data) {
+      if (err?.response?.data) {
         if (err.response.data.detail) {
           errorMessage = err.response.data.detail;
+        } else if (err.response.data.email) {
+          errorMessage = Array.isArray(err.response.data.email) 
+            ? err.response.data.email.join(', ') 
+            : err.response.data.email;
+        } else if (err.response.data.password) {
+          errorMessage = Array.isArray(err.response.data.password) 
+            ? err.response.data.password.join(', ') 
+            : err.response.data.password;
         } else if (typeof err.response.data === 'object') {
-          errorMessage = Object.values(err.response.data)
-            .flat()
-            .map(msg => String(msg))
-            .join('\n');
+          const messages = Object.values(err.response.data).flat();
+          errorMessage = messages.length > 0 ? messages.join(', ') : errorMessage;
         }
-      } else if (err.request) {
-        errorMessage = `Network Error: Could not connect to the server. Please check your internet connection.`;
-      }
-      else if (err.message) {
+      } else if (err?.request) {
+        errorMessage = 'Network Error: Could not connect to the server. Please check your internet connection.';
+      } else if (err?.message) {
         errorMessage = err.message;
       }
       setError(errorMessage);

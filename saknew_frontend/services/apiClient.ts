@@ -3,7 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 import { handleError } from '../utils/errorManager';
-import NetInfo from '@react-native-community/netinfo';
+
 
 // We'll need a way to trigger a logout from here.
 // Instead of importing AuthContext directly (which can cause circular dependencies),
@@ -30,42 +30,27 @@ const apiClient = axios.create({
   timeout: 30000, // 30 seconds timeout
   withCredentials: false, // Don't send cookies
   maxRedirects: 5, // Allow redirects
-  validateStatus: (status) => status < 500, // Only reject if server error
+  validateStatus: (status) => status >= 200 && status < 300, // Only accept 2xx status codes
 });
 
 // Force log the actual URL being used
 console.log('ACTUAL API URL BEING USED:', API_BASE_URL);
 
-// Test the connection with multiple endpoints
-const testEndpoints = [
-  '/api/health-check/',
-  '/api/',
-  '/admin/',
-  '/'
-];
-
-testEndpoints.forEach(endpoint => {
-  axios.get(`${API_BASE_URL}${endpoint}`, { timeout: 5000 })
-    .then(response => {
-      console.log(`✅ API endpoint ${endpoint} is accessible:`, response.status);
-    })
-    .catch(error => {
-      console.log(`❌ API endpoint ${endpoint} is NOT accessible:`, error.message);
-    });
-});
+// Test the main API health check endpoint
+axios.get(`${API_BASE_URL}/api/health-check/`, { timeout: 5000 })
+  .then(response => {
+    console.log(`✅ API health check accessible:`, response.status);
+  })
+  .catch(error => {
+    console.log(`❌ API health check NOT accessible:`, error.message);
+  });
 
 // --- CONFIRMATION LOG: Log the base URL when the client is initialized ---
 console.log('API Client: Initializing with baseURL:', API_BASE_URL);
 
-// Request interceptor to add the JWT token to headers and check network
+// Request interceptor to add the JWT token to headers
 apiClient.interceptors.request.use(
   async (config) => {
-    // Check network connectivity before making request
-    const networkState = await NetInfo.fetch();
-    if (!networkState.isConnected) {
-      // Return a rejected promise with a network error
-      return Promise.reject(new Error('No internet connection'));
-    }
     try {
       const accessToken = await AsyncStorage.getItem('access_token');
       if (accessToken) {

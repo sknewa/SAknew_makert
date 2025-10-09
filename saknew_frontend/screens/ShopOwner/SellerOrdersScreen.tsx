@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Alert, TextInput, Modal, RefreshControl, Image } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext.minimal';
@@ -8,6 +8,31 @@ import apiClient from '../../services/apiClient';
 import { updateOrderStatus } from '../../services/salesService';
 import { formatApiError } from '../../utils/errorHandler';
 import { SecurityUtils } from '../../utils/securityUtils';
+
+interface Order {
+  id: string;
+  user: { username?: string; email: string; phone?: string };
+  order_date: string;
+  order_status: string;
+  delivery_verification_code?: string;
+  shipping_address?: {
+    city: string;
+    country: string;
+    street_name?: string;
+    street_number?: string;
+    suburb?: string;
+  };
+  items: Array<{
+    product: {
+      shop?: { slug: string };
+      shop_name?: string;
+      name: string;
+      main_image_url?: string;
+    };
+    price: string;
+    quantity: number;
+  }>;
+}
 
 const colors = {
   background: '#F8FAFC',
@@ -30,59 +55,118 @@ const formatCurrency = (amount: string | number): string => {
 const SellerOrdersScreen: React.FC = () => {
   const navigation = useNavigation<MainNavigationProp>();
   const { user, isAuthenticated } = useAuth();
-  const [orders, setOrders] = useState<any[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [modalVisible, setModalVisible] = useState(false);
-  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [deliveryCode, setDeliveryCode] = useState('');
   const [modalType, setModalType] = useState<'generate' | 'confirm'>('generate');
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
 
   const fetchOrders = useCallback(async () => {
-    SecurityUtils.safeLog('log', '🔍 DEBUG: fetchOrders called');
-    SecurityUtils.safeLog('log', '🔍 DEBUG: isAuthenticated:', isAuthenticated);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: user:', user);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: user.profile:', user?.profile);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: is_seller:', user?.profile?.is_seller);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: shop_id:', user?.profile?.shop_id);
+    console.log('🔍 DEBUG: === FETCH ORDERS START ===');
+    console.log('🔍 DEBUG: isAuthenticated:', isAuthenticated);
+    console.log('🔍 DEBUG: user:', user);
+    console.log('🔍 DEBUG: user.profile:', user?.profile);
+    console.log('🔍 DEBUG: is_seller:', user?.profile?.is_seller);
+    console.log('🔍 DEBUG: shop_slug:', user?.profile?.shop_slug);
     
-    if (!isAuthenticated || !user?.profile?.is_seller) {
-      SecurityUtils.safeLog('log', '🔍 DEBUG: Early return - not authenticated or not seller');
+    if (!isAuthenticated || !user?.profile?.is_seller || !user?.profile?.shop_slug) {
+      console.log('🔍 DEBUG: EARLY RETURN - Missing requirements');
+      setOrders([]);
       return;
     }
     
     try {
-      SecurityUtils.safeLog('log', '🔍 DEBUG: Making API call to /api/orders/');
+      console.log('🔍 DEBUG: Making API call to /api/orders/');
       const response = await apiClient.get('/api/orders/');
-      SecurityUtils.safeLog('log', '🔍 DEBUG: API response:', response.data);
+      console.log('🔍 DEBUG: API Response status:', response.status);
+      console.log('🔍 DEBUG: API Response data structure:', {
+        hasResults: !!response.data.results,
+        resultsLength: response.data.results?.length,
+        dataLength: response.data?.length,
+        dataType: typeof response.data,
+        isArray: Array.isArray(response.data)
+      });
       
-      const allOrders = response.data.results || [];
-      SecurityUtils.safeLog('log', '🔍 DEBUG: Total orders from API:', allOrders.length);
+      const allOrders = response.data.results || response.data || [];
+      console.log('🔍 DEBUG: Total orders from API:', allOrders.length);
+      console.log('🔍 DEBUG: First 3 orders sample:', allOrders.slice(0, 3));
       
-      // Filter orders for this seller - show ALL order history
-      const sellerOrders = allOrders.filter(order => {
-        SecurityUtils.safeLog('log', '🔍 DEBUG: Checking order:', order.id);
-        SecurityUtils.safeLog('log', '🔍 DEBUG: Order items:', order.items);
-        SecurityUtils.safeLog('log', '🔍 DEBUG: Order user ID:', `${order.user.id} vs seller ID: ${user.id}`);
-        
-        const hasSellerItems = order.items.some(item => {
-          SecurityUtils.safeLog('log', '🔍 DEBUG: Item product shop:', `${item.product.shop} vs seller shop_id: ${user.profile.shop_id}`);
-          return item.product.shop === user.profile.shop_id;
+      // Show ALL purchases that contain items from this shop
+      const sellerOrders = allOrders.filter((order: Order, index: number) => {
+        console.log(`🔍 DEBUG: Checking order ${index + 1}/${allOrders.length}:`, {
+          orderId: order.id,
+          orderStatus: order.order_status,
+          itemsCount: order.items?.length || 0,
+          hasItems: !!order.items
         });
         
-        const isNotOwnOrder = order.user.id !== user.id;
-        SecurityUtils.safeLog('log', '🔍 DEBUG: Has seller items:', `${hasSellerItems}, Is not own order: ${isNotOwnOrder}`);
+        if (!order.items || !Array.isArray(order.items)) {
+          console.log('🔍 DEBUG: Order has no items or items is not array');
+          return false;
+        }
         
-        return hasSellerItems && isNotOwnOrder;
-      }).sort((a, b) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
+        // Check each item in the order
+        const matchingItems = order.items.filter((item, itemIndex) => {
+          console.log(`🔍 DEBUG: Item ${itemIndex + 1} FULL STRUCTURE:`, {
+            fullItem: item,
+            product: item.product,
+            productShop: item.product?.shop,
+            productShopSlug: item.product?.shop?.slug,
+            sellerShopSlug: user.profile.shop_slug
+          });
+          
+          // Convert shop name to slug format for comparison
+          const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
+          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+          
+          const shopSlugMatch = item.product?.shop?.slug === user.profile.shop_slug;
+          const shopNameMatch = productShopSlug === user.profile.shop_slug;
+          
+          console.log(`🔍 DEBUG: Shop matching attempts:`, {
+            productShopName: item.product?.shop_name,
+            productShopSlug,
+            sellerShopSlug: user.profile.shop_slug,
+            shopSlugMatch,
+            shopNameMatch,
+            finalMatch: shopSlugMatch || shopNameMatch
+          });
+          
+          return shopSlugMatch || shopNameMatch;
+        });
+        
+        const hasSellerItems = matchingItems.length > 0;
+        console.log(`🔍 DEBUG: Order ${order.id} has ${matchingItems.length} matching items, belongs to shop: ${hasSellerItems}`);
+        
+        return hasSellerItems;
+      }).sort((a: Order, b: Order) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
       
-      SecurityUtils.safeLog('log', '🔍 DEBUG: Filtered seller orders:', sellerOrders.length);
-      SecurityUtils.safeLog('log', '🔍 DEBUG: Seller orders:', sellerOrders);
+      console.log('🔍 DEBUG: Filtered seller orders:', sellerOrders.length);
+      console.log('🔍 DEBUG: Seller orders details:', sellerOrders.map((o: Order) => ({
+        id: o.id,
+        status: o.order_status,
+        itemsCount: o.items?.length,
+        shopItems: o.items?.filter((item: any) => item.product?.shop?.slug === user.profile.shop_slug).length
+      })));
+      
+      // Count new orders (processing status)
+      const newOrders = sellerOrders.filter((order: Order) => order.order_status === 'processing');
+      setNewOrdersCount(newOrders.length);
+      console.log('🔍 DEBUG: New orders count:', newOrders.length);
       
       setOrders(sellerOrders);
-    } catch (error) {
-      SecurityUtils.safeLog('error', '🔍 DEBUG: Error fetching orders:', error);
+      console.log('🔍 DEBUG: === FETCH ORDERS END ===');
+    } catch (error: any) {
+      console.error('🔍 DEBUG: Error fetching orders:', error);
+      console.error('🔍 DEBUG: Error details:', {
+        message: error.message,
+        status: error.response?.status,
+        data: error.response?.data
+      });
+      setOrders([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -91,6 +175,13 @@ const SellerOrdersScreen: React.FC = () => {
 
   useFocusEffect(useCallback(() => {
     fetchOrders();
+    
+    // Set up auto-refresh every 30 seconds when screen is focused
+    const interval = setInterval(() => {
+      fetchOrders();
+    }, 30000);
+    
+    return () => clearInterval(interval);
   }, [fetchOrders]));
 
   const onRefresh = useCallback(() => {
@@ -98,40 +189,102 @@ const SellerOrdersScreen: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleGenerateCode = (order: any) => {
+  const handleGenerateCode = (order: Order) => {
     setSelectedOrder(order);
     setModalType('generate');
     setModalVisible(true);
   };
 
-  const handleConfirmDelivery = (order: any) => {
+  const handleConfirmDelivery = (order: Order) => {
+    console.log('🔍 DEBUG: === HANDLE CONFIRM DELIVERY START ===');
+    console.log('🔍 DEBUG: Order ID:', order.id);
+    console.log('🔍 DEBUG: Order status:', order.order_status);
+    console.log('🔍 DEBUG: Order verification code:', order.delivery_verification_code);
+    
     setSelectedOrder(order);
     setModalType('confirm');
     setDeliveryCode('');
     setModalVisible(true);
+    
+    console.log('🔍 DEBUG: Modal should now be visible');
+    console.log('🔍 DEBUG: === HANDLE CONFIRM DELIVERY END ===');
   };
 
   const executeAction = async () => {
-    if (!selectedOrder) return;
+    console.log('🔍 DEBUG: === EXECUTE ACTION START ===');
+    console.log('🔍 DEBUG: selectedOrder:', selectedOrder?.id);
+    console.log('🔍 DEBUG: deliveryCode entered:', deliveryCode);
+    console.log('🔍 DEBUG: deliveryCode length:', deliveryCode.length);
+    console.log('🔍 DEBUG: deliveryCode trimmed:', deliveryCode.trim());
+    
+    if (!selectedOrder) {
+      console.log('🔍 DEBUG: No selected order, returning');
+      return;
+    }
 
     try {
-      if (modalType === 'generate') {
-        const response = await updateOrderStatus(selectedOrder.id, 'generate_code');
-        Alert.alert('Success', `Code sent to buyer: ${response.delivery_code}`);
-      } else {
-        if (!deliveryCode.trim()) {
-          Alert.alert('Error', 'Please enter the delivery code');
-          return;
-        }
-        await updateOrderStatus(selectedOrder.id, 'confirm_delivery', deliveryCode);
-        Alert.alert('Success', 'Delivery confirmed! Payment added to your wallet.');
+      if (!deliveryCode.trim()) {
+        console.log('🔍 DEBUG: Empty delivery code, showing error');
+        Alert.alert('Error', 'Please enter the delivery code');
+        return;
       }
       
-      setModalVisible(false);
-      fetchOrders();
-    } catch (error) {
-      Alert.alert('Error', formatApiError(error));
+      console.log('🔍 DEBUG: Making API call to updateOrderStatus');
+      console.log('🔍 DEBUG: - orderId:', selectedOrder.id);
+      console.log('🔍 DEBUG: - action: confirm_delivery');
+      console.log('🔍 DEBUG: - code:', deliveryCode);
+      
+      const response = await updateOrderStatus(selectedOrder.id, 'confirm_delivery', deliveryCode);
+      
+      console.log('🔍 DEBUG: API Response received:', response);
+      console.log('🔍 DEBUG: Response type:', typeof response);
+      console.log('🔍 DEBUG: Response keys:', Object.keys(response || {}));
+      
+      // Check if response is valid
+      if (!response || response === undefined) {
+        console.log('🔍 DEBUG: Invalid response - likely wrong delivery code');
+        Alert.alert('Error', 'Invalid delivery code. Please check the code and try again.');
+        return;
+      }
+      
+      // Calculate seller's earnings from this order
+      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
+      const shopItems = selectedOrder.items.filter((item: any) => {
+        const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+        return item.product?.shop?.slug === user?.profile?.shop_slug || productShopSlug === user?.profile?.shop_slug;
+      });
+      const earnings = shopItems.reduce((sum, item: any) => sum + (parseFloat(item.price) * item.quantity), 0);
+      
+      console.log('🔍 DEBUG: Calculated earnings:', earnings);
+      console.log('🔍 DEBUG: Shop items count:', shopItems.length);
+      
+      Alert.alert(
+        'Delivery Confirmed!', 
+        `Order completed successfully.\n\nEarnings: ${formatCurrency(earnings)}\nPayment added to your wallet.`,
+        [{ text: 'OK', onPress: () => {
+          console.log('🔍 DEBUG: Success dialog confirmed, closing modal and refreshing');
+          setModalVisible(false);
+          fetchOrders();
+          // Switch to history tab to show completed order
+          setActiveTab('completed');
+        }}]
+      );
+    } catch (error: any) {
+      console.error('🔍 DEBUG: Error in executeAction:', error);
+      console.error('🔍 DEBUG: Error message:', error.message);
+      console.error('🔍 DEBUG: Error response:', error.response);
+      console.error('🔍 DEBUG: Error response status:', error.response?.status);
+      console.error('🔍 DEBUG: Error response data:', error.response?.data);
+      
+      // Check if it's a validation error (wrong code)
+      if (error.response?.status === 400 || error.response?.data?.detail?.includes('code')) {
+        Alert.alert('Invalid Code', 'The delivery code you entered is incorrect. Please ask the buyer to show you their code again.');
+      } else {
+        Alert.alert('Error', formatApiError(error));
+      }
     }
+    
+    console.log('🔍 DEBUG: === EXECUTE ACTION END ===');
   };
 
   const getStatusColor = (status: string) => {
@@ -157,27 +310,44 @@ const SellerOrdersScreen: React.FC = () => {
   };
 
   const getFilteredOrders = () => {
-    const filtered = orders.filter(order => {
+    console.log('🔍 DEBUG: === FILTER ORDERS START ===');
+    console.log('🔍 DEBUG: Active tab:', activeTab);
+    console.log('🔍 DEBUG: Total orders before filter:', orders.length);
+    console.log('🔍 DEBUG: Orders statuses:', orders.map((o: Order) => ({ id: o.id, status: o.order_status })));
+    
+    const filtered = orders.filter((order: Order) => {
+      const isActive = ['pending', 'processing', 'ready_for_delivery'].includes(order.order_status);
+      const isCompleted = ['completed', 'cancelled'].includes(order.order_status);
+      
       if (activeTab === 'active') {
-        return ['pending', 'processing', 'ready_for_delivery'].includes(order.order_status);
+        console.log(`🔍 DEBUG: Order ${order.id} status ${order.order_status} - isActive: ${isActive}`);
+        return isActive;
       } else {
-        return ['completed', 'cancelled'].includes(order.order_status);
+        console.log(`🔍 DEBUG: Order ${order.id} status ${order.order_status} - isCompleted: ${isCompleted}`);
+        return isCompleted;
       }
     });
-    SecurityUtils.safeLog('log', '🔍 DEBUG: Active tab:', activeTab);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: Total orders:', orders.length);
-    SecurityUtils.safeLog('log', '🔍 DEBUG: Filtered orders:', filtered.length);
+    
+    console.log('🔍 DEBUG: Filtered orders count:', filtered.length);
+    console.log('🔍 DEBUG: Filtered orders:', filtered.map((o: Order) => ({ id: o.id, status: o.order_status })));
+    console.log('🔍 DEBUG: === FILTER ORDERS END ===');
     return filtered;
   };
 
-  const renderOrderCard = (order: any) => {
-    const orderTotal = order.items
-      .filter(item => item.product.shop === user?.profile?.shop_id)
-      .reduce((sum, item) => sum + (parseFloat(item.price) * item.quantity), 0);
-
-    const itemCount = order.items
-      .filter(item => item.product.shop === user?.profile?.shop_id)
-      .reduce((sum, item) => sum + item.quantity, 0);
+  const renderOrderCard = (order: Order) => {
+    // Filter items from this shop and convert shop name to slug
+    const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
+    const shopItems = order.items.filter((item: any) => {
+      const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+      return item.product?.shop?.slug === user?.profile?.shop_slug || productShopSlug === user?.profile?.shop_slug;
+    });
+    
+    const orderTotal = shopItems.reduce((sum, item: any) => sum + (parseFloat(item.price) * item.quantity), 0);
+    const itemCount = shopItems.reduce((sum, item: any) => sum + item.quantity, 0);
+    
+    const deliveryAddress = order.shipping_address ? 
+      `${order.shipping_address.street_number || ''} ${order.shipping_address.street_name || ''} ${order.shipping_address.suburb || ''} ${order.shipping_address.city}, ${order.shipping_address.country}`.trim() : 
+      'No address provided';
 
     return (
       <View key={order.id} style={styles.orderCard}>
@@ -185,6 +355,11 @@ const SellerOrdersScreen: React.FC = () => {
           <View>
             <Text style={styles.orderId}>#{order.id.slice(-8)}</Text>
             <Text style={styles.customerName}>{order.user.username || order.user.email}</Text>
+            {order.user.phone && (
+              <TouchableOpacity onPress={() => Alert.alert('Call Customer', order.user.phone)}>
+                <Text style={styles.customerPhone}>📞 {order.user.phone}</Text>
+              </TouchableOpacity>
+            )}
             <Text style={styles.orderDate}>{new Date(order.order_date).toLocaleDateString()}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.order_status) + '20' }]}>
@@ -194,45 +369,40 @@ const SellerOrdersScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.orderDetails}>
+        <View style={styles.deliveryInfo}>
+          <Ionicons name="location" size={14} color={colors.textLight} />
+          <Text style={styles.deliveryAddress}>{deliveryAddress}</Text>
+        </View>
+
+        <View style={styles.orderSummary}>
           <Text style={styles.itemCount}>{itemCount} items</Text>
           <Text style={styles.orderTotal}>{formatCurrency(orderTotal)}</Text>
         </View>
 
-        <View style={styles.itemsPreview}>
-          {order.items
-            .filter(item => item.product.shop === user?.profile?.shop_id)
-            .slice(0, 2)
-            .map((item, index) => (
-              <View key={index} style={styles.itemPreview}>
-                <Image 
-                  source={{ uri: item.product.image || 'https://via.placeholder.com/40' }}
-                  style={styles.itemImage}
-                />
-                <Text style={styles.itemName}>{item.product.name}</Text>
-                <Text style={styles.itemQty}>×{item.quantity}</Text>
+        <View style={styles.itemsList}>
+          {shopItems.map((item, index) => (
+            <View key={index} style={styles.itemRow}>
+              <Image 
+                source={{ uri: item.product.main_image_url || 'https://via.placeholder.com/50' }}
+                style={styles.productImage}
+              />
+              <View style={styles.itemDetails}>
+                <Text style={styles.productName}>{item.product.name}</Text>
+                <Text style={styles.itemPrice}>{formatCurrency(item.price)} × {item.quantity}</Text>
+                <Text style={styles.itemSubtotal}>{formatCurrency(parseFloat(item.price) * item.quantity)}</Text>
               </View>
-            ))}
+            </View>
+          ))}
         </View>
 
         <View style={styles.actionButtons}>
-          {order.order_status === 'processing' && (
+          {(order.order_status === 'processing' || order.order_status === 'ready_for_delivery') && (
             <TouchableOpacity 
-              style={[styles.actionBtn, styles.generateBtn]}
-              onPress={() => handleGenerateCode(order)}
-            >
-              <Ionicons name="key" size={16} color={colors.card} />
-              <Text style={styles.actionBtnText}>Send Code to Buyer</Text>
-            </TouchableOpacity>
-          )}
-          
-          {order.order_status === 'ready_for_delivery' && (
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.confirmBtn]}
+              style={[styles.actionBtn, styles.deliveredBtn]}
               onPress={() => handleConfirmDelivery(order)}
             >
               <Ionicons name="checkmark-circle" size={16} color={colors.card} />
-              <Text style={styles.actionBtnText}>Confirm Delivery</Text>
+              <Text style={styles.actionBtnText}>Mark as Delivered</Text>
             </TouchableOpacity>
           )}
           
@@ -267,8 +437,15 @@ const SellerOrdersScreen: React.FC = () => {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>Order History</Text>
-        <TouchableOpacity onPress={onRefresh}>
+        <View style={styles.headerLeft}>
+          <Text style={styles.headerTitle}>My Orders</Text>
+          {newOrdersCount > 0 && (
+            <View style={styles.newOrdersBadge}>
+              <Text style={styles.newOrdersText}>{newOrdersCount} New</Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
           <Ionicons name="refresh" size={24} color={colors.primary} />
         </TouchableOpacity>
       </View>
@@ -294,18 +471,29 @@ const SellerOrdersScreen: React.FC = () => {
       >
         {(() => {
           const filteredOrders = getFilteredOrders();
+          console.log('🔍 RENDER DEBUG: Total orders:', orders.length);
+          console.log('🔍 RENDER DEBUG: Filtered orders:', filteredOrders.length);
+          console.log('🔍 RENDER DEBUG: Active tab:', activeTab);
           return filteredOrders.length === 0 ? (
             <View style={styles.centerContent}>
               <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
               <Text style={styles.emptyText}>
-                {activeTab === 'active' ? 'No active orders' : 'No order history'}
+                {activeTab === 'active' ? '🔔 No Active Orders' : 'No Order History'}
               </Text>
               <Text style={styles.emptySubText}>
                 {activeTab === 'active' 
-                  ? 'New orders will appear here when customers buy your products'
-                  : 'Completed and cancelled orders will appear here'
+                  ? 'All orders containing your shop products will appear here. This includes orders from any customer who purchased from your shop.'
+                  : 'All completed and cancelled orders from your shop will appear here'
                 }
               </Text>
+              <Text style={styles.debugText}>
+                Debug: {orders.length} total orders | {filteredOrders.length} {activeTab} | Shop: {user?.profile?.shop_slug || 'None'}
+              </Text>
+              {activeTab === 'active' && (
+                <Text style={styles.autoRefreshText}>
+                  🔄 Auto-checking for new orders...
+                </Text>
+              )}
             </View>
           ) : (
             filteredOrders.map(renderOrderCard)
@@ -317,31 +505,24 @@ const SellerOrdersScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>
-                {modalType === 'generate' ? 'Send Delivery Code' : 'Confirm Delivery'}
-              </Text>
+              <Text style={styles.modalTitle}>Confirm Delivery</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
                 <Ionicons name="close" size={24} color={colors.text} />
               </TouchableOpacity>
             </View>
 
             <Text style={styles.modalText}>
-              {modalType === 'generate' 
-                ? 'This will send the delivery code to the buyer. They will show you this code when they receive the order.'
-                : 'Enter the delivery code that the buyer showed you to confirm delivery and receive payment.'
-              }
+              Ask the buyer to show you their delivery code, then enter it below to confirm delivery and receive payment.
             </Text>
 
-            {modalType === 'confirm' && (
-              <TextInput
-                style={styles.codeInput}
-                placeholder="Enter delivery code"
-                value={deliveryCode}
-                onChangeText={setDeliveryCode}
-                maxLength={8}
-                autoCapitalize="characters"
-              />
-            )}
+            <TextInput
+              style={styles.codeInput}
+              placeholder="Enter delivery code"
+              value={deliveryCode}
+              onChangeText={setDeliveryCode}
+              maxLength={8}
+              autoCapitalize="characters"
+            />
 
             <View style={styles.modalButtons}>
               <TouchableOpacity 
@@ -354,9 +535,7 @@ const SellerOrdersScreen: React.FC = () => {
                 style={[styles.modalBtn, styles.confirmModalBtn]}
                 onPress={executeAction}
               >
-                <Text style={styles.confirmBtnText}>
-                  {modalType === 'generate' ? 'Send Code' : 'Confirm & Get Paid'}
-                </Text>
+                <Text style={styles.confirmBtnText}>Confirm & Get Paid</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -369,22 +548,38 @@ const SellerOrdersScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.card, elevation: 2 },
+  headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
+  newOrdersBadge: { backgroundColor: colors.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 12 },
+  newOrdersText: { color: colors.card, fontSize: 12, fontWeight: '600' },
+  refreshButton: { padding: 8 },
   content: { flex: 1, padding: 16 },
   centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
   loadingText: { fontSize: 16, color: colors.textLight },
   emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 16 },
   emptySubText: { fontSize: 14, color: colors.textLight, textAlign: 'center', marginTop: 8, paddingHorizontal: 32 },
+  autoRefreshText: { fontSize: 12, color: colors.primary, textAlign: 'center', marginTop: 8, fontStyle: 'italic' },
+  debugText: { fontSize: 10, color: colors.textLight, textAlign: 'center', marginTop: 8, fontFamily: 'monospace' },
   
   orderCard: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2 },
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
   orderId: { fontSize: 16, fontWeight: '700', color: colors.text },
   customerName: { fontSize: 14, color: colors.textLight, marginTop: 2 },
+  customerPhone: { fontSize: 12, color: colors.primary, marginTop: 1, fontWeight: '500' },
   orderDate: { fontSize: 12, color: colors.textLight, marginTop: 2 },
   statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
   statusText: { fontSize: 12, fontWeight: '600' },
   
-  orderDetails: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  deliveryInfo: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.accent, borderRadius: 8 },
+  deliveryAddress: { fontSize: 13, color: colors.text, marginLeft: 8, flex: 1, lineHeight: 18 },
+  orderSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 4 },
+  itemsList: { marginBottom: 16 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
+  productImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  itemDetails: { flex: 1 },
+  productName: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 4 },
+  itemPrice: { fontSize: 13, color: colors.textLight, marginBottom: 2 },
+  itemSubtotal: { fontSize: 14, fontWeight: '600', color: colors.primary },
   itemCount: { fontSize: 14, color: colors.textLight },
   orderTotal: { fontSize: 18, fontWeight: '700', color: colors.text },
   
@@ -393,11 +588,12 @@ const styles = StyleSheet.create({
   itemImage: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
   itemName: { flex: 1, fontSize: 14, color: colors.text },
   itemQty: { fontSize: 12, color: colors.textLight, fontWeight: '600' },
+  moreItemsText: { fontSize: 12, color: colors.textLight, fontStyle: 'italic', marginTop: 4 },
   
   actionButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
   actionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
   generateBtn: { backgroundColor: colors.primary },
-  confirmBtn: { backgroundColor: colors.success },
+  deliveredBtn: { backgroundColor: colors.success },
   actionBtnText: { color: colors.card, fontSize: 14, fontWeight: '600', marginLeft: 6 },
   completedBadge: { flexDirection: 'row', alignItems: 'center' },
   completedText: { color: colors.success, fontSize: 14, fontWeight: '600', marginLeft: 6 },

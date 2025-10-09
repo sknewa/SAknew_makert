@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import ProductCard from '../../components/ProductCard';
 import {
   View,
@@ -11,9 +11,7 @@ import {
   ActivityIndicator,
   Image,
   StatusBar,
-  RefreshControl,
-  Dimensions,
-  ScrollView
+  RefreshControl
 } from 'react-native';
 import { globalStyles, colors, spacing } from '../../styles/globalStyles';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -28,8 +26,20 @@ import { getImageUrl, isImageAccessible } from '../../utils/imageUtils';
 import { testApiConnectivity } from '../../utils/apiTest';
 import StatusSection from '../../components/StatusSection';
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = width / 3 - spacing.md;
+/**
+ * Converts a product from the service layer type to the app's product type.
+ * Provides default values for potentially missing fields to ensure type safety.
+ * @param p - The product object from the service.
+ * @returns A product object conforming to the AppProduct interface.
+ */
+const convertServiceProduct = (p: ServiceProduct): AppProduct => {
+  const serviceProduct = p as any; // Using 'as any' to bridge potential type gaps from the backend.
+  return {
+    ...serviceProduct,
+    user: serviceProduct.user || { id: 0, username: 'Unknown', email: '' },
+    images: serviceProduct.images || [],
+  } as AppProduct;
+};
 
 const HomeScreen = () => {
   const { logout, loading } = useAuth();
@@ -41,13 +51,21 @@ const HomeScreen = () => {
   const [error, setError] = useState<string | null>(null);
   const [cartUpdated, setCartUpdated] = useState(0);
   const [groupedProducts, setGroupedProducts] = useState<{[key: string]: AppProduct[]}>({});
+  const [statusRefreshTrigger, setStatusRefreshTrigger] = useState(0);
+
+  // Memoize the category data structure for the FlatList to prevent re-renders
+  const categorySections = useMemo(() => 
+    Object.entries(groupedProducts), 
+  [groupedProducts]);
 
   const handleStatusPress = (userStatus: any) => {
     navigation.navigate('StatusViewer', { userStatus });
   };
 
   const handleCreateStatus = () => {
-    navigation.navigate('CreateStatus');
+    navigation.navigate('CreateStatus', {
+      onStatusCreated: () => setStatusRefreshTrigger(prev => prev + 1)
+    });
   };
 
   // getImageUrl is now imported from utils/imageUtils
@@ -99,14 +117,7 @@ const HomeScreen = () => {
               }
             });
         }
-        // Convert ServiceProduct[] to AppProduct[] by adding missing properties
-        const convertedProducts = productList.map(p => {
-          const product = p as any;
-          if (!product.user) {
-            product.user = { id: 0, username: '', email: '' };
-          }
-          return product as AppProduct;
-        });
+        const convertedProducts = productList.map(convertServiceProduct);
         
         setProducts(convertedProducts);
         
@@ -147,13 +158,7 @@ const HomeScreen = () => {
       
       if (isPaginatedResponse) {
         // Convert ServiceProduct[] to AppProduct[]
-        const convertedProducts = (response as PaginatedResponse<ServiceProduct>).results.map(p => {
-          const product = p as any;
-          if (!product.user) {
-            product.user = { id: 0, username: '', email: '' };
-          }
-          return product as AppProduct;
-        });
+        const convertedProducts = (response as PaginatedResponse<ServiceProduct>).results.map(convertServiceProduct);
         
         setProducts(convertedProducts);
       } else {
@@ -192,44 +197,6 @@ const HomeScreen = () => {
     fetchProducts();
   }, [fetchProducts]);
 
-  // Render category section
-  const renderCategorySection = (categoryName: string, categoryProducts: AppProduct[]) => (
-    <View key={categoryName} style={styles.categorySection}>
-      <Text style={styles.categoryTitle}>{categoryName}</Text>
-      <FlatList
-        data={categoryProducts.slice(0, 6)}
-        renderItem={({ item }) => {
-          const productWithImages = { ...item, images: item.images ?? [] };
-          return (
-            <ProductCard
-              key={item.id}
-              product={productWithImages}
-              isShopOwner={false}
-              navigation={navigation as any}
-              onCartUpdated={() => setCartUpdated(c => c + 1)}
-            />
-          );
-        }}
-        keyExtractor={(item) => item.id.toString()}
-        numColumns={3}
-        scrollEnabled={false}
-        contentContainerStyle={styles.categoryGrid}
-      />
-      {categoryProducts.length > 6 && (
-        <TouchableOpacity 
-          style={styles.viewMoreButton}
-          onPress={() => navigation.navigate('CategoryProducts', {
-            categoryName,
-            products: categoryProducts
-          })}
-        >
-          <Text style={styles.viewMoreText}>View More ({categoryProducts.length - 6})</Text>
-          <Ionicons name="arrow-forward" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
-        </TouchableOpacity>
-      )}
-    </View>
-  );
-
   return (
     <SafeAreaView style={globalStyles.safeContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
@@ -246,18 +213,18 @@ const HomeScreen = () => {
           disabled={loading}
           accessibilityLabel="Logout"
         >
-          <Ionicons name="log-out-outline" size={20} color={colors.white} />
+          <Ionicons name="log-out-outline" size={20} color={'white'} />
         </TouchableOpacity>
       </View>
       
       {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.textLight} style={styles.searchIcon} />
+          <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
             placeholder="Search products..."
-            placeholderTextColor={colors.textLight}
+            placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
             onSubmitEditing={handleSearch}
@@ -265,17 +232,20 @@ const HomeScreen = () => {
           />
           {searchQuery ? (
             <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textLight} />
+              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
             </TouchableOpacity>
           ) : null}
         </View>
       </View>
       
       {/* Status Section */}
-      <StatusSection 
-        onStatusPress={handleStatusPress}
-        onCreateStatus={handleCreateStatus}
-      />
+      <View style={styles.statusSectionContainer}>
+        <StatusSection 
+          onStatusPress={handleStatusPress}
+          onCreateStatus={handleCreateStatus}
+          refreshTrigger={statusRefreshTrigger}
+        />
+      </View>
       
       {/* Main Content */}
       {productsLoading && !refreshing ? (
@@ -296,23 +266,28 @@ const HomeScreen = () => {
           {/* Categories removed */}
           
           {/* Products by Category */}
-          <ScrollView 
+          <FlatList
+            data={categorySections}
+            keyExtractor={([categoryName]) => categoryName}
+            renderItem={({ item: [categoryName, products] }) => (
+              <CategorySection
+                categoryName={categoryName}
+                products={products}
+                navigation={navigation}
+                onCartUpdated={() => setCartUpdated(c => c + 1)}
+              />
+            )}
             style={styles.productsContainer}
             showsVerticalScrollIndicator={false}
             refreshControl={
-              <RefreshControl 
-                refreshing={refreshing} 
+              <RefreshControl
+                refreshing={refreshing}
                 onRefresh={onRefresh}
                 colors={[colors.primary]}
                 tintColor={colors.primary}
               />
             }
-          >
-            {Object.keys(groupedProducts).length > 0 ? (
-              Object.entries(groupedProducts).map(([categoryName, categoryProducts]) =>
-                renderCategorySection(categoryName, categoryProducts)
-              )
-            ) : (
+            ListEmptyComponent={
               <View style={styles.emptyContainer}>
                 <Ionicons name="basket-outline" size={60} color={colors.textSecondary} />
                 <Text style={styles.emptyText}>No products found</Text>
@@ -320,13 +295,73 @@ const HomeScreen = () => {
                   <Text style={styles.refreshButtonText}>Refresh</Text>
                 </TouchableOpacity>
               </View>
-            )}
-          </ScrollView>
+            }
+          />
         </>
       )}
     </SafeAreaView>
   );
 };
+
+interface CategorySectionProps {
+  categoryName: string;
+  products: AppProduct[];
+  navigation: MainNavigationProp;
+  onCartUpdated: () => void;
+}
+
+const CategorySection: React.FC<CategorySectionProps> = React.memo(({
+  categoryName,
+  products,
+  navigation,
+  onCartUpdated,
+}) => {
+  // All products in this group should have the same category slug.
+  const categorySlug = products.length > 0 ? products[0].category_slug : null;
+
+  const handleViewMore = () => {
+    // Navigate with a category identifier instead of the whole product list.
+    // Note: The 'CategoryProducts' screen must be updated to fetch products using this identifier.
+    if (categorySlug) {
+      navigation.navigate('CategoryProducts', {
+        categoryName,
+        categorySlug: categorySlug,
+      });
+    } else {
+      // Handle cases where there's no slug, like the "Other" category
+      console.warn(`View More clicked for category "${categoryName}" with no slug.`);
+    }
+  };
+
+  return (
+    <View style={styles.categorySection}>
+      <Text style={styles.categoryTitle}>{categoryName}</Text>
+      <FlatList
+        data={products.slice(0, 6)}
+        renderItem={({ item }) => {
+          return (
+            <ProductCard
+              product={item}
+              isShopOwner={false}
+              navigation={navigation} // Pass navigation prop without `as any`
+              onCartUpdated={onCartUpdated}
+            />
+          );
+        }}
+        keyExtractor={(item) => item.id.toString()}
+        numColumns={3}
+        scrollEnabled={false}
+        contentContainerStyle={styles.categoryGrid}
+      />
+      {products.length > 6 && (
+        <TouchableOpacity style={styles.viewMoreButton} onPress={handleViewMore}>
+          <Text style={styles.viewMoreText}>View More ({products.length - 6})</Text>
+          <Ionicons name="arrow-forward" size={14} color={colors.primary} style={{ marginLeft: 4 }} />
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+});
 
 const styles = StyleSheet.create({
   header: {
@@ -351,12 +386,12 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: 28,
     fontWeight: '800',
-    color: colors.white,
+    color: 'white',
     letterSpacing: -0.5,
   },
   headerSubtitle: {
     fontSize: 14,
-    color: colors.white,
+    color: 'white',
     opacity: 0.8,
     marginTop: 2,
   },
@@ -391,7 +426,11 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 24,
     fontSize: 16,
-    color: colors.text,
+    color: colors.textPrimary,
+  },
+  statusSectionContainer: {
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.sm,
   },
   loadingContainer: {
     flex: 1,
@@ -401,7 +440,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 12,
     fontSize: 16,
-    color: colors.textLight,
+    color: colors.textSecondary,
   },
   errorContainer: {
     flex: 1,
@@ -456,7 +495,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 22,
     fontWeight: '700',
-    color: colors.text,
+    color: colors.textPrimary,
     letterSpacing: -0.3,
   },
   seeAllText: {
@@ -475,7 +514,7 @@ const styles = StyleSheet.create({
     marginRight: 10,
     borderRadius: 20,
     backgroundColor: colors.card,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 4,
@@ -488,7 +527,7 @@ const styles = StyleSheet.create({
   },
   categoryText: {
     fontSize: 14,
-    color: colors.text,
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   activeCategoryText: {
@@ -528,15 +567,15 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   productsList: {
-    paddingBottom: 20,
+    paddingHorizontal: spacing.md,
+    paddingBottom: spacing.lg,
   },
-  productCard: {
-    width: CARD_WIDTH,
+  productCard: { // This style is no longer used in HomeScreen, but may be used in ProductCard.tsx
     backgroundColor: colors.card,
     borderRadius: 16,
     marginBottom: 12,
     marginHorizontal: 2,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 6 },
     shadowOpacity: 0.12,
     shadowRadius: 16,
@@ -576,13 +615,13 @@ const styles = StyleSheet.create({
   },
   shopName: {
     fontSize: 12,
-    color: colors.textLight,
+    color: colors.textSecondary,
     marginBottom: 4,
   },
   productName: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   price: {
@@ -610,7 +649,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     marginHorizontal: 8,
     marginTop: 20,
-    shadowColor: colors.shadow,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.08,
     shadowRadius: 12,
@@ -620,12 +659,12 @@ const styles = StyleSheet.create({
     marginTop: 12,
     fontSize: 18,
     fontWeight: 'bold',
-    color: colors.text,
+    color: colors.textPrimary,
     marginBottom: 8,
   },
   emptySubText: {
     fontSize: 14,
-    color: colors.textLight,
+    color: colors.textSecondary,
     textAlign: 'center',
     marginBottom: 20,
   },
@@ -643,7 +682,7 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   refreshButtonText: {
-    color: colors.white,
+    color: 'white',
     fontWeight: '600',
     marginLeft: 6,
   },

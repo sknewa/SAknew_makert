@@ -67,21 +67,23 @@ const PasswordResetRequestScreen: React.FC = () => {
         ]
       );
     } catch (err: any) {
-      console.error('Password reset request error:', err.response?.data || err.message);
+      console.error('Password reset request error:', err?.response?.data || err?.message || err);
       let errorMessage = 'An unexpected error occurred. Please try again.';
 
-      if (err.response && err.response.data) {
+      if (err?.response?.data) {
         if (err.response.data.detail) {
           errorMessage = err.response.data.detail;
+        } else if (err.response.data.email) {
+          errorMessage = Array.isArray(err.response.data.email) 
+            ? err.response.data.email.join(', ') 
+            : err.response.data.email;
         } else if (typeof err.response.data === 'object') {
-          errorMessage = Object.values(err.response.data)
-            .flat()
-            .map(msg => String(msg))
-            .join('\n');
+          const messages = Object.values(err.response.data).flat();
+          errorMessage = messages.length > 0 ? messages.join(', ') : errorMessage;
         }
-      } else if (err.request) {
-        errorMessage = `Network Error: Could not connect to the server. Please check your internet connection.`;
-      } else if (err.message) {
+      } else if (err?.request) {
+        errorMessage = 'Network Error: Could not connect to the server. Please check your internet connection.';
+      } else if (err?.message) {
         errorMessage = err.message;
       }
       setError(errorMessage);

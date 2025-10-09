@@ -1,0 +1,19 @@
+[build]
+  publish = "dist"
+  command = "npm run build"
+
+[build.environment]
+  NODE_VERSION = "18"
+
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[context.production.environment]
+  SERVER_IP = "saknew-makert-e7ac1361decc.herokuapp.com"
+  SERVER_PORT = "443"
+  API_BASE_URL = "https://saknew-makert-e7ac1361decc.herokuapp.com/"
+  IMAGE_BASE_URL = "https://saknew-makert-e7ac1361decc.herokuapp.com"
+  DEBUG = "false"
+  APP_ENV = "production"

@@ -30,6 +30,7 @@ import { UserStatus } from '../../services/status.types';
 
 // Import shopService directly
 import shopService from '../../services/shopService';
+import apiClient from '../../services/apiClient';
 
 // Define common colors, used throughout the component and stylesheet
 const colors = {
@@ -121,6 +122,7 @@ const MyShopScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
+  const [newOrdersCount, setNewOrdersCount] = useState(0);
 
   const groupProductsByCategory = useCallback((allProducts: Product[]) => {
     const grouped: { [categoryId: number]: { categoryId: number; categoryName: string; categorySlug: string; products: Product[] } } = {};
@@ -189,9 +191,9 @@ const MyShopScreen: React.FC = () => {
         console.log('🏪 Setting shop data and fetching products...');
         setShop(fetchedShop);
 
-        // Get products for the shop
-        // The service might be typed to return Product[], but the API can return a paginated object.
-        const productResponse: any = await shopService.getShopProducts(fetchedShop.slug);
+        // Get products for the shop only if slug exists
+        if (fetchedShop.slug) {
+          const productResponse: any = await shopService.getShopProducts(fetchedShop.slug);
         
         // FIX: Handle paginated response from the API
         if (productResponse && Array.isArray(productResponse.results)) {
@@ -201,10 +203,17 @@ const MyShopScreen: React.FC = () => {
           // Handle cases where the API might just return an array directly.
           console.log('🏪 Products fetched:', productResponse.length);
           setProducts(productResponse);
+          } else {
+            console.error('🏪 Unexpected product data structure:', productResponse);
+            setProducts([]);
+          }
         } else {
-          console.error('🏪 Unexpected product data structure:', productResponse);
+          console.log('🏪 No shop slug - skipping product fetch');
           setProducts([]);
         }
+        
+        // Fetch new orders count
+        await fetchNewOrdersCount();
         
       } catch (shopError: any) {
         console.log('🏪 Shop API Error:', shopError.response?.status, shopError?.message);
@@ -230,6 +239,29 @@ const MyShopScreen: React.FC = () => {
       setRefreshing(false);
     }
   }, [user, isAuthenticated, refreshing]);
+  
+  const fetchNewOrdersCount = useCallback(async () => {
+    if (!user?.profile?.is_seller) return;
+    
+    try {
+      const response = await apiClient.get('/api/orders/');
+      const allOrders = response.data.results || [];
+      
+      const newOrders = allOrders.filter(order => {
+        const hasSellerItems = order.items.some(item => 
+          item.product.shop === user.profile.shop_id
+        );
+        const isNotOwnOrder = order.user.id !== user.id;
+        const isNewOrder = order.order_status === 'processing';
+        
+        return hasSellerItems && isNotOwnOrder && isNewOrder;
+      });
+      
+      setNewOrdersCount(newOrders.length);
+    } catch (error) {
+      console.log('Error fetching orders count:', error);
+    }
+  }, [user]);
 
   useFocusEffect(
     useCallback(() => {
@@ -484,9 +516,16 @@ const MyShopScreen: React.FC = () => {
                   style={styles.statCard}
                   onPress={() => navigation.navigate('SellerOrders')}
                 >
-                  <Ionicons name="bag-handle-outline" size={18} color={colors.infoAction} />
-                  <Text style={styles.statValue}>0</Text>
-                  <Text style={styles.statLabel}>Orders</Text>
+                  <View style={styles.statCardContent}>
+                    <Ionicons name="bag-handle-outline" size={18} color={colors.infoAction} />
+                    {newOrdersCount > 0 && (
+                      <View style={styles.orderBadge}>
+                        <Text style={styles.orderBadgeText}>{newOrdersCount}</Text>
+                      </View>
+                    )}
+                  </View>
+                  <Text style={styles.statValue}>{newOrdersCount}</Text>
+                  <Text style={styles.statLabel}>New Orders</Text>
                 </TouchableOpacity>
               </View>
             </View>
@@ -802,6 +841,26 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
+  },
+  statCardContent: {
+    position: 'relative',
+    alignItems: 'center',
+  },
+  orderBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -8,
+    backgroundColor: colors.errorText,
+    borderRadius: 10,
+    minWidth: 20,
+    height: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  orderBadgeText: {
+    color: colors.white,
+    fontSize: 10,
+    fontWeight: 'bold',
   },
   statValue: {
     fontSize: 18,

@@ -90,15 +90,15 @@ const CreateShopScreen: React.FC = () => {
       setCheckingShop(true);
       try {
         if (user?.profile?.shop_slug) {
-          // User already has a shop, redirect to MyShopScreen
           Alert.alert(
             'Shop Already Exists',
-            'You already have a shop. You cannot create multiple shops.',
+            'You already have a shop. You can only own one shop.',
             [{
-              text: 'OK',
-              onPress: () => navigation.navigate('ShopTab' as never)
+              text: 'Go to My Shop',
+              onPress: () => navigation.replace('ShopTab' as never)
             }]
           );
+          return;
         }
       } catch (err) {
         console.error('Error checking existing shop:', err);
@@ -127,63 +127,49 @@ const CreateShopScreen: React.FC = () => {
     Keyboard.dismiss();
 
     try {
-      // First check if location services are available
-      const isAvailable = await Location.hasServicesEnabledAsync().catch(() => false);
-      if (!isAvailable) {
-        setError('Location services are not available on this device.');
-        Alert.alert(
-          'Location Services Unavailable',
-          'Location services are not available on this device. Please enter your address manually.'
-        );
+      let { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Permission Denied', 'Please enable location permission in your device settings.');
         setLocationLoading(false);
         return;
       }
 
-      let { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setError('Permission to access location was denied. Please enable it in your device settings.');
-        Alert.alert(
-          'Location Permission Denied',
-          'Please enable location services for this app in your device settings to use this feature, or enter address manually.'
-        );
-        return;
-      }
-
-      let location = await Location.getCurrentPositionAsync({ 
+      const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
-        timeInterval: 5000
-      }).catch(error => {
-        throw new Error('Could not get current position: ' + error.message);
+        timeout: 20000,
+        maximumAge: 60000
       });
       
-      // Round coordinates to 6 decimal places
       setDerivedLatitude(location.coords.latitude.toFixed(6));
       setDerivedLongitude(location.coords.longitude.toFixed(6));
-
+      
       try {
-        // Reverse geocode to get address details
         const geocodedAddress = await Location.reverseGeocodeAsync({
           latitude: location.coords.latitude,
           longitude: location.coords.longitude,
         });
-
+        
         if (geocodedAddress && geocodedAddress.length > 0) {
           const address = geocodedAddress[0];
-          setCountry(address.country || '');
-          setProvince(address.region || ''); // region usually maps to province/state
-          setTown(address.city || address.subregion || ''); // city or subregion for town
-          Alert.alert('Location Fetched', 'Your current location address has been set.');
+          setCountry(address.country || 'South Africa');
+          setProvince(address.region || address.administrativeArea || 'Gauteng');
+          setTown(address.city || address.locality || address.subregion || 'Pretoria');
         } else {
-          Alert.alert('Location Fetched', 'Could not determine address from live location. Coordinates set.');
+          setCountry('South Africa');
+          setProvince('Gauteng');
+          setTown('Pretoria');
         }
-      } catch (geocodeErr) {
-        console.warn('Geocoding failed but coordinates were obtained:', geocodeErr);
-        Alert.alert('Location Partially Fetched', 'Got your coordinates but could not determine address. You can enter address details manually.');
+      } catch {
+        setCountry('South Africa');
+        setProvince('Gauteng');
+        setTown('Pretoria');
       }
-    } catch (err: any) {
-      console.error('Error fetching live location:', err);
-      setError('Failed to get live location. Please enter your address manually.');
-      Alert.alert('Location Error', 'Could not fetch your current location. Please enter your address manually.');
+      
+      Alert.alert('Success!', 'Location and address fields have been filled automatically.');
+      
+    } catch (error: any) {
+      Alert.alert('Location Error', 'Could not get location. Please enter address manually.');
+      setError('Location failed. Please enter address manually.');
     } finally {
       setLocationLoading(false);
     }
@@ -207,24 +193,19 @@ const CreateShopScreen: React.FC = () => {
 
     // Double-check user doesn't already have a shop
     if (user?.profile?.shop_slug) {
-      console.log('🏪 CREATE SHOP - User already has shop:', user.profile.shop_slug);
-      setError('You already have a shop. You cannot create multiple shops.');
+      setError('You already have a shop. You can only own one shop.');
       Alert.alert(
         'Shop Already Exists',
-        'You already have a shop. You cannot create multiple shops.',
+        'You can only own one shop.',
         [{
-          text: 'OK',
-          onPress: () => navigation.navigate('ShopTab' as never)
+          text: 'Go to My Shop',
+          onPress: () => navigation.replace('ShopTab' as never)
         }]
       );
       return;
     }
     
-    if (!user?.profile?.is_seller) {
-      console.log('🏪 CREATE SHOP - User is not a seller');
-      setError('You must be a seller to create a shop.');
-      return;
-    }
+    // Allow any user to create a shop - they will become a seller automatically
 
     if (!name.trim()) {
       console.log('🏪 CREATE SHOP - Shop name is empty');
@@ -240,7 +221,7 @@ const CreateShopScreen: React.FC = () => {
 
     if (!finalLatitude || !finalLongitude) { // If no live location was set, try geocoding the entered address
       if (!country.trim() && !province.trim() && !town.trim()) {
-        setError('Please provide either live location or fill in at least one address field (Country, Province, or Town).');
+        setError('Shop location is required. Please use live location or enter address details.');
         return;
       }
 
@@ -304,14 +285,14 @@ const CreateShopScreen: React.FC = () => {
         // In a real app, you'd call refreshUserProfile() to fetch from API
       }
       
+      // Refresh user profile to update seller status
+      await refreshUserProfile();
+      
       Alert.alert('Success!', `Your shop "${newShop.name}" has been created!`, [
         {
           text: 'View My Shop',
           onPress: () => {
-            navigation.getParent()?.navigate('ShopOwnerStack', { 
-              screen: 'MyShop',
-              params: { shopSlug: newShop.slug }
-            });
+            navigation.replace('ShopTab' as never);
           },
         },
       ]);
@@ -413,9 +394,9 @@ const CreateShopScreen: React.FC = () => {
                 />
               </View>
 
-              <Text style={styles.inputLabel}>Shop Location</Text>
+              <Text style={styles.inputLabel}>Shop Location <Text style={styles.requiredIndicator}>*</Text></Text>
               <Text style={styles.locationInfoText}>
-                Provide your shop's address or use your current location.
+                Required: Provide your shop's address or use your current location.
                 (This helps customers find you!)
               </Text>
 
@@ -641,14 +622,14 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 15,
   },
   container: {
-    width: '90%',
+    flex: 1,
+    width: '100%',
     maxWidth: 500,
-    alignItems: 'center',
+    alignSelf: 'center',
   },
   backButton: {
     position: 'absolute',
@@ -658,7 +639,7 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 20,
     alignItems: 'center',
   },
   headerIcon: {
@@ -681,18 +662,18 @@ const styles = StyleSheet.create({
   formCard: {
     backgroundColor: colors.card,
     borderRadius: 15,
-    padding: 25,
+    padding: 20,
     width: '100%',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
+    shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    shadowRadius: 5,
+    elevation: 4,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '600',
   },
   requiredIndicator: {
@@ -703,10 +684,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.backgroundLight,
-    height: 55,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
+    height: 50,
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    marginBottom: 15,
     borderWidth: 1,
     borderColor: colors.border,
   },

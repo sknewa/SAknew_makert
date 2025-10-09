@@ -201,6 +201,8 @@ const AddProductScreen: React.FC = () => {
         allowsMultipleSelection: true,
         quality: 0.5,
       });
+      
+      console.log('Image picker result:', result);
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
         return; // User cancelled or no assets selected
@@ -247,21 +249,32 @@ const AddProductScreen: React.FC = () => {
     });
   }, []);
 
-  // Helper to create FormData for image upload
-  const createFormDataForImage = useCallback((uri: string, isMain: boolean): FormData => {
-    const formData = new FormData();
-    const filename = uri.split('/').pop() || 'image.jpg';
-    const match = /\.(\w+)$/.exec(filename); // Use \w+ for word characters in extension
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
+  // Helper to create image data for upload
+  const createImageData = useCallback((uri: string, isMain: boolean) => {
+    console.log('Creating image data for URI:', uri);
+    const filename = `image_${Date.now()}.jpg`; // Generate unique filename
+    const type = 'image/jpeg';
 
-    formData.append('image', {
-      uri,
-      name: filename,
-      type,
-    } as any); // Type assertion for React Native's Blob equivalent
+    // For web, we need to fetch the blob from the URI
+    const fetchImageBlob = async () => {
+      try {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        console.log('Fetched blob:', blob);
+        // Create a File object with proper name
+        const file = new File([blob], filename, { type: blob.type || type });
+        console.log('Created file:', file);
+        return file;
+      } catch (error) {
+        console.error('Error fetching blob:', error);
+        throw error;
+      }
+    };
 
-    formData.append('is_main', isMain ? 'true' : 'false');
-    return formData;
+    return {
+      image: fetchImageBlob(),
+      is_main: isMain,
+    };
   }, []);
 
   // Product Submission Logic
@@ -348,13 +361,17 @@ const AddProductScreen: React.FC = () => {
       let allImagesUploadedSuccessfully = true;
       for (const img of selectedImages) {
         try {
-          const formData = createFormDataForImage(img.uri, img.isMain);
-          const uploadUrl = `/api/products/${productId}/add-image/`;
-          await apiClient.post(uploadUrl, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data',
-            },
-          });
+          console.log('Processing image:', img);
+          const imageData = createImageData(img.uri, img.isMain);
+          console.log('Image data created:', imageData);
+          
+          // Wait for the blob if it's a promise
+          if (imageData.image instanceof Promise) {
+            imageData.image = await imageData.image;
+            console.log('Resolved image blob:', imageData.image);
+          }
+          
+          await shopService.addProductImage(productId, imageData);
         } catch (imageUploadError: any) {
           console.error('Error uploading image:', img.uri, imageUploadError.response?.data || imageUploadError.message);
           allImagesUploadedSuccessfully = false; // Mark failure but continue trying other images
@@ -397,7 +414,7 @@ const AddProductScreen: React.FC = () => {
     selectedImages,
     selectedLeafCategory,
     allCategories, // Added as dependency for resetFormFields logic
-    createFormDataForImage,
+    createImageData,
     navigation,
     refreshUserProfile,
   ]);

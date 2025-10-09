@@ -1,83 +1,56 @@
-// saknew_frontend/navigation/types.ts
+import { StackNavigationProp } from '@react-navigation/stack';
+import { RouteProp } from '@react-navigation/native';
 
-import { NavigatorScreenParams } from '@react-navigation/native';
-import { ShopOwnerStackParamList } from './ShopOwnerNavigator'; // Import ShopOwnerStackParamList
+// This file centralizes navigation types for type-safety and autocompletion.
 
-// Define the parameter list for the Auth Stack
-export type AuthStackParamList = {
-  Login: undefined; // Login screen takes no parameters - ENSURE THIS IS 'undefined'
-  Register: undefined; // Register screen takes no parameters
-  ForgotPassword: undefined; // ForgotPassword screen takes no parameters
-  EmailVerification: { userEmail?: string }; // EmailVerification can optionally take userEmail
-  ActivateAccount: { userEmail?: string }; // ActivateAccount can optionally take userEmail
-  PasswordResetConfirm: { uid?: string; token?: string }; // PasswordResetConfirm can optionally take uid and token
-  PasswordResetRequest: undefined; // Added to ensure ForgotPassword navigation works
-};
-
-// Define the parameter list for the Main Stack (which includes Bottom Tabs)
+/**
+ * Defines the parameters for each screen in the main stack navigator.
+ * The keys are the route names, and the values are the route params.
+ * `undefined` means the route has no params.
+ */
 export type MainStackParamList = {
-  BottomTabs: NavigatorScreenParams<BottomTabParamList>;
-  ProductDetail: { productId: number; productName?: string };
-  ShopDetail: { shopSlug: string };
-  SearchResults: { query: string };
-  CategoryProducts: { categoryName: string; products: any[] };
-  CategoryProductsScreen: { shopSlug: string; categorySlug: string; categoryName: string };
-  CreateShop: undefined;
-  AddProduct: undefined;
-  EditShop: { shopSlug: string };
-  EditProduct: { productId: number };
-  ProductManagement: { productId: number };
-  Shipping: undefined;
-};
-
-// Define the parameter list for the Bottom Tab Navigator
-export type BottomTabParamList = {
-  Home: undefined;
-  Cart: undefined;
-  Orders: undefined;
-  Wallet: undefined;
-  Shipping: undefined;
-  'My Shop': NavigatorScreenParams<ShopOwnerStackParamList>;
-};
-
-// Define the Root Stack Param List for the entire application
-// This combines AuthStack and MainStack
-export type RootStackParamList = {
-  MainStack: NavigatorScreenParams<MainStackParamList>;
-  Home: undefined;
-  ProductDetail: { productId: number };
-  CategoryProducts: { categoryName: string; products: any[] };
+  // Screens inferred from your project structure and error message
+  BottomTabs: undefined;
+  ProductDetail: { productId: number }; // It's best practice to pass only an ID
+  CategoryProducts: { categoryName: string; categorySlug: string };
   Cart: undefined;
   Shipping: undefined;
-  Payment: { orderId: string };
+  Payment: undefined;
   MyOrders: undefined;
   WalletDashboard: undefined;
   AddFundsScreen: undefined;
-  AuthStack: { screen: string };
-  BottomTabs: { screen: string };
+  ProductManagement: undefined;
+  AuthStack: undefined; // Likely a nested navigator
+
+  // Screens that were causing the TypeScript error in HomeScreen.tsx
+  StatusViewer: { userStatus: any }; // TODO: Replace 'any' with a specific type for userStatus
+  CreateStatus: undefined;
 };
 
-// Define the type for the navigation prop in components within the AuthStack
-// This allows you to navigate to any screen in AuthStack
-export type AuthNavigationProp = import('@react-navigation/native').CompositeNavigationProp<
-  import('@react-navigation/native-stack').NativeStackNavigationProp<AuthStackParamList, 'Login'>,
-  import('@react-navigation/native').NavigationProp<RootStackParamList>
->;
+// This is the navigation prop type for components inside the MainStack.
+// It's the type you are importing as `MainNavigationProp` in HomeScreen.
+export type MainNavigationProp = StackNavigationProp<MainStackParamList>;
 
-// Define the type for the navigation prop in components within the MainStack (or BottomTabs)
-// This allows you to navigate to any screen in MainStack and also to AuthStack (e.g., logout)
-export type MainNavigationProp = {
-  navigate: (screen: keyof RootStackParamList | keyof MainStackParamList, params?: any) => void;
-  goBack: () => void;
-  push: (screen: string, params?: any) => void;
-  replace: (screen: string, params?: any) => void;
+// Example types for individual screen props (navigation + route)
+export type CategoryProductsScreenProps = {
+  route: RouteProp<MainStackParamList, 'CategoryProducts'>;
+  navigation: MainNavigationProp;
 };
 
+// --- Authentication Stack Types ---
 
+/**
+ * Defines the parameters for each screen in the authentication stack navigator.
+ * This stack typically includes screens like Login, Register, and ActivateAccount.
+ */
+export type AuthStackParamList = {
+  Login: undefined;
+  Register: undefined; // Assuming a registration screen exists
+  ActivateAccount: { userEmail?: string }; // `userEmail` is optional
+  EmailVerification: { userEmail?: string }; // Screen for verifying email
+  PasswordResetRequest: undefined; // Screen to request a password reset
+  PasswordResetConfirm: { uid?: string; token?: string }; // Screen to confirm password reset with UID and Token
+};
 
-// Define the type for the navigation prop in components within the BottomTabNavigator
-// This allows you to navigate within the tabs and also to screens in MainStack
-export type BottomTabNavigationProp = import('@react-navigation/native').CompositeNavigationProp<
-  import('@react-navigation/bottom-tabs').BottomTabNavigationProp<BottomTabParamList, 'Home'>,
-  import('@react-navigation/native').NavigationProp<MainStackParamList>
->;
+// This is the navigation prop type for components inside the AuthStack.
+export type AuthNavigationProp = StackNavigationProp<AuthStackParamList>;

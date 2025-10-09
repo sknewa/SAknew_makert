@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
+// import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -34,12 +34,12 @@ export const useNetworkStatus = (): NetworkStatus => {
   };
 
   const checkConnection = async () => {
-    const state = await NetInfo.fetch();
-    setIsConnected(state.isConnected);
-    
-    if (state.isConnected) {
-      checkServerReachability();
-    } else {
+    try {
+      await axios.get(`${API_BASE_URL}`, { timeout: 5000 });
+      setIsConnected(true);
+      setIsServerReachable(true);
+    } catch (error) {
+      setIsConnected(false);
       setIsServerReachable(false);
     }
   };
@@ -49,16 +49,9 @@ export const useNetworkStatus = (): NetworkStatus => {
     let isMounted = true;
     checkConnection();
     
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected);
-      if (state.isConnected) {
-        checkServerReachability();
-      } else {
-        setIsServerReachable(false);
-      }
-    });
+    const interval = setInterval(checkConnection, 30000);
     
-    return () => unsubscribe();
+    return () => clearInterval(interval);
   }, []);
 
   return {

@@ -1,5 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import NetInfo from '@react-native-community/netinfo';
+
 
 // Keys for offline storage
 const OFFLINE_QUEUE_KEY = '@offline_queue';
@@ -52,12 +52,7 @@ export const getOfflineData = async <T>(key: string): Promise<T | null> => {
 // Queue an action for when online
 export const queueOfflineAction = async (action: Omit<OfflineAction, 'id' | 'timestamp'>): Promise<void> => {
   try {
-    // Check if we're online first
-    const networkState = await NetInfo.fetch();
-    if (networkState.isConnected) {
-      console.log('Device is online, no need to queue action');
-      return;
-    }
+    // For now, always queue actions (network check removed)
 
     // Get existing queue
     const queueData = await AsyncStorage.getItem(OFFLINE_QUEUE_KEY);

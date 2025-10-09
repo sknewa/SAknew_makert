@@ -1,8 +1,10 @@
+import './expo-fix';
 import React from 'react';
 import { View, Text } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import ErrorBoundary from './components/ErrorBoundary';
 import { AuthProvider } from './context/AuthContext.minimal';
+import { BadgeProvider } from './context/BadgeContext';
 import AppNavigator from './navigation/AppNavigator';
 
 console.log('🚀 App.tsx: Starting app initialization');
@@ -13,10 +15,12 @@ export default function App() {
   return (
     <ErrorBoundary>
       <AuthProvider>
-        <View style={{ flex: 1 }}>
-          <AppNavigator />
-          <StatusBar style="auto" />
-        </View>
+        <BadgeProvider>
+          <View style={{ flex: 1 }}>
+            <AppNavigator />
+            <StatusBar style="auto" />
+          </View>
+        </BadgeProvider>
       </AuthProvider>
     </ErrorBoundary>
   );

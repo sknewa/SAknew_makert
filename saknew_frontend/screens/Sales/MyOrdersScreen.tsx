@@ -112,7 +112,7 @@ const MyOrdersScreen: React.FC = () => {
       const response = await updateOrderStatus(orderId, 'request_code');
       Alert.alert(
         'Delivery Code',
-        `Your delivery code is: ${response.delivery_code}\n\nShow this code to the seller when they deliver your order.`,
+        `Your delivery code is: ${response.delivery_verification_code}\n\nShow this code to the seller when they deliver your order.`,
         [{ text: 'OK', onPress: () => fetchOrders() }]
       );
     } catch (err: any) {
@@ -272,7 +272,7 @@ const MyOrdersScreen: React.FC = () => {
             {activeTab === 'pending' && (
               <TouchableOpacity
                 style={styles.shopButton}
-                onPress={() => navigation.navigate('Home')}
+                onPress={() => navigation.navigate('BottomTabs')}
               >
                 <Text style={styles.buttonText}>Start Shopping</Text>
               </TouchableOpacity>
@@ -280,10 +280,9 @@ const MyOrdersScreen: React.FC = () => {
           </View>
           ) : (
             filteredOrders.map((order) => (
-            <TouchableOpacity 
+            <View 
               key={order.id} 
               style={styles.orderCard}
-              onPress={() => navigation.navigate('PurchaseDetail', { orderId: order.id })}
             >
               <View style={styles.orderHeader}>
                 <View>
@@ -322,7 +321,7 @@ const MyOrdersScreen: React.FC = () => {
                       style={styles.productImage}
                     />
                     <View style={styles.itemDetails}>
-                      <Text style={styles.productName} numberOfLines={2}>
+                      <Text style={styles.productNameItem} numberOfLines={2}>
                         {item.product.name}
                       </Text>
                       <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
@@ -334,13 +333,10 @@ const MyOrdersScreen: React.FC = () => {
 
               <View style={styles.actionButtons}>
                 <View style={styles.quickActions}>
-                  <TouchableOpacity 
-                    style={styles.detailsLink}
-                    onPress={() => navigation.navigate('PurchaseDetail', { orderId: order.id })}
-                  >
+                  <View style={styles.detailsLink}>
                     <Ionicons name="eye-outline" size={14} color={colors.infoAction} />
-                    <Text style={styles.linkText}>View Details</Text>
-                  </TouchableOpacity>
+                    <Text style={styles.linkText}>Order #{String(order.id).slice(-8)}</Text>
+                  </View>
 
                   {order.order_status === 'processing' && (
                     <TouchableOpacity
@@ -385,10 +381,19 @@ const MyOrdersScreen: React.FC = () => {
                   )}
 
                   {order.delivery_verification_code && order.order_status === 'ready_for_delivery' && (
-                    <View style={styles.codeDisplayContainer}>
-                      <Text style={styles.codeLabel}>Your Delivery Code:</Text>
-                      <Text style={styles.deliveryCode}>{order.delivery_verification_code}</Text>
-                      <Text style={styles.codeInstruction}>Show this code to the seller</Text>
+                    <View>
+                      <View style={styles.codeDisplayContainer}>
+                        <Text style={styles.codeLabel}>Your Delivery Code:</Text>
+                        <Text style={styles.deliveryCode}>{order.delivery_verification_code}</Text>
+                        <Text style={styles.codeInstruction}>Show this code to the seller</Text>
+                      </View>
+                      <TouchableOpacity
+                        style={styles.markReceivedButton}
+                        onPress={() => handleMarkAsReceived(order.id)}
+                      >
+                        <Ionicons name="checkmark-circle" size={16} color={colors.buttonText} />
+                        <Text style={styles.mainActionText}>Mark as Received</Text>
+                      </TouchableOpacity>
                     </View>
                   )}
 
@@ -404,13 +409,13 @@ const MyOrdersScreen: React.FC = () => {
 
                   {order.delivery_verified && (
                     <View style={styles.verifiedContainer}>
-                      <Ionicons name="checkmark-circle" size={16} color={colors.successText} />
+                      <Ionicons name="checkmark-circle" size={16} color={colors.primary} />
                       <Text style={styles.verifiedText}>Delivered & Verified</Text>
                     </View>
                   )}
                 </View>
               </View>
-            </TouchableOpacity>
+            </View>
           ))
         );
         })()}
@@ -465,7 +470,7 @@ const MyOrdersScreen: React.FC = () => {
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.productName}>{reviewModal.product?.name}</Text>
+            <Text style={styles.productNameModal}>{reviewModal.product?.name}</Text>
 
             <Text style={styles.ratingLabel}>Rating:</Text>
             {renderStars(reviewModal.rating, (rating) => setReviewModal(prev => ({ ...prev, rating })))}
@@ -520,8 +525,8 @@ const styles = StyleSheet.create({
   statusPending: { backgroundColor: colors.warningAction + '20', color: colors.warningAction },
   statusProcessing: { backgroundColor: colors.infoAction + '20', color: colors.infoAction },
   statusShipped: { backgroundColor: colors.primary + '20', color: colors.primary },
-  statusDelivered: { backgroundColor: colors.successText + '20', color: colors.successText },
-  statusCompleted: { backgroundColor: colors.successText + '20', color: colors.successText },
+  statusDelivered: { backgroundColor: colors.primary + '20', color: colors.primary },
+  statusCompleted: { backgroundColor: colors.primary + '20', color: colors.primary },
   statusCancelled: { backgroundColor: colors.dangerAction + '20', color: colors.dangerAction },
   orderTotal: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
   
@@ -529,7 +534,7 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   productImage: { width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
   itemDetails: { flex: 1 },
-  productName: { fontSize: 16, fontWeight: '500', color: colors.textPrimary, marginBottom: 4 },
+  productNameItem: { fontSize: 16, fontWeight: '500', color: colors.textPrimary, marginBottom: 4 },
   itemQuantity: { fontSize: 14, color: colors.textSecondary, marginBottom: 2 },
   itemPrice: { fontSize: 14, fontWeight: '600', color: colors.primary },
   
@@ -547,11 +552,11 @@ const styles = StyleSheet.create({
   addReviewButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 12, borderRadius: 8, marginBottom: 8 },
   mainActionText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 6 },
   
-  verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.successText + '10', paddingVertical: 8, borderRadius: 6 },
-  verifiedText: { fontSize: 12, color: colors.successText, fontWeight: '600', marginLeft: 4 },
-  codeDisplayContainer: { backgroundColor: colors.successText + '10', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
+  verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10', paddingVertical: 8, borderRadius: 6 },
+  verifiedText: { fontSize: 12, color: colors.primary, fontWeight: '600', marginLeft: 4 },
+  codeDisplayContainer: { backgroundColor: colors.primary + '10', padding: 12, borderRadius: 8, alignItems: 'center', marginBottom: 8 },
   codeLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 4 },
-  deliveryCode: { fontSize: 20, fontWeight: 'bold', color: colors.successText, letterSpacing: 2, marginBottom: 4 },
+  deliveryCode: { fontSize: 20, fontWeight: 'bold', color: colors.primary, letterSpacing: 2, marginBottom: 4 },
   codeInstruction: { fontSize: 11, color: colors.textSecondary, textAlign: 'center' },
   
   tabContainer: { flexDirection: 'row', marginBottom: 16, backgroundColor: colors.border, borderRadius: 8, padding: 4 },
@@ -564,7 +569,7 @@ const styles = StyleSheet.create({
   cancelActionText: { color: colors.buttonText, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  productName: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },
+  productNameModal: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },
   ratingLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 },
   starsContainer: { flexDirection: 'row', marginBottom: 16 },
   commentLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 },

@@ -128,6 +128,7 @@ const styles = StyleSheet.create({
   },
   listContainer: {
     padding: 16,
+    paddingBottom: 32,
   },
   statusItem: {
     backgroundColor: '#fff',
@@ -139,35 +140,39 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.1,
     shadowRadius: 2,
+    maxHeight: 200,
   },
   statusPreview: {
     height: 120,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 16,
+    padding: 12,
   },
   statusText: {
     color: '#fff',
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 20,
   },
   statusInfo: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: 10,
     backgroundColor: '#fff',
+    minHeight: 44,
   },
   timeText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
     flex: 1,
+    marginRight: 8,
   },
   viewCount: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#666',
-    marginRight: 12,
+    marginRight: 8,
   },
   deleteButton: {
     padding: 4,

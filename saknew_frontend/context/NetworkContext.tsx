@@ -1,5 +1,5 @@
 import React, { createContext, useState, useContext, useEffect, ReactNode } from 'react';
-import NetInfo from '@react-native-community/netinfo';
+// import NetInfo, { NetInfoState } from '@react-native-community/netinfo';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
 
@@ -16,19 +16,13 @@ export const NetworkProvider: React.FC<{children: ReactNode}> = ({ children }) =
   const [isServerReachable, setIsServerReachable] = useState<boolean | null>(null);
 
   const checkConnection = async () => {
-    // Check network connectivity
-    const state = await NetInfo.fetch();
-    setIsConnected(state.isConnected);
-    
-    // Check if server is reachable
-    if (state.isConnected) {
-      try {
-        await axios.get(`${API_BASE_URL}`, { timeout: 5000 });
-        setIsServerReachable(true);
-      } catch (error) {
-        setIsServerReachable(false);
-      }
-    } else {
+    try {
+      // Simple server reachability check
+      await axios.get(`${API_BASE_URL}`, { timeout: 5000 });
+      setIsConnected(true);
+      setIsServerReachable(true);
+    } catch (error) {
+      setIsConnected(false);
       setIsServerReachable(false);
     }
   };
@@ -36,17 +30,10 @@ export const NetworkProvider: React.FC<{children: ReactNode}> = ({ children }) =
   useEffect(() => {
     checkConnection();
     
-    // Subscribe to network changes
-    const unsubscribe = NetInfo.addEventListener(state => {
-      setIsConnected(state.isConnected);
-      if (state.isConnected) {
-        checkConnection();
-      } else {
-        setIsServerReachable(false);
-      }
-    });
+    // Periodic network check instead of NetInfo
+    const interval = setInterval(checkConnection, 30000);
     
-    return () => unsubscribe();
+    return () => clearInterval(interval);
   }, []);
 
   return (

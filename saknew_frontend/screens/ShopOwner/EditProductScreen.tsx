@@ -317,24 +317,27 @@ const EditProductScreen: React.FC = () => {
     });
   }, []);
 
-  // Create FormData for image upload
-  const createFormDataFromUri = async (uri: string, isMain: boolean): Promise<FormData> => {
-    const formData = new FormData();
-    const filename = uri.split('/').pop() || 'image.jpg';
-    const match = /\.([\\w\\d]+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-    
-    // Append the image file
-    formData.append('image', {
-      uri,
-      name: filename,
-      type,
-    } as any);
-    
-    // Append is_main as a string
-    formData.append('is_main', isMain ? 'true' : 'false');
-    
-    return formData;
+  // Create image data for upload
+  const createImageData = (uri: string, isMain: boolean) => {
+    const filename = `image_${Date.now()}.jpg`;
+    const type = 'image/jpeg';
+
+    const fetchImageBlob = async () => {
+      try {
+        const response = await fetch(uri);
+        const blob = await response.blob();
+        const file = new File([blob], filename, { type: blob.type || type });
+        return file;
+      } catch (error) {
+        console.error('Error fetching blob:', error);
+        throw error;
+      }
+    };
+
+    return {
+      image: fetchImageBlob(),
+      is_main: isMain,
+    };
   };
 
   // Product Update and Image Upload
@@ -405,13 +408,14 @@ const EditProductScreen: React.FC = () => {
       // Upload new images
       for (const img of newImages) {
         try {
-          const formData = await createFormDataFromUri(img.uri, img.isMain);
-          const uploadUrl = `/api/products/${productId}/add-image/`;
-          await apiClient.post(uploadUrl, formData, {
-            headers: {
-              'Content-Type': 'multipart/form-data'
-            }
-          });
+          const imageData = createImageData(img.uri, img.isMain);
+          
+          // Wait for the blob if it's a promise
+          if (imageData.image instanceof Promise) {
+            imageData.image = await imageData.image;
+          }
+          
+          await shopService.addProductImage(productId, imageData);
         } catch (imageUploadError: any) {
           console.error('Error uploading image:', img.uri, imageUploadError.response?.data || imageUploadError.message);
           setErrorMessage('An error occurred during image upload for one or more images.');

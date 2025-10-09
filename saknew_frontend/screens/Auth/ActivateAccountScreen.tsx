@@ -100,9 +100,7 @@ const ActivateAccountScreen: React.FC = () => {
       // Call the actual AuthService method to activate the account
       await AuthService.activateAccount({ email: email.trim(), code: activationCode.trim() });
 
-      Alert.alert('Success!', 'Your account has been successfully activated. You can now log in.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
+      navigation.replace('Login');
     } catch (err: any) {
       console.error('Account activation error:', err.response?.data || err.message);
       let errorMessage = 'An unexpected error occurred during activation. Please try again.';

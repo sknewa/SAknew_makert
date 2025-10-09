@@ -80,6 +80,13 @@ const ShopService = {
       console.log('🏪 SHOP SERVICE - Fetching my shop from /api/shops/my_shop/');
       const response = await apiClient.get<Shop>('/api/shops/my_shop/');
       console.log('🏪 SHOP SERVICE - My shop response:', response.data);
+      
+      // Check if response contains error (token expired)
+      if (response.data && typeof response.data === 'object' && 'code' in response.data) {
+        console.log('🏪 SHOP SERVICE - Error in response data:', response.data);
+        throw new Error('Authentication failed');
+      }
+      
       return response.data;
     } catch (error: any) {
       console.log('🏪 SHOP SERVICE - Error fetching my shop:', error.response?.status, error.response?.data);
@@ -94,12 +101,13 @@ const ShopService = {
    */
   async getShopProducts(shopSlug: string): Promise<Product[]> {
     try {
+      if (!shopSlug) {
+        throw new Error('Shop slug is required');
+      }
       const sanitizedShopSlug = SecurityUtils.sanitizeSlug(shopSlug);
       SecurityUtils.safeLog('info', 'Fetching shop products');
-      // CHANGED: Use apiClient instead of publicApiClient for authenticated access
       const response = await apiClient.get<Product[]>(`/api/shops/${sanitizedShopSlug}/products/`);
 
-      // Log the first product's image URL to debug
       if (response.data && response.data.length > 0) {
         SecurityUtils.safeLog('info', 'Products fetched successfully');
       }
@@ -371,19 +379,46 @@ const ShopService = {
   /**
    * Adds an image to a product.
    * @param productId The ID of the product.
-   * @param data Image data (e.g., { image: base64String, is_main: boolean }).
+   * @param data Image data with file and is_main flag.
    * @returns Promise resolving with the created ProductImage object.
    */
   async addProductImage(productId: number, data: AddProductImageData): Promise<ProductImage> {
     try {
       console.log(`ShopService: Adding image to product ${productId}...`);
-      // For image uploads, you might need FormData if sending actual files.
-      // If `image` is a base64 string, direct JSON post might work.
-      // Adjust based on your backend's ProductImageSerializer's image field handling.
-      const response = await apiClient.post<ProductImage>(`/api/products/${productId}/add-image/`, data);
+      console.log('ShopService: Image data received:', data);
+      console.log('ShopService: Image type:', typeof data.image);
+      console.log('ShopService: Image object:', data.image);
+      
+      // Create FormData for file upload
+      const formData = new FormData();
+      
+      // Add the image file
+      if (data.image) {
+        console.log('ShopService: Appending image to FormData');
+        formData.append('image', data.image);
+      }
+      
+      // Add is_main flag
+      if (data.is_main !== undefined) {
+        console.log('ShopService: Appending is_main:', data.is_main);
+        formData.append('is_main', data.is_main.toString());
+      }
+      
+      console.log('ShopService: FormData created, making request...');
+      const response = await apiClient.post<ProductImage>(
+        `/api/products/${productId}/add-image/`, 
+        formData,
+        {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+          },
+        }
+      );
+      console.log('ShopService: Image upload successful:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`ShopService: Failed to add image to product ${productId}:`, error.response?.data || error.message);
+      console.error('ShopService: Full error object:', error);
       throw error;
     }
   },

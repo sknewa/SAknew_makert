@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { UserStatus, Status } from '../../services/status.types';
 import statusService from '../../services/statusService';
+import { IMAGE_BASE_URL } from '../../config';
 
 const { width, height } = Dimensions.get('window');
 
@@ -17,8 +18,20 @@ const StatusViewerScreen: React.FC = () => {
   
   const currentStatus = userStatus.statuses[currentIndex];
 
+  console.log('DEBUG StatusViewerScreen:', {
+    currentIndex,
+    totalStatuses: userStatus.statuses.length,
+    currentStatus: {
+      id: currentStatus?.id,
+      mediaType: currentStatus?.media_type,
+      mediaUrl: currentStatus?.media_url,
+      content: currentStatus?.content
+    }
+  });
+
   useEffect(() => {
     if (currentStatus) {
+      console.log('DEBUG StatusViewerScreen - Marking status as viewed:', currentStatus.id);
       statusService.viewStatus(currentStatus.id);
     }
   }, [currentIndex]);
@@ -61,7 +74,7 @@ const StatusViewerScreen: React.FC = () => {
   if (!currentStatus) return null;
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       {/* Progress bars */}
       <View style={styles.progressContainer}>
         {userStatus.statuses.map((_, index) => (
@@ -89,12 +102,12 @@ const StatusViewerScreen: React.FC = () => {
               <Ionicons name="person" size={20} color="#fff" />
             </View>
           )}
-          <View>
-            <Text style={styles.username}>{userStatus.user.username}</Text>
+          <View style={styles.userDetails}>
+            <Text style={styles.username} numberOfLines={1}>{userStatus.user.username}</Text>
             <Text style={styles.timeText}>{formatTime(currentStatus.created_at)}</Text>
           </View>
         </View>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
           <Ionicons name="close" size={24} color="#fff" />
         </TouchableOpacity>
       </View>
@@ -105,14 +118,18 @@ const StatusViewerScreen: React.FC = () => {
         <TouchableOpacity style={styles.rightTap} onPress={handleNext} />
         
         {currentStatus.media_type === 'image' && currentStatus.media_url ? (
-          <Image source={{ uri: currentStatus.media_url }} style={styles.mediaImage} />
+          (() => {
+            const imageUrl = currentStatus.media_url.startsWith('http') ? currentStatus.media_url : `${IMAGE_BASE_URL}${currentStatus.media_url}`;
+            console.log('DEBUG StatusViewerScreen - Displaying image:', imageUrl);
+            return <Image source={{ uri: imageUrl }} style={styles.mediaImage} />;
+          })()
         ) : (
           <View style={[styles.textStatus, { backgroundColor: currentStatus.background_color || '#25D366' }]}>
-            <Text style={styles.statusText}>{currentStatus.content}</Text>
+            <Text style={styles.statusText} numberOfLines={8}>{currentStatus.content}</Text>
           </View>
         )}
       </View>
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -137,8 +154,8 @@ const styles = StyleSheet.create({
   progressContainer: {
     flexDirection: 'row',
     paddingHorizontal: 16,
-    paddingTop: 50,
-    paddingBottom: 10,
+    paddingTop: 8,
+    paddingBottom: 8,
   },
   progressBarBg: {
     flex: 1,
@@ -157,11 +174,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingVertical: 10,
+    paddingVertical: 8,
+    minHeight: 50,
   },
   userInfo: {
     flexDirection: 'row',
     alignItems: 'center',
+    flex: 1,
+    marginRight: 16,
+  },
+  userDetails: {
+    flex: 1,
   },
   avatar: {
     width: 32,
@@ -186,11 +209,16 @@ const styles = StyleSheet.create({
   timeText: {
     color: 'rgba(255,255,255,0.7)',
     fontSize: 12,
+    marginTop: 2,
+  },
+  closeButton: {
+    padding: 4,
   },
   contentContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    paddingVertical: 20,
   },
   leftTap: {
     position: 'absolute',
@@ -209,13 +237,13 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   mediaImage: {
-    width: width,
-    height: height * 0.7,
+    width: width - 20,
+    maxHeight: height * 0.6,
     resizeMode: 'contain',
   },
   textStatus: {
     width: width - 40,
-    minHeight: 200,
+    maxHeight: height * 0.6,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
@@ -223,9 +251,10 @@ const styles = StyleSheet.create({
   },
   statusText: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     textAlign: 'center',
+    lineHeight: 28,
   },
 });
 

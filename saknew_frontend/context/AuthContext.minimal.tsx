@@ -1,9 +1,11 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// In a real app, this function would be in your `authService.ts` file.
+// Real API calls for authentication
+const API_BASE_URL = 'https://saknew-makert-e7ac1361decc.herokuapp.com';
+
 const refreshTokenApiCall = async (existingRefreshToken: string) => {
-  const response = await fetch('http://192.168.8.101:8000/api/auth/token/refresh/', {
+  const response = await fetch(`${API_BASE_URL}/api/auth/jwt/refresh/`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ refresh: existingRefreshToken }),
@@ -15,28 +17,35 @@ const refreshTokenApiCall = async (existingRefreshToken: string) => {
   return response.json();
 };
 
-// In a real app, this function would be in your `authService.ts` file.
 const getMyProfileApiCall = async (accessToken: string): Promise<User> => {
-  // This is a mock. In a real app, you'd fetch from your backend.
-  // The backend would decode the accessToken to get the user ID.
   console.log('AuthContext: Fetching user profile from API...');
-  if (!accessToken) {
-    throw new Error('No access token provided');
-  }
-  // This is the user data that should be returned from your /api/auth/user/ endpoint
-  const userProfile: User = { 
-    id: 3, 
-    email: 'test@example.com',
-    first_name: '',
-    last_name: '',
-    is_active: true,
-    profile: { 
-      email_verified: true,
-      is_seller: true, 
-      shop_slug: 'ndivho'
+  const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
+    method: 'GET',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`,
+      'Content-Type': 'application/json'
     }
-  };
-  return userProfile;
+  });
+  
+  if (!response.ok) {
+    throw new Error('Failed to fetch user profile');
+  }
+  
+  return response.json();
+};
+
+const loginApiCall = async (email: string, password: string) => {
+  const response = await fetch(`${API_BASE_URL}/api/accounts/login/`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email, password }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(errorData.detail || `Login failed: ${response.status}`);
+  }
+  return response.json();
 };
 interface User {
   id: number;
@@ -68,6 +77,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [loginInProgress, setLoginInProgress] = useState(false);
 
   // Check for existing tokens on app start
   useEffect(() => {
@@ -75,17 +85,27 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       try {
         const accessToken = await AsyncStorage.getItem('access_token');
         if (accessToken) {
-          // FIX: Directly fetch the user profile here. This avoids a race
-          // condition where `refreshUserProfile` was called before `isAuthenticated` was true.
-          const userProfile = await getMyProfileApiCall(accessToken);
-          setUser(userProfile);
-          setIsAuthenticated(true);
-          console.log('Found existing token, user profile refreshed.');
+          // Try to get user profile with existing token
+          try {
+            const userProfile = await getMyProfileApiCall(accessToken);
+            setUser(userProfile);
+            setIsAuthenticated(true);
+            console.log('Restored authentication from stored token');
+          } catch (error) {
+            console.log('Token validation failed, clearing auth state');
+            await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+            setUser(null);
+            setIsAuthenticated(false);
+          }
+        } else {
+          console.log('No stored token found');
+          setUser(null);
+          setIsAuthenticated(false);
         }
       } catch (error) {
         console.error('Error checking auth state:', error);
-        // If the stored token is invalid, log the user out.
-        await logout();
+        setUser(null);
+        setIsAuthenticated(false);
       } finally {
         setLoading(false);
       }
@@ -94,22 +114,31 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   }, []);
 
   const login = async (email: string, password: string) => {
+    if (loginInProgress) {
+      console.log('Login already in progress, skipping...');
+      return;
+    }
+    
+    setLoginInProgress(true);
     setLoading(true);
     try {
-      // Store real JWT tokens for wallet functionality
-      const accessToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoiYWNjZXNzIiwiZXhwIjoxNzU2MjIyNTMxLCJpYXQiOjE3NTYyMTg5MzEsImp0aSI6IjY2NWNkYzBmNTE5MzQzMzViNTFmZGJkM2E1NzMxZTNiIiwidXNlcl9pZCI6M30.xM3gCffjYk9AQqlSVwEd3rRTzYEytM22Bc5sdTBIBpI';
-      const refreshToken = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJ0b2tlbl90eXBlIjoicmVmcmVzaCIsImV4cCI6MTc1NjgyMzczMSwiaWF0IjoxNzU2MjE4OTMxLCJqdGkiOiIyZjVlYzkyOTZlODU0ZDBlYTBlMDZhYTVmNjA5MWMxZiIsInVzZXJfaWQiOjN9.0Dve1t4rnQItYK3dO6uvJ8LAnznIWLUi3WZKA_q0nvQ';
+      console.log('Attempting login for:', email);
+      const { access, refresh } = await loginApiCall(email, password);
       
-      await AsyncStorage.setItem('access_token', accessToken);
-      await AsyncStorage.setItem('refresh_token', refreshToken);
+      await AsyncStorage.setItem('access_token', access);
+      await AsyncStorage.setItem('refresh_token', refresh);
       
-      // FIX: Fetch user profile after login
-      const userProfile = await getMyProfileApiCall(accessToken);
+      // Fetch user profile after login
+      const userProfile = await getMyProfileApiCall(access);
       setUser(userProfile);
       setIsAuthenticated(true);
       console.log('Login successful, real JWT tokens stored');
+    } catch (error: any) {
+      console.error('Login failed:', error.message || error);
+      throw new Error(error.message || 'Login failed');
     } finally {
       setLoading(false);
+      setLoginInProgress(false);
     }
   };
 
@@ -125,21 +154,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const existingRefreshToken = await AsyncStorage.getItem('refresh_token');
 
     if (!existingRefreshToken) {
-      console.log('No refresh token found. Logging out.');
+      console.log('No refresh token found.');
       await logout();
       return false;
     }
 
     try {
-      // This would typically be a call to your authService.refreshToken()
       const { access: newAccessToken } = await refreshTokenApiCall(existingRefreshToken);
-      
       await AsyncStorage.setItem('access_token', newAccessToken);
-      
       console.log('Token refreshed successfully.');
       return true;
     } catch (error) {
-      console.error('Failed to refresh token. Logging out.', error);
+      console.error('Failed to refresh token:', error);
       await logout();
       return false;
     }

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { useAuth } from '../context/AuthContext.minimal';
 import statusService from '../services/statusService';
 import { UserStatus } from '../services/status.types';
@@ -8,9 +8,10 @@ import StatusItem from './StatusItem';
 interface StatusSectionProps {
   onStatusPress: (userStatus: UserStatus) => void;
   onCreateStatus: () => void;
+  refreshTrigger?: number; // Add this to trigger refresh from parent
 }
 
-const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateStatus }) => {
+const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateStatus, refreshTrigger }) => {
   const { user } = useAuth();
   const [userStatuses, setUserStatuses] = useState<UserStatus[]>([]);
   const [myStatus, setMyStatus] = useState<UserStatus | null>(null);
@@ -21,6 +22,13 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
     // Re-fetch statuses if the user logs in or out.
     // The check for `user?.id` inside fetchStatuses handles the null case.
   }, [user]);
+
+  // Refresh when refreshTrigger changes
+  useEffect(() => {
+    if (refreshTrigger) {
+      fetchStatuses();
+    }
+  }, [refreshTrigger]);
 
   const fetchStatuses = async () => {
     try {
@@ -61,7 +69,9 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
 
   return (
     <View style={styles.container}>
-      <Text style={styles.sectionTitle}>Status</Text>
+      <View style={styles.titleContainer}>
+        <Text style={styles.sectionTitle}>Status</Text>
+      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
         {/* My Status */}
         <StatusItem
@@ -69,7 +79,10 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
             user: { 
               id: user?.id || 0, 
               username: user?.username || '', 
-              profile: { profile_picture: user?.profile?.profile_picture } 
+              profile: { 
+                profile_picture: user?.profile?.profile_picture,
+                shop_slug: user?.profile?.shop_slug
+              } 
             },
             statuses: [],
             latest_status: null,
@@ -96,19 +109,26 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    marginBottom: 15,
-    borderRadius: 10,
-    paddingVertical: 8,
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e9edef',
   },
-  sectionTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#000',
+  titleContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     paddingHorizontal: 16,
     paddingBottom: 8,
   },
+
+  sectionTitle: {
+    fontSize: 19,
+    fontWeight: '600',
+    color: '#111b21',
+  },
   scrollView: {
-    paddingLeft: 8,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
 });
 

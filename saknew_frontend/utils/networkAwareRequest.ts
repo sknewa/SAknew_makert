@@ -1,5 +1,5 @@
 import { Alert } from 'react-native';
-import NetInfo from '@react-native-community/netinfo';
+
 import axios, { AxiosResponse } from 'axios';
 
 /**
@@ -14,18 +14,7 @@ export const networkAwareRequest = async<T>(
   
   const executeRequest = async (): Promise<T> => {
     try {
-      // Check network state first
-      const networkState = await NetInfo.fetch();
-      
-      if (!networkState.isConnected) {
-        if (showAlert) {
-          Alert.alert(
-            'No Internet Connection',
-            'Please check your internet connection and try again.'
-          );
-        }
-        throw new Error('No internet connection');
-      }
+      // Network connectivity will be handled by the request itself
       
       // Execute the request
       return await requestFn();

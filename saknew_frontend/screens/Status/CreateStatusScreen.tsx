@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { View, Text, StyleSheet, TextInput, TouchableOpacity, Alert, SafeAreaView, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
 import statusService from '../../services/statusService';
@@ -13,6 +13,8 @@ const backgroundColors = [
 
 const CreateStatusScreen: React.FC = () => {
   const navigation = useNavigation();
+  const route = useRoute();
+  const { onStatusCreated } = route.params as { onStatusCreated?: () => void } || {};
   const [content, setContent] = useState('');
   const [selectedColor, setSelectedColor] = useState(backgroundColors[0]);
   const [loading, setLoading] = useState(false);
@@ -20,6 +22,7 @@ const CreateStatusScreen: React.FC = () => {
   const [mediaType, setMediaType] = useState<'text' | 'image' | 'video'>('text');
 
   const pickImage = async () => {
+    console.log('DEBUG: Starting image picker');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
@@ -27,13 +30,16 @@ const CreateStatusScreen: React.FC = () => {
       quality: 0.8,
     });
 
+    console.log('DEBUG: Image picker result:', result.canceled ? 'Canceled' : 'Selected');
     if (!result.canceled) {
+      console.log('DEBUG: Selected image URI:', result.assets[0].uri);
       setMediaUri(result.assets[0].uri);
       setMediaType('image');
     }
   };
 
   const pickVideo = async () => {
+    console.log('DEBUG: Starting video picker');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Videos,
       allowsEditing: true,
@@ -41,31 +47,60 @@ const CreateStatusScreen: React.FC = () => {
       quality: 0.8,
     });
 
+    console.log('DEBUG: Video picker result:', result.canceled ? 'Canceled' : 'Selected');
     if (!result.canceled) {
+      console.log('DEBUG: Selected video URI:', result.assets[0].uri);
       setMediaUri(result.assets[0].uri);
       setMediaType('video');
     }
   };
 
   const removeMedia = () => {
+    console.log('DEBUG: Removing media, switching to text mode');
     setMediaUri(null);
     setMediaType('text');
   };
 
   const handleCreateStatus = async () => {
+    console.log('DEBUG: Starting status creation process');
     const trimmedContent = content.trim();
+    console.log('DEBUG: Content length:', trimmedContent.length);
+    console.log('DEBUG: Media URI:', mediaUri ? 'Present' : 'None');
+    console.log('DEBUG: Media type:', mediaType);
+    console.log('DEBUG: Selected color:', selectedColor);
+    
     if (!trimmedContent && !mediaUri) {
+      console.log('DEBUG: Empty status validation failed');
       Alert.alert('Empty Status', 'Please add text or media for your status');
       return;
     }
 
     setLoading(true);
+    console.log('DEBUG: Loading state set to true');
+    
     try {
-      await statusService.createStatus(trimmedContent || '', mediaUri || undefined, mediaType, selectedColor);
+      console.log('DEBUG: Calling statusService.createStatus with params:', {
+        content: trimmedContent || '',
+        hasMedia: !!mediaUri,
+        mediaType,
+        backgroundColor: selectedColor
+      });
+      
+      const result = await statusService.createStatus(trimmedContent || '', mediaUri || undefined, mediaType, selectedColor);
+      console.log('DEBUG: Status created successfully:', result);
+      
+      console.log('DEBUG: Calling onStatusCreated callback');
+      onStatusCreated?.(); // Call the callback to refresh statuses
+      
+      console.log('DEBUG: Navigating back');
       navigation.goBack();
     } catch (error: any) {
+      console.log('DEBUG: Status creation failed:', error);
+      console.log('DEBUG: Error message:', error?.message);
+      console.log('DEBUG: Error response:', error?.response?.data);
       Alert.alert('Error', error?.message || 'Failed to create status. Please try again.');
     } finally {
+      console.log('DEBUG: Setting loading to false');
       setLoading(false);
     }
   };
@@ -203,24 +238,27 @@ const styles = StyleSheet.create({
   },
   previewContainer: {
     flex: 1,
-    margin: 20,
+    margin: 16,
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 16,
+    minHeight: 200,
+    maxHeight: '60%',
   },
   textInput: {
     color: '#fff',
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: '600',
     textAlign: 'center',
     width: '100%',
-    minHeight: 120,
+    minHeight: 100,
+    maxHeight: 200,
     textAlignVertical: 'center',
   },
   colorPicker: {
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
   },
   colorPickerTitle: {
     fontSize: 16,
@@ -243,8 +281,8 @@ const styles = StyleSheet.create({
     borderColor: '#000',
   },
   footer: {
-    paddingHorizontal: 20,
-    paddingBottom: 20,
+    paddingHorizontal: 16,
+    paddingBottom: 16,
   },
   characterCount: {
     alignItems: 'center',
@@ -267,7 +305,8 @@ const styles = StyleSheet.create({
   mediaPreview: {
     width: '100%',
     height: '100%',
-    borderRadius: 20,
+    borderRadius: 16,
+    resizeMode: 'contain',
   },
   removeMediaButton: {
     position: 'absolute',
@@ -279,9 +318,9 @@ const styles = StyleSheet.create({
   mediaOptions: {
     flexDirection: 'row',
     justifyContent: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    gap: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 16,
   },
   mediaButton: {
     flexDirection: 'row',

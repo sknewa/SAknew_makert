@@ -117,7 +117,7 @@ export interface Product {
   created_at: string; // ISO 8601 datetime string
   updated_at: string; // ISO 8601 datetime string
   view_count: number;
-  images?: ProductImage[]; // Array of associated product images (optional, might not be needed for all product views)
+  images: ProductImage[]; // Array of associated product images, guaranteed by conversion logic.
   main_image_url: string | null; // Derived field: URL to the main product image
   promotion: Promotion | null; // Nested active promotion, can be null if no active promotion
   display_price: string; // Calculated discounted price (string for precision)
