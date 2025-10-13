@@ -16,6 +16,7 @@ interface Order {
   order_status: string;
   payment_status: string;
   delivery_verification_code?: string;
+  cancellation_reason?: string;
   shipping_address?: {
     city: string;
     country: string;
@@ -264,15 +265,12 @@ const SellerOrdersScreen: React.FC = () => {
       console.log('🔍 DEBUG: Calculated earnings:', earnings);
       console.log('🔍 DEBUG: Shop items count:', shopItems.length);
       
+      setModalVisible(false);
       Alert.alert(
         'Delivery Confirmed!', 
         `Order completed successfully.\n\nEarnings: ${formatCurrency(earnings)}\nPayment added to your wallet.`,
-        [{ text: 'OK', onPress: () => {
-          console.log('🔍 DEBUG: Success dialog confirmed, closing modal and refreshing');
-          setModalVisible(false);
-          fetchOrders();
-          // Switch to history tab to show completed order
-          setActiveTab('completed');
+        [{ text: 'View Wallet', onPress: () => {
+          navigation.navigate('Wallet' as any);
         }}]
       );
     } catch (error: any) {
@@ -400,6 +398,16 @@ const SellerOrdersScreen: React.FC = () => {
             </View>
           ))}
         </View>
+
+        {order.order_status === 'cancelled' && order.cancellation_reason && (
+          <View style={styles.cancellationReasonBox}>
+            <View style={styles.cancellationReasonHeader}>
+              <Ionicons name="information-circle" size={18} color={colors.error} />
+              <Text style={styles.cancellationReasonLabel}>Cancellation Reason</Text>
+            </View>
+            <Text style={styles.cancellationReasonText}>{order.cancellation_reason}</Text>
+          </View>
+        )}
 
         <View style={styles.actionButtons}>
           {(order.order_status === 'processing' || order.order_status === 'ready_for_delivery') && (
@@ -622,6 +630,11 @@ const styles = StyleSheet.create({
   activeTab: { backgroundColor: colors.primary },
   tabText: { fontSize: 14, fontWeight: '600', color: colors.textLight },
   activeTabText: { color: colors.card },
+  
+  cancellationReasonBox: { marginBottom: 16, padding: 14, backgroundColor: '#FEE2E2', borderRadius: 8, borderWidth: 1, borderColor: '#FCA5A5' },
+  cancellationReasonHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  cancellationReasonLabel: { fontSize: 14, fontWeight: '700', color: colors.error, marginLeft: 6 },
+  cancellationReasonText: { fontSize: 14, color: '#991B1B', lineHeight: 20, fontWeight: '500' },
 });
 
 export default SellerOrdersScreen;

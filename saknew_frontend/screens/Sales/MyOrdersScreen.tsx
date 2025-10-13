@@ -67,6 +67,7 @@ const MyOrdersScreen: React.FC = () => {
   }>({ visible: false, orderId: '', orderDate: '' });
   
   const [cancelReason, setCancelReason] = useState('');
+  const [cancelling, setCancelling] = useState(false);
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) return;
@@ -118,20 +119,44 @@ const MyOrdersScreen: React.FC = () => {
   };
 
   const handleRequestCode = async (orderId: string) => {
+    console.log('🔍 DEBUG: === REQUEST CODE START ===');
+    console.log('🔍 DEBUG: Order ID:', orderId);
+    
     try {
+      console.log('🔍 DEBUG: Calling updateOrderStatus with action: request_code');
       const response = await updateOrderStatus(orderId, 'request_code');
+      console.log('🔍 DEBUG: Full response:', JSON.stringify(response, null, 2));
+      console.log('🔍 DEBUG: Response keys:', Object.keys(response));
+      console.log('🔍 DEBUG: Delivery code from response:', response.delivery_verification_code);
+      console.log('🔍 DEBUG: Delivery code from order:', response.order?.delivery_verification_code);
+      
+      const deliveryCode = response.delivery_verification_code || response.order?.delivery_verification_code || response.delivery_code;
+      
+      if (!deliveryCode) {
+        console.error('🔍 DEBUG: No delivery code found in response!');
+        Alert.alert('Error', 'Failed to retrieve delivery code. Please try again.');
+        return;
+      }
+      
       Alert.alert(
         'Delivery Code',
-        `Your delivery code is: ${response.delivery_verification_code}\n\nShow this code to the seller when they deliver your order.`,
-        [{ text: 'OK', onPress: () => fetchOrders() }]
+        `Your delivery code is: ${deliveryCode}\n\nShow this code to the seller when they deliver your order.`,
+        [{ text: 'OK', onPress: () => {
+          console.log('🔍 DEBUG: Refreshing orders after code request');
+          fetchOrders();
+        }}]
       );
+      console.log('🔍 DEBUG: === REQUEST CODE SUCCESS ===');
     } catch (err: any) {
+      console.error('🔍 DEBUG: === REQUEST CODE ERROR ===');
+      console.error('🔍 DEBUG: Error:', err);
+      console.error('🔍 DEBUG: Error response:', err?.response);
+      console.error('🔍 DEBUG: Error data:', err?.response?.data);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to get delivery code.');
     }
   };
 
   const handleCancelOrder = (orderId: string, orderDate: string) => {
-    // Check if order is within 12 hours
     const orderTime = new Date(orderDate).getTime();
     const currentTime = new Date().getTime();
     const hoursSincePurchase = (currentTime - orderTime) / (1000 * 60 * 60);
@@ -155,14 +180,17 @@ const MyOrdersScreen: React.FC = () => {
       return;
     }
     
+    setCancelling(true);
     try {
       await updateOrderStatus(cancelModal.orderId, 'cancel_order', cancelReason);
       setCancelModal({ visible: false, orderId: '', orderDate: '' });
       setCancelReason('');
       Alert.alert('Order Cancelled', 'Your order has been cancelled and the refund has been processed to your wallet.');
-      fetchOrders();
+      await fetchOrders();
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel order.');
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -525,8 +553,13 @@ const MyOrdersScreen: React.FC = () => {
               <TouchableOpacity
                 style={[styles.confirmButton, { backgroundColor: colors.dangerAction }]}
                 onPress={confirmCancelOrder}
+                disabled={cancelling}
               >
-                <Text style={styles.buttonText}>Yes, Cancel</Text>
+                {cancelling ? (
+                  <ActivityIndicator size="small" color={colors.buttonText} />
+                ) : (
+                  <Text style={styles.buttonText}>Yes, Cancel</Text>
+                )}
               </TouchableOpacity>
             </View>
           </View>

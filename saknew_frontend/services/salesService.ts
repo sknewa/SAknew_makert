@@ -199,9 +199,10 @@ const getMyOrders = async (): Promise<Order[]> => {
   }
 };
 
-const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string): Promise<Order> => {
+const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string): Promise<{ detail: string; order: Order; delivery_verification_code?: string; delivery_code?: string }> => {
   try {
     const payload: { action_type: string; verification_code?: string; cancellation_reason?: string } = { action_type: actionType };
+    
     if (verificationCodeOrReason) {
       if (actionType === 'cancel_order') {
         payload.cancellation_reason = verificationCodeOrReason;
@@ -209,8 +210,9 @@ const updateOrderStatus = async (orderId: string, actionType: string, verificati
         payload.verification_code = verificationCodeOrReason;
       }
     }
+    
     const response = await apiClient.patch(`/api/orders/${orderId}/status-update/`, payload);
-    return response.data.order; // Backend returns {"detail": ..., "order": OrderData}
+    return response.data; // Backend returns {"detail": ..., "order": OrderData, "delivery_verification_code"?: ...}
   } catch (error: any) {
     SecurityUtils.safeLog('error', `Error updating order ${SecurityUtils.sanitizeForLogging(orderId)} status (${SecurityUtils.sanitizeForLogging(actionType)}):`, error.response?.data || error.message);
     throw error;

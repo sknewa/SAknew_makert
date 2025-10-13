@@ -28,9 +28,32 @@ export const getMyWallet = async (): Promise<Wallet> => {
 };
 
 export const getMyTransactions = async (): Promise<Transaction[]> => {
-  const response = await apiClient.get('/api/wallet/wallets/transactions/');
-  return response.data;
-};
+  console.log('🔍 DEBUG: getMyTransactions - Making API call');
+  try {
+    const response = await apiClient.get('/api/wallet/wallets/transactions/');
+    console.log('🔍 DEBUG: Response status:', response.status);
+    console.log('🔍 DEBUG: Response data:', JSON.stringify(response.data, null, 2));
+    
+    // Handle paginated response
+    if (response.data?.results && Array.isArray(response.data.results)) {
+      console.log('🔍 DEBUG: Returning paginated results, count:', response.data.results.length);
+      return response.data.results;
+    }
+    
+    // Handle direct array response
+    if (Array.isArray(response.data)) {
+      console.log('🔍 DEBUG: Returning direct array, count:', response.data.length);
+      return response.data;
+    }
+    
+    console.log('🔍 DEBUG: No transactions found, returning empty array');
+    return [];
+  } catch (error: any) {
+    console.error('🔍 DEBUG: getMyTransactions error:', error);
+    console.error('🔍 DEBUG: Error response:', error?.response?.data);
+    throw error;
+  }
+};}
 
 
 // Add funds to wallet

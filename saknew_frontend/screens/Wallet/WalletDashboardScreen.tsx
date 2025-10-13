@@ -81,27 +81,59 @@ const WalletDashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchWalletData = useCallback(async () => {
+    console.log('🔍 DEBUG: === FETCH WALLET DATA START ===');
+    console.log('🔍 DEBUG: refreshing:', refreshing);
+    console.log('🔍 DEBUG: user:', user);
+    console.log('🔍 DEBUG: user.id:', user?.id);
+    
     if (!refreshing) setLoading(true);
     setError(null);
     try {
       if (!user?.id) {
+        console.log('🔍 DEBUG: No user ID, setting error');
         setError("User not authenticated. Cannot fetch wallet data.");
         setLoading(false);
         return;
       }
-      console.log('Fetching wallet data for user:', user.id);
+      console.log('🔍 DEBUG: Fetching wallet data for user:', user.id);
       
       // Refresh badges (including wallet balance) and get transactions
+      console.log('🔍 DEBUG: Calling refreshBadges()');
       await refreshBadges();
-      const txns = await getMyTransactions();
-      console.log('Transactions loaded:', txns.length);
-      setTransactions(txns);
+      console.log('🔍 DEBUG: refreshBadges() completed');
+      
+      console.log('🔍 DEBUG: Calling getMyTransactions()');
+      const txnsResponse = await getMyTransactions();
+      console.log('🔍 DEBUG: Transactions response:', txnsResponse);
+      
+      // Handle paginated response
+      const txns = Array.isArray(txnsResponse) ? txnsResponse : txnsResponse?.results || [];
+      console.log('🔍 DEBUG: Extracted transactions array:', txns);
+      console.log('🔍 DEBUG: Transactions count:', txns.length);
+      
+      // Sort transactions by date (newest first)
+      console.log('🔍 DEBUG: Sorting transactions');
+      const sortedTxns = txns.sort((a, b) => {
+        const dateA = new Date(b.created_at).getTime();
+        const dateB = new Date(a.created_at).getTime();
+        console.log('🔍 DEBUG: Comparing dates:', { dateA, dateB, diff: dateA - dateB });
+        return dateA - dateB;
+      });
+      console.log('🔍 DEBUG: Sorted transactions count:', sortedTxns.length);
+      setTransactions(sortedTxns);
+      console.log('🔍 DEBUG: === FETCH WALLET DATA SUCCESS ===');
     } catch (err: any) {
-      console.error('Error fetching wallet data:', err);
+      console.error('🔍 DEBUG: === FETCH WALLET DATA ERROR ===');
+      console.error('🔍 DEBUG: Error:', err);
+      console.error('🔍 DEBUG: Error message:', err?.message);
+      console.error('🔍 DEBUG: Error response:', err?.response);
+      console.error('🔍 DEBUG: Error response data:', err?.response?.data);
       setError("Failed to load wallet data. Please try again.");
     } finally {
+      console.log('🔍 DEBUG: Setting loading and refreshing to false');
       setLoading(false);
       setRefreshing(false);
+      console.log('🔍 DEBUG: === FETCH WALLET DATA END ===');
     }
   }, [user, refreshBadges, refreshing]);
 
@@ -238,7 +270,7 @@ const WalletDashboardScreen: React.FC = () => {
 
           {/* Transaction History */}
           <View style={styles.transactionsSection}>
-            <Text style={styles.sectionTitle}>Recent Transactions</Text>
+            <Text style={styles.sectionTitle}>Transactions</Text>
             {transactions.length === 0 ? (
               <View style={styles.noTransactionsContainer}>
                 <Ionicons name="swap-horizontal-outline" size={60} color={colors.textSecondary} />
@@ -248,6 +280,7 @@ const WalletDashboardScreen: React.FC = () => {
             ) : (
               <View style={styles.transactionsList}>
                 {Array.isArray(transactions) ? transactions.map((txn) => {
+                  console.log('🔍 DEBUG: Rendering transaction:', txn.id);
                   const amt = parseFloat(txn.amount);
                   return (
                     <View key={txn.id} style={styles.transactionItem}>
@@ -271,7 +304,9 @@ const WalletDashboardScreen: React.FC = () => {
                       </Text>
                     </View>
                   );
-                }) : null}
+                }) : (
+                  <Text style={styles.errorTextSmall}>Transactions data is not in the correct format</Text>
+                )}
               </View>
             )}
           </View>
