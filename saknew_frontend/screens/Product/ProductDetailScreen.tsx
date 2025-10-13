@@ -22,9 +22,7 @@ import shopService from '../../services/shopService';
 import { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext.minimal';
 import { getReviewsByProduct, Review, addCartItem } from '../../services/salesService';
-
-
-// We'll fetch real reviews from the API instead of using mock data
+import BackButton from '../../components/BackButton';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -65,6 +63,9 @@ const ProductDetailScreen = () => {
     setError(null);
     try {
       const fetchedProduct = await shopService.getProductById(productId);
+      
+
+      
       setProduct(fetchedProduct);
       
       // Fetch reviews for this product
@@ -127,14 +128,30 @@ const ProductDetailScreen = () => {
   };
 
   // Handle delete product
-  const handleDeleteProduct = () => {
+  const handleDeleteProduct = async () => {
     if (product) {
       Alert.alert(
         'Delete Product',
         `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
         [
           { text: 'Cancel', style: 'cancel' },
-          { text: 'Delete', style: 'destructive', onPress: () => console.log(`Deleting product ${product.id}`) }
+          { 
+            text: 'Delete', 
+            style: 'destructive', 
+            onPress: async () => {
+              try {
+                setLoading(true);
+                await shopService.deleteProduct(product.id);
+                Alert.alert('Success', 'Product deleted successfully!', [
+                  { text: 'OK', onPress: () => navigation.goBack() }
+                ]);
+              } catch (err: any) {
+                Alert.alert('Error', err.response?.data?.detail || 'Failed to delete product.');
+              } finally {
+                setLoading(false);
+              }
+            }
+          }
         ]
       );
     }
@@ -185,6 +202,7 @@ const ProductDetailScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <BackButton />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         {/* Product Image */}
         <View style={styles.imageContainer}>
@@ -207,17 +225,22 @@ const ProductDetailScreen = () => {
               <Image
                 key={`product-${product.id}-main-image`}
                 source={getFullImageUrl(product.main_image_url) ? { uri: getFullImageUrl(product.main_image_url) as string } : undefined}
-                style={StyleSheet.flatten([styles.productImage])}
-                onError={(e) => {
-                  console.error('Image load error:', e.nativeEvent.error);
-                  setImageError(true);
-                }}
+                style={styles.productImage}
+                onError={() => setImageError(true)}
                 accessibilityLabel={product?.name || 'Product image'}
               />
             ) : (
               <View key={`product-${product.id}-placeholder`} style={styles.placeholderImage}>
                 <Ionicons name="image-outline" size={80} color="#999999" />
-                <Text style={{color:'#999', marginTop:8}}>No image available</Text>
+                <Text style={{color:'#999', marginTop:8}}>Image not available</Text>
+              </View>
+            )}
+            
+            {/* Show placeholder overlay when main image fails to load */}
+            {imageError && product?.main_image_url && (
+              <View style={[styles.placeholderImage, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: 'rgba(248, 248, 248, 0.9)' }]}>
+                <Ionicons name="image-outline" size={80} color="#999999" />
+                <Text style={{color:'#999', marginTop:8}}>Image unavailable</Text>
               </View>
             )}
             {/* Additional Images */}
@@ -225,8 +248,8 @@ const ProductDetailScreen = () => {
               <Image
                 key={`product-${product.id}-gallery-${index}`}
                 source={getFullImageUrl(image.image) ? { uri: getFullImageUrl(image.image) as string } : undefined}
-                style={StyleSheet.flatten([styles.productImage])}
-                onError={() => console.log(`Additional image ${index} load error`)}
+                style={styles.productImage}
+                onError={() => console.log(`Additional image ${index} failed to load`)}
                 accessibilityLabel={product?.name ? `${product.name} image ${index+1}` : `Product image ${index+1}`}
               />
             ))}
@@ -488,9 +511,8 @@ const styles = StyleSheet.create({
   productImage: {
     width: screenWidth,
     height: 300,
-    resizeMode: 'contain',
     backgroundColor: '#F8F8F8',
-  },
+  } as any,
   placeholderImage: {
     width: screenWidth,
     height: 300,

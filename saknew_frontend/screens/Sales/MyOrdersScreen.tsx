@@ -59,6 +59,14 @@ const MyOrdersScreen: React.FC = () => {
     rating: number;
     comment: string;
   }>({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
+  
+  const [cancelModal, setCancelModal] = useState<{
+    visible: boolean;
+    orderId: string;
+    orderDate: string;
+  }>({ visible: false, orderId: '', orderDate: '' });
+  
+  const [cancelReason, setCancelReason] = useState('');
 
   const fetchOrders = useCallback(async () => {
     if (!user?.id) return;
@@ -66,8 +74,10 @@ const MyOrdersScreen: React.FC = () => {
     setLoading(true);
     try {
       const orderData = await getMyOrders();
-      // Filter to only show orders where user is the buyer (purchase history)
-      const buyerOrders = orderData.filter(order => order.user.id === user?.id);
+      // Filter to only show orders where user is the buyer AND payment is completed
+      const buyerOrders = orderData.filter(order => 
+        order.user.id === user?.id && order.payment_status === 'Completed'
+      );
       setOrders(buyerOrders);
     } catch (err: any) {
       SecurityUtils.safeLog('error', 'Failed to load orders:', err);
@@ -120,27 +130,44 @@ const MyOrdersScreen: React.FC = () => {
     }
   };
 
-  const handleCancelOrder = async (orderId: string) => {
-    Alert.alert(
-      'Cancel Order',
-      'Are you sure you want to cancel this order? This action cannot be undone.',
-      [
-        { text: 'No', style: 'cancel' },
-        { 
-          text: 'Yes, Cancel', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await updateOrderStatus(orderId, 'cancel_order');
-              Alert.alert('Success', 'Order cancelled successfully!');
-              fetchOrders();
-            } catch (err: any) {
-              Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel order.');
-            }
-          }
-        }
-      ]
-    );
+  const handleCancelOrder = (orderId: string, orderDate: string) => {
+    // Check if order is within 12 hours
+    const orderTime = new Date(orderDate).getTime();
+    const currentTime = new Date().getTime();
+    const hoursSincePurchase = (currentTime - orderTime) / (1000 * 60 * 60);
+    
+    if (hoursSincePurchase > 12) {
+      Alert.alert(
+        'Cannot Cancel',
+        'Orders can only be cancelled within 12 hours of purchase. This order was placed more than 12 hours ago.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    setCancelModal({ visible: true, orderId, orderDate });
+    setCancelReason('');
+  };
+  
+  const confirmCancelOrder = async () => {
+    if (!cancelReason.trim()) {
+      Alert.alert('Reason Required', 'Please provide a reason for cancelling this order.');
+      return;
+    }
+    
+    try {
+      await updateOrderStatus(cancelModal.orderId, 'cancel_order', cancelReason);
+      setCancelModal({ visible: false, orderId: '', orderDate: '' });
+      setCancelReason('');
+      Alert.alert('Order Cancelled', 'Your order has been cancelled and the refund has been processed to your wallet.');
+      fetchOrders();
+    } catch (err: any) {
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel order.');
+    }
+  };
+
+  const handleMarkAsReceived = (orderId: string) => {
+    setVerificationModal({ visible: true, orderId, code: '' });
   };
 
   const openReviewModal = (product: any, orderId: string) => {
@@ -351,7 +378,7 @@ const MyOrdersScreen: React.FC = () => {
                   {(order.order_status === 'pending' || order.order_status === 'processing') && (
                     <TouchableOpacity
                       style={styles.cancelActionButton}
-                      onPress={() => handleCancelOrder(order.id)}
+                      onPress={() => handleCancelOrder(order.id, order.order_date)}
                     >
                       <Ionicons name="close-circle-outline" size={14} color={colors.buttonText} />
                       <Text style={styles.cancelActionText}>Cancel</Text>
@@ -454,6 +481,52 @@ const MyOrdersScreen: React.FC = () => {
                 onPress={handleVerifyDelivery}
               >
                 <Text style={styles.buttonText}>Verify</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={cancelModal.visible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setCancelModal({ visible: false, orderId: '', orderDate: '' });
+          setCancelReason('');
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="warning" size={48} color={colors.dangerAction} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={styles.modalTitle}>Cancel Order</Text>
+            <Text style={styles.modalSubtitle}>Please provide a reason for cancelling this order. Your refund will be processed to your wallet.</Text>
+            
+            <TextInput
+              style={styles.reasonInput}
+              placeholder="Reason for cancellation..."
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline
+              numberOfLines={3}
+              textAlignVertical="top"
+            />
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={styles.cancelButton}
+                onPress={() => {
+                  setCancelModal({ visible: false, orderId: '', orderDate: '' });
+                  setCancelReason('');
+                }}
+              >
+                <Text style={styles.cancelButtonText}>No</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.confirmButton, { backgroundColor: colors.dangerAction }]}
+                onPress={confirmCancelOrder}
+              >
+                <Text style={styles.buttonText}>Yes, Cancel</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -584,6 +657,7 @@ const styles = StyleSheet.create({
   modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
   modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 },
   codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
+  reasonInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 14, marginBottom: 20, minHeight: 80, textAlignVertical: 'top' },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
   cancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 12, borderRadius: 8, marginRight: 8, alignItems: 'center' },
   cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },

@@ -70,7 +70,7 @@ const StatusCards: React.FC<{ userId: number; onStatusPress: (userStatus: UserSt
         const myStatuses = userStatuses.filter(s => s.user.id === userId);
         setStatuses(myStatuses);
       } catch (error) {
-        console.log('Error fetching statuses:', error);
+        // Error fetching statuses
       }
     };
     fetchStatuses();
@@ -154,22 +154,13 @@ const MyShopScreen: React.FC = () => {
     setError(null);
     
     try {
-      console.log('🏪 MyShop Debug - Starting shop check');
-      console.log('🏪 User authenticated:', isAuthenticated);
-      console.log('🏪 User data:', user ? { id: user.id, profile: user.profile } : 'null');
-      
       if (!user || !isAuthenticated) {
-        console.log('🏪 No user or not authenticated - showing login');
         setShop(null);
         setProducts([]);
         return;
       }
       
-      console.log('🏪 User is_seller:', user.profile?.is_seller);
-      console.log('🏪 User shop_slug:', user.profile?.shop_slug);
-      
       if (!user.profile?.is_seller) {
-        console.log('🏪 User is not a seller - showing access denied');
         setShop(null);
         setProducts([]);
         return;
@@ -177,18 +168,14 @@ const MyShopScreen: React.FC = () => {
 
       // Try to fetch user's shop directly from API
       try {
-        console.log('🏪 Calling getMyShop API...');
         const fetchedShop = await shopService.getMyShop();
-        console.log('🏪 API Response - Shop found:', fetchedShop ? { name: fetchedShop.name, slug: fetchedShop.slug } : 'null');
         
         if (!fetchedShop) {
-          console.log('🏪 No shop returned from API - showing create shop form');
           setShop(null);
           setProducts([]);
           return;
         }
         
-        console.log('🏪 Setting shop data and fetching products...');
         setShop(fetchedShop);
 
         // Get products for the shop only if slug exists
@@ -197,18 +184,14 @@ const MyShopScreen: React.FC = () => {
         
         // FIX: Handle paginated response from the API
         if (productResponse && Array.isArray(productResponse.results)) {
-          console.log('🏪 Products fetched:', productResponse.results.length);
           setProducts(productResponse.results);
         } else if (Array.isArray(productResponse)) {
           // Handle cases where the API might just return an array directly.
-          console.log('🏪 Products fetched:', productResponse.length);
           setProducts(productResponse);
           } else {
-            console.error('🏪 Unexpected product data structure:', productResponse);
             setProducts([]);
           }
         } else {
-          console.log('🏪 No shop slug - skipping product fetch');
           setProducts([]);
         }
         
@@ -216,18 +199,14 @@ const MyShopScreen: React.FC = () => {
         await fetchNewOrdersCount();
         
       } catch (shopError: any) {
-        console.log('🏪 Shop API Error:', shopError.response?.status, shopError?.message);
         if (shopError.response?.status === 404) {
-          console.log('🏪 404 - User has no shop - showing create shop form');
           setShop(null);
           setProducts([]);
         } else {
-          console.log('🏪 Other shop error - re-throwing');
           throw shopError;
         }
       }
     } catch (err: any) {
-      console.error('🏪 General error:', err.response?.data || err.message);
       if (err.response?.status === 401) {
         setError('Authentication required. Please log in again.');
       } else {
@@ -241,25 +220,33 @@ const MyShopScreen: React.FC = () => {
   }, [user, isAuthenticated, refreshing]);
   
   const fetchNewOrdersCount = useCallback(async () => {
-    if (!user?.profile?.is_seller) return;
+    if (!user?.profile?.is_seller || !user?.profile?.shop_slug) return;
     
     try {
       const response = await apiClient.get('/api/orders/');
       const allOrders = response.data.results || [];
       
-      const newOrders = allOrders.filter(order => {
-        const hasSellerItems = order.items.some(item => 
-          item.product.shop === user.profile.shop_id
-        );
-        const isNotOwnOrder = order.user.id !== user.id;
-        const isNewOrder = order.order_status === 'processing';
+      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
+      
+      const activeOrders = allOrders.filter(order => {
+        // Only count paid orders
+        if (order.payment_status !== 'Completed') return false;
         
-        return hasSellerItems && isNotOwnOrder && isNewOrder;
+        // Only count active orders (not completed or cancelled)
+        if (!['processing', 'ready_for_delivery'].includes(order.order_status)) return false;
+        
+        // Check if order has items from this shop
+        const hasSellerItems = order.items?.some(item => {
+          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+          return item.product?.shop?.slug === user.profile.shop_slug || productShopSlug === user.profile.shop_slug;
+        });
+        
+        return hasSellerItems;
       });
       
-      setNewOrdersCount(newOrders.length);
+      setNewOrdersCount(activeOrders.length);
     } catch (error) {
-      console.log('Error fetching orders count:', error);
+      console.error('Error fetching orders count:', error);
     }
   }, [user]);
 
@@ -278,7 +265,6 @@ const MyShopScreen: React.FC = () => {
       refreshUserProfile()
         .then(() => fetchShopData())
         .catch(err => {
-          console.error('Error refreshing user profile:', err);
           fetchShopData(); // Still try to fetch shop data even if profile refresh fails
         });
     } else {
@@ -297,7 +283,6 @@ const MyShopScreen: React.FC = () => {
         });
       } catch (shareError: any) {
         Alert.alert('Error Sharing', 'Could not share the shop link. Please try again.');
-        console.error('Share error:', shareError.message);
       }
     } else {
       Alert.alert('No Shop Link', 'Cannot share link as your shop details are not available.');
@@ -383,7 +368,6 @@ const MyShopScreen: React.FC = () => {
   }
 
   if (!shop) {
-    console.log('🏪 Rendering create shop form - no shop found');
     return (
       <SafeAreaView style={styles.safeArea}>
         <ScrollView 
@@ -408,9 +392,6 @@ const MyShopScreen: React.FC = () => {
       </SafeAreaView>
     );
   }
-  
-  console.log('🏪 Rendering shop dashboard for:', shop.name);
-
   const { groupedArray: groupedProducts, ungrouped: ungroupedProducts } = groupProductsByCategory(products ?? []);
 
   return (
@@ -448,8 +429,7 @@ const MyShopScreen: React.FC = () => {
                           setProducts([]);
                           await refreshUserProfile(); // Await to ensure state is up-to-date
                         } catch (deleteError: any) {
-                          Alert.alert('Deletion Failed', 'Could not delete shop. Please try again.');
-                          console.error('Shop deletion error:', deleteError.response?.data || deleteError.message);
+          Alert.alert('Deletion Failed', 'Could not delete shop. Please try again.');
                         }
                       }}
                     ])}

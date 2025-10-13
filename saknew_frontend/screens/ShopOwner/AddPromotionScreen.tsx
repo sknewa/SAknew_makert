@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';
+import BackButton from '../../components/BackButton';
 
 function getDefaultDates() {
   const now = new Date();
@@ -57,6 +58,7 @@ const AddPromotionScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <BackButton />
       <View style={styles.container}>
         <Text style={styles.title}>Add Promotion</Text>
         <Text style={styles.subtitle}>Enter a discount percentage and promotion dates for this product.</Text>

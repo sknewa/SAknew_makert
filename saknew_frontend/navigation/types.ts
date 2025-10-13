@@ -15,11 +15,11 @@ export type MainStackParamList = {
   CategoryProducts: { categoryName: string; categorySlug: string };
   Cart: undefined;
   Shipping: undefined;
-  Payment: undefined;
+  Payment: { orderId: string };
   MyOrders: undefined;
   WalletDashboard: undefined;
   AddFundsScreen: undefined;
-  ProductManagement: undefined;
+  ProductManagement: { productId: number };
   AuthStack: undefined; // Likely a nested navigator
 
   // Screens that were causing the TypeScript error in HomeScreen.tsx

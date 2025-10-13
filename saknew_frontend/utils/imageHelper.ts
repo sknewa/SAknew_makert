@@ -8,19 +8,22 @@ import { API_BASE_URL } from '../config';
  * @returns A properly formatted image URL
  */
 export const getFullImageUrl = (imageUrl: string | null | undefined): string | null => {
-  if (!imageUrl) return null;
+  if (!imageUrl) {
+    return null;
+  }
+
+  // If it's already a Cloudinary URL, return as is
+  if (imageUrl.startsWith('https://res.cloudinary.com/')) {
+    return imageUrl;
+  }
 
   // If it's already a full URL, return as is
   if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
     return imageUrl;
   }
 
-  // Remove any leading slashes from imageUrl
-  let cleanPath = imageUrl.replace(/^\/+/, '');
-
-  // Ensure API_BASE_URL ends with a slash
-  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL : `${API_BASE_URL}/`;
-
-  // Use the correct Django media path
-  return `${baseUrl}media/${cleanPath}`;
+  // For relative paths, construct with API base URL
+  const cleanPath = imageUrl.replace(/^\/+/, '');
+  const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;
+  return `${baseUrl}/${cleanPath}`;
 };

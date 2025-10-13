@@ -14,6 +14,7 @@ interface Order {
   user: { username?: string; email: string; phone?: string };
   order_date: string;
   order_status: string;
+  payment_status: string;
   delivery_verification_code?: string;
   shipping_address?: {
     city: string;
@@ -95,8 +96,13 @@ const SellerOrdersScreen: React.FC = () => {
       console.log('🔍 DEBUG: Total orders from API:', allOrders.length);
       console.log('🔍 DEBUG: First 3 orders sample:', allOrders.slice(0, 3));
       
-      // Show ALL purchases that contain items from this shop
+      // Show only PAID orders that contain items from this shop
       const sellerOrders = allOrders.filter((order: Order, index: number) => {
+        // First check if payment is completed
+        if (order.payment_status !== 'Completed') {
+          console.log(`🔍 DEBUG: Order ${order.id} skipped - payment status: ${order.payment_status}`);
+          return false;
+        }
         console.log(`🔍 DEBUG: Checking order ${index + 1}/${allOrders.length}:`, {
           orderId: order.id,
           orderStatus: order.order_status,

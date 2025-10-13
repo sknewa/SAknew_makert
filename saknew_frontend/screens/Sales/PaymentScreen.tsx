@@ -16,20 +16,26 @@ import { Ionicons } from '@expo/vector-icons';
 import { getMyWallet } from '../../services/walletService';
 import { processPayment, verifyPayment, getOrderById } from '../../services/salesService';
 import { useBadges } from '../../context/BadgeContext';
+import BackButton from '../../components/BackButton';
+import { MainNavigationProp } from '../../navigation/types';
 
 const colors = {
-  background: '#F0F2F5',
-  textPrimary: '#2C3E50',
-  textSecondary: '#7F8C8D',
+  background: '#F5F7FA',
+  textPrimary: '#1A202C',
+  textSecondary: '#718096',
   card: '#FFFFFF',
-  border: '#E0E6EB',
+  border: '#E2E8F0',
   primary: '#27AE60',
   buttonBg: '#27AE60',
   buttonText: '#FFFFFF',
-  errorText: '#E74C3C',
+  errorText: '#E53E3E',
   successText: '#27AE60',
-  shadowColor: 'rgba(0, 0, 0, 0.1)',
+  shadowColor: '#000',
+  warningBg: '#FFF5E6',
+  warningBorder: '#FFD699',
+  warningText: '#CC7A00',
   warningAction: '#F39C12',
+  iconBg: '#E8F5E9',
 };
 
 const formatCurrency = (amount: string | number): string => {
@@ -38,7 +44,7 @@ const formatCurrency = (amount: string | number): string => {
 };
 
 const PaymentScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<MainNavigationProp>();
   const route = useRoute();
   const { refreshBadges } = useBadges();
   const { orderId } = (route.params as { orderId: string }) || {};
@@ -47,9 +53,9 @@ const PaymentScreen: React.FC = () => {
   const [order, setOrder] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [paying, setPaying] = useState(false);
-  const [showVerificationModal, setShowVerificationModal] = useState(false);
-  const [verificationCode, setVerificationCode] = useState('');
-  const [verifying, setVerifying] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showInsufficientFundsModal, setShowInsufficientFundsModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -80,94 +86,59 @@ const PaymentScreen: React.FC = () => {
   }, [orderId]);
 
   const handleWalletPayment = async () => {
-    if (!wallet || !order) return;
-
-    const walletBalance = parseFloat(wallet.balance);
-    const orderTotal = parseFloat(order.total_price);
-
-    if (walletBalance < orderTotal) {
-      Alert.alert(
-        'Insufficient Funds',
-        `You need ${formatCurrency(orderTotal)} but only have ${formatCurrency(walletBalance)} in your wallet.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Add Funds', 
-            onPress: () => navigation.navigate('MainTabs', { screen: 'WalletTab' })
-          }
-        ]
-      );
+    console.log('=== PAY WITH WALLET BUTTON PRESSED ===');
+    console.log('Wallet:', wallet);
+    console.log('Order:', order);
+    
+    if (!wallet || !order) {
+      console.log('Missing wallet or order data');
       return;
     }
 
-    Alert.alert(
-      'Confirm Payment',
-      `Pay ${formatCurrency(orderTotal)} from your wallet?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Pay Now', onPress: processWalletPayment }
-      ]
-    );
+    const walletBalance = parseFloat(wallet.balance);
+    const orderTotal = parseFloat(order.total_price);
+    console.log('Wallet Balance:', walletBalance);
+    console.log('Order Total:', orderTotal);
+    console.log('Has Enough Funds:', walletBalance >= orderTotal);
+
+    if (walletBalance < orderTotal) {
+      console.log('Insufficient funds - showing modal');
+      setShowInsufficientFundsModal(true);
+      return;
+    }
+
+    console.log('Showing payment confirmation modal');
+    setShowConfirmModal(true);
   };
 
   const processWalletPayment = async () => {
+    console.log('=== PROCESSING WALLET PAYMENT ===');
+    console.log('Order ID:', orderId);
+    setShowConfirmModal(false);
     setPaying(true);
     try {
+      console.log('Calling processPayment API...');
       const result = await processPayment(orderId, 'wallet');
+      console.log('Payment result:', result);
       
-      // Refresh badges after successful payment
+      console.log('Refreshing badges...');
       await refreshBadges();
+      console.log('Badges refreshed');
       
-      Alert.alert(
-        'Payment Successful!',
-        'Your order has been paid and is being processed. Seller will be paid upon delivery confirmation.',
-        [
-          { 
-            text: 'View Orders', 
-            onPress: () => navigation.navigate('MainTabs', { screen: 'OrdersTab' })
-          }
-        ]
-      );
+      console.log('Payment successful - showing success modal');
+      setShowSuccessModal(true);
     } catch (err: any) {
+      console.log('Payment error:', err);
+      console.log('Error response:', err?.response?.data);
       const errorMessage = err?.response?.data?.detail || 'Payment failed. Please try again.';
       Alert.alert('Payment Failed', errorMessage);
     } finally {
       setPaying(false);
+      console.log('Payment process completed');
     }
   };
 
-  const handleVerifyPayment = async () => {
-    if (!verificationCode.trim()) {
-      Alert.alert('Error', 'Please enter the verification code.');
-      return;
-    }
 
-    setVerifying(true);
-    try {
-      await verifyPayment(orderId, verificationCode);
-      
-      // Refresh badges after successful verification
-      await refreshBadges();
-      
-      setShowVerificationModal(false);
-      
-      Alert.alert(
-        'Payment Verified!',
-        'Your payment has been confirmed and your order is being processed.',
-        [
-          { 
-            text: 'View Orders', 
-            onPress: () => navigation.navigate('MainTabs', { screen: 'OrdersTab' })
-          }
-        ]
-      );
-    } catch (err: any) {
-      const errorMessage = err?.response?.data?.detail || 'Verification failed. Please try again.';
-      Alert.alert('Verification Failed', errorMessage);
-    } finally {
-      setVerifying(false);
-    }
-  };
 
 
   if (loading) {
@@ -204,15 +175,27 @@ const PaymentScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <BackButton />
       <ScrollView contentContainerStyle={styles.container}>
-        <Text style={styles.title}>Complete Payment</Text>
+        {/* Header Section */}
+        <View style={styles.header}>
+          <View style={styles.headerIconContainer}>
+            <Ionicons name="card" size={32} color={colors.primary} />
+          </View>
+          <Text style={styles.title}>Complete Payment</Text>
+          <Text style={styles.subtitle}>Review and confirm your payment</Text>
+        </View>
 
-        {/* Order Summary */}
-        <View style={styles.orderSummary}>
-          <Text style={styles.sectionTitle}>Order Summary</Text>
+        {/* Order Summary Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="receipt-outline" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>Order Summary</Text>
+          </View>
+          <View style={styles.divider} />
           <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Order #</Text>
-            <Text style={styles.summaryValue}>{order.id.slice(-8)}</Text>
+            <Text style={styles.summaryLabel}>Order ID</Text>
+            <Text style={styles.summaryValue}>#{order.id.slice(-8).toUpperCase()}</Text>
           </View>
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Amount</Text>
@@ -220,20 +203,32 @@ const PaymentScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Wallet Information */}
-        <View style={styles.walletSection}>
-          <Text style={styles.sectionTitle}>Wallet Balance</Text>
-          <View style={styles.balanceContainer}>
-            <Ionicons name="wallet-outline" size={24} color={colors.primary} />
-            <Text style={styles.balanceAmount}>{formatCurrency(walletBalance)}</Text>
+        {/* Wallet Balance Card */}
+        <View style={styles.card}>
+          <View style={styles.cardHeader}>
+            <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+            <Text style={styles.cardTitle}>Wallet Balance</Text>
+          </View>
+          <View style={styles.divider} />
+          <View style={styles.balanceRow}>
+            <View style={styles.balanceIconContainer}>
+              <Ionicons name="wallet" size={28} color={colors.primary} />
+            </View>
+            <View style={styles.balanceInfo}>
+              <Text style={styles.balanceLabel}>Available Balance</Text>
+              <Text style={styles.balanceAmount}>{formatCurrency(walletBalance)}</Text>
+            </View>
           </View>
           
           {!hasEnoughFunds && (
             <View style={styles.warningContainer}>
-              <Ionicons name="warning-outline" size={20} color={colors.warningAction} />
-              <Text style={styles.warningText}>
-                Insufficient funds. Need {formatCurrency(orderTotal - walletBalance)} more.
-              </Text>
+              <Ionicons name="alert-circle" size={20} color={colors.warningText} />
+              <View style={styles.warningTextContainer}>
+                <Text style={styles.warningTitle}>Insufficient Funds</Text>
+                <Text style={styles.warningText}>
+                  You need {formatCurrency(orderTotal - walletBalance)} more to complete this payment.
+                </Text>
+              </View>
             </View>
           )}
         </View>
@@ -242,15 +237,16 @@ const PaymentScreen: React.FC = () => {
         <View style={styles.actionsContainer}>
           {hasEnoughFunds ? (
             <TouchableOpacity 
-              style={[styles.payButton, paying && styles.payButtonDisabled]} 
+              style={[styles.payButton, paying && styles.buttonDisabled]} 
               onPress={handleWalletPayment}
               disabled={paying}
+              activeOpacity={0.8}
             >
               {paying ? (
                 <ActivityIndicator color={colors.buttonText} />
               ) : (
                 <>
-                  <Ionicons name="card-outline" size={20} color={colors.buttonText} />
+                  <Ionicons name="checkmark-circle" size={22} color={colors.buttonText} />
                   <Text style={styles.payButtonText}>Pay with Wallet</Text>
                 </>
               )}
@@ -258,71 +254,183 @@ const PaymentScreen: React.FC = () => {
           ) : (
             <TouchableOpacity 
               style={styles.addFundsButton}
-              onPress={() => navigation.navigate('MainTabs', { screen: 'WalletTab' })}
+              onPress={() => navigation.goBack()}
+              activeOpacity={0.8}
             >
-              <>
-                <Ionicons name="add-circle-outline" size={20} color={colors.buttonText} />
-                <Text style={styles.buttonText}>Add Funds to Wallet</Text>
-              </>
+              <Ionicons name="add-circle" size={22} color={colors.buttonText} />
+              <Text style={styles.addFundsButtonText}>Add Funds to Wallet</Text>
             </TouchableOpacity>
           )}
 
           <TouchableOpacity 
             style={styles.cancelButton}
             onPress={() => navigation.goBack()}
+            activeOpacity={0.7}
           >
-            <Text style={styles.cancelButtonText}>Cancel</Text>
+            <Text style={styles.cancelButtonText}>Cancel Payment</Text>
           </TouchableOpacity>
         </View>
       </ScrollView>
 
+      {/* Confirmation Modal */}
+      <Modal
+        visible={showConfirmModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowConfirmModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="help-circle" size={48} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={styles.modalTitle}>Confirm Payment</Text>
+            <Text style={styles.modalMessage}>Pay {formatCurrency(orderTotal)} from your wallet?</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => setShowConfirmModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalConfirmButton}
+                onPress={processWalletPayment}
+              >
+                <Text style={styles.modalConfirmText}>Pay Now</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
+      {/* Insufficient Funds Modal */}
+      <Modal
+        visible={showInsufficientFundsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInsufficientFundsModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="alert-circle" size={48} color={colors.errorText} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={styles.modalTitle}>Insufficient Funds</Text>
+            <Text style={styles.modalMessage}>
+              You need {formatCurrency(orderTotal)} but only have {formatCurrency(walletBalance)} in your wallet.
+            </Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={styles.modalCancelButton}
+                onPress={() => setShowInsufficientFundsModal(false)}
+              >
+                <Text style={styles.modalCancelText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.modalConfirmButton}
+                onPress={() => {
+                  setShowInsufficientFundsModal(false);
+                  navigation.goBack();
+                }}
+              >
+                <Text style={styles.modalConfirmText}>Add Funds</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Success Modal */}
+      <Modal
+        visible={showSuccessModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => {
+          setShowSuccessModal(false);
+          navigation.reset({ index: 0, routes: [{ name: 'BottomTabs' }] });
+        }}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Ionicons name="checkmark-circle" size={64} color={colors.primary} style={{ alignSelf: 'center', marginBottom: 16 }} />
+            <Text style={styles.modalTitle}>Payment Successful!</Text>
+            <Text style={styles.modalMessage}>
+              Your order has been paid and is being processed. Seller will be paid upon delivery confirmation.
+            </Text>
+            <TouchableOpacity 
+              style={[styles.modalConfirmButton, { width: '100%' }]}
+              onPress={() => {
+                setShowSuccessModal(false);
+                navigation.reset({ index: 0, routes: [{ name: 'BottomTabs' }] });
+              }}
+            >
+              <Text style={styles.modalConfirmText}>View My Orders</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, padding: 20 },
+  container: { flexGrow: 1, padding: 20, paddingBottom: 30 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 10 },
+  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 12, fontWeight: '500' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
   errorTitle: { fontSize: 20, fontWeight: 'bold', color: colors.errorText, marginTop: 16, marginBottom: 20 },
-  
-  title: { fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 30, textAlign: 'center' },
-  
-  orderSummary: { backgroundColor: colors.card, borderRadius: 12, padding: 20, marginBottom: 20, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-  sectionTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 15 },
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 10 },
-  summaryLabel: { fontSize: 16, color: colors.textSecondary },
-  summaryValue: { fontSize: 16, color: colors.textPrimary },
-  totalAmount: { fontSize: 18, fontWeight: 'bold', color: colors.primary },
-  
-  walletSection: { backgroundColor: colors.card, borderRadius: 12, padding: 20, marginBottom: 30, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
-  balanceContainer: { flexDirection: 'row', alignItems: 'center', marginBottom: 15 },
-  balanceAmount: { fontSize: 20, fontWeight: 'bold', color: colors.primary, marginLeft: 10 },
-  warningContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.warningAction + '10', padding: 12, borderRadius: 8, borderWidth: 1, borderColor: colors.warningAction + '30' },
-  warningText: { fontSize: 14, color: colors.warningAction, marginLeft: 8, flex: 1 },
-  
-  actionsContainer: { flex: 1, justifyContent: 'flex-end' },
-  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 16, borderRadius: 12, marginBottom: 12 },
-  payButtonDisabled: { opacity: 0.6 },
-  payButtonText: { color: colors.buttonText, fontSize: 18, fontWeight: 'bold', marginLeft: 8 },
-  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 16, borderRadius: 12, marginBottom: 12 },
-  cancelButton: { backgroundColor: colors.border, paddingVertical: 16, borderRadius: 12, alignItems: 'center' },
-  cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
   backButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
   buttonText: { color: colors.buttonText, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
   
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.card, borderRadius: 12, padding: 24, width: '90%', maxWidth: 400 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
-  modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 },
-  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 18, marginBottom: 20, textAlign: 'center', letterSpacing: 4 },
-  modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  cancelModalButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 12, borderRadius: 8, marginRight: 8, alignItems: 'center' },
-  verifyButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 8, marginLeft: 8, alignItems: 'center' },
-  verifyButtonDisabled: { opacity: 0.6 },
+  // Header
+  header: { alignItems: 'center', marginBottom: 24 },
+  headerIconContainer: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
+  title: { fontSize: 26, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
+  subtitle: { fontSize: 15, color: colors.textSecondary, fontWeight: '400' },
+  
+  // Card
+  card: { backgroundColor: colors.card, borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  cardTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginLeft: 8 },
+  divider: { height: 1, backgroundColor: colors.border, marginBottom: 16 },
+  
+  // Order Summary
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
+  summaryLabel: { fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
+  summaryValue: { fontSize: 15, color: colors.textPrimary, fontWeight: '600' },
+  totalAmount: { fontSize: 20, fontWeight: '700', color: colors.primary },
+  
+  // Wallet Balance
+  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  balanceIconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  balanceInfo: { flex: 1 },
+  balanceLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
+  balanceAmount: { fontSize: 24, fontWeight: '700', color: colors.primary },
+  
+  // Warning
+  warningContainer: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.warningBorder },
+  warningTextContainer: { flex: 1, marginLeft: 10 },
+  warningTitle: { fontSize: 15, fontWeight: '700', color: colors.warningText, marginBottom: 4 },
+  warningText: { fontSize: 13, color: colors.warningText, lineHeight: 18, fontWeight: '500' },
+  
+  // Actions
+  actionsContainer: { marginTop: 8 },
+  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 18, borderRadius: 14, marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  payButtonText: { color: colors.buttonText, fontSize: 18, fontWeight: '700', marginLeft: 10 },
+  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 18, borderRadius: 14, marginBottom: 12, shadowColor: colors.warningAction, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  addFundsButtonText: { color: colors.buttonText, fontSize: 18, fontWeight: '700', marginLeft: 10 },
+  cancelButton: { backgroundColor: colors.card, paddingVertical: 16, borderRadius: 14, alignItems: 'center', borderWidth: 1.5, borderColor: colors.border },
+  cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  buttonDisabled: { opacity: 0.6 },
+  
+  // Modal
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
+  modalContent: { backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
+  modalTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 12 },
+  modalMessage: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
+  modalButtons: { flexDirection: 'row', gap: 12 },
+  modalCancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  modalCancelText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  modalConfirmButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
+  modalConfirmText: { color: colors.buttonText, fontSize: 16, fontWeight: '700' },
 });
 
 export default PaymentScreen;

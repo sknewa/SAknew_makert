@@ -38,6 +38,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
   ].filter(img => img.uri)
    .filter((img, index, self) => self.findIndex(i => i.uri === img.uri) === index);
 
+
+
+
+
   const handleAddToCart = async (e: any) => {
     e.stopPropagation();
     if (product.stock <= 0) {
@@ -113,13 +117,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
             scrollEventThrottle={16}
           >
             {allImages.map((img, index) => (
-              <Image
-                key={`${product.id}-${img.id}-${index}`}
-                source={{ uri: img.uri }}
-                style={styles.productImage}
-                resizeMode="cover"
-                onError={() => setImageError(true)}
-              />
+                <Image
+                  key={`${product.id}-${img.id}-${index}`}
+                  source={{ uri: img.uri }}
+                  style={styles.productImage}
+                  resizeMode="cover"
+                  onError={() => {
+                    setImageError(true);
+                  }}
+                />
             ))}
           </ScrollView>
         ) : allImages.length === 1 ? (
@@ -127,12 +133,22 @@ const ProductCard: React.FC<ProductCardProps> = ({
             source={{ uri: allImages[0].uri }}
             style={styles.productImage}
             resizeMode="cover"
-            onError={() => setImageError(true)}
+            onError={() => {
+              setImageError(true);
+            }}
           />
         ) : (
           <View style={styles.placeholderContainer}>
             <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
             <Text style={styles.placeholderText}>No Image</Text>
+          </View>
+        )}
+        
+        {/* Show placeholder when image fails to load */}
+        {imageError && allImages.length > 0 && (
+          <View style={[styles.placeholderContainer, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
+            <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
+            <Text style={styles.placeholderText}>Image Unavailable</Text>
           </View>
         )}
 

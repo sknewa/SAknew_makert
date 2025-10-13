@@ -37,7 +37,7 @@ const apiClient = axios.create({
 console.log('ACTUAL API URL BEING USED:', API_BASE_URL);
 
 // Test the main API health check endpoint
-axios.get(`${API_BASE_URL}/api/health-check/`, { timeout: 5000 })
+axios.get(`${API_BASE_URL}api/health-check/`, { timeout: 5000 })
   .then(response => {
     console.log(`✅ API health check accessible:`, response.status);
   })
@@ -88,7 +88,7 @@ apiClient.interceptors.response.use(
           // Attempt to refresh the token using a direct axios call (not apiClient).
           // This is critical to prevent the refresh request itself from getting caught
           // in this interceptor, which could lead to an infinite loop.
-          const refreshResponse = await axios.post(`${API_BASE_URL}/api/auth/jwt/refresh/`, {
+          const refreshResponse = await axios.post(`${API_BASE_URL}api/auth/jwt/refresh/`, {
             refresh: refreshToken,
           });
 

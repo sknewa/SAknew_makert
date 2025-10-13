@@ -3,11 +3,13 @@ import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import colors from '../../theme/colors';
+import BackButton from '../../components/BackButton';
 
 const OrderSuccessScreen: React.FC = () => {
   const navigation = useNavigation();
   return (
     <View style={styles.container}>
+      <BackButton />
       <Ionicons name="checkmark-circle" size={80} color={colors.primary} />
       <Text style={styles.title}>Order Placed!</Text>
       <Text style={styles.subtitle}>Your payment was successful and your order has been placed.</Text>

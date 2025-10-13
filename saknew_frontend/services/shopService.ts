@@ -385,26 +385,21 @@ const ShopService = {
   async addProductImage(productId: number, data: AddProductImageData): Promise<ProductImage> {
     try {
       console.log(`ShopService: Adding image to product ${productId}...`);
-      console.log('ShopService: Image data received:', data);
-      console.log('ShopService: Image type:', typeof data.image);
-      console.log('ShopService: Image object:', data.image);
       
-      // Create FormData for file upload
       const formData = new FormData();
       
-      // Add the image file
-      if (data.image) {
-        console.log('ShopService: Appending image to FormData');
-        formData.append('image', data.image);
+      // Handle blob data properly for React Native
+      const imageData = data.image as any;
+      if (imageData.blob) {
+        // Use blob if available (React Native with fetch)
+        formData.append('image', imageData.blob, imageData.name);
+      } else {
+        // Fallback to direct image data
+        formData.append('image', imageData);
       }
       
-      // Add is_main flag
-      if (data.is_main !== undefined) {
-        console.log('ShopService: Appending is_main:', data.is_main);
-        formData.append('is_main', data.is_main.toString());
-      }
+      formData.append('is_main', data.is_main.toString());
       
-      console.log('ShopService: FormData created, making request...');
       const response = await apiClient.post<ProductImage>(
         `/api/products/${productId}/add-image/`, 
         formData,
@@ -414,11 +409,9 @@ const ShopService = {
           },
         }
       );
-      console.log('ShopService: Image upload successful:', response.data);
       return response.data;
     } catch (error: any) {
       console.error(`ShopService: Failed to add image to product ${productId}:`, error.response?.data || error.message);
-      console.error('ShopService: Full error object:', error);
       throw error;
     }
   },

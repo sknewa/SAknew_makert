@@ -23,6 +23,7 @@ import { useNavigation, useRoute } from '@react-navigation/native';
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
 import { AddProductImageData, Product } from '../../services/shop.types';
+import BackButton from '../../components/BackButton';
 
 // Define common colors
 const colors = {
@@ -142,7 +143,6 @@ const EditProductScreen: React.FC = () => {
           setSelectedImages(existingImages);
         }
       } catch (error: any) {
-        console.error('Error fetching product:', error.response?.data || error.message);
         setErrorMessage('Failed to load product data. Please try again.');
       } finally {
         setProductLoading(false);
@@ -198,7 +198,6 @@ const EditProductScreen: React.FC = () => {
             setErrorMessage('Failed to load categories.');
           }
         } catch (error: any) {
-          console.error('Error fetching categories:', error.response?.data || error.message);
           setErrorMessage('Failed to load categories. Network error or endpoint not found.');
         } finally {
           setCategoriesLoading(false);
@@ -269,7 +268,7 @@ const EditProductScreen: React.FC = () => {
       }
 
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 0.5,
       });
@@ -291,22 +290,53 @@ const EditProductScreen: React.FC = () => {
         return updatedImages;
       });
     } catch (error) {
-      console.error('Error launching image library:', error);
       Alert.alert('Error', 'Failed to open image library. Please try again.');
     } finally {
       setLoading(false);
     }
   }, []);
 
-  const removeImage = useCallback((uriToRemove: string) => {
-    setSelectedImages(prevImages => {
-      const updatedImages = prevImages.filter(img => img.uri !== uriToRemove);
-      if (prevImages.find(img => img.uri === uriToRemove)?.isMain && updatedImages.length > 0) {
-        updatedImages[0].isMain = true;
-      }
-      return updatedImages;
-    });
-  }, []);
+  const removeImage = useCallback(async (uriToRemove: string) => {
+    const imageToRemove = selectedImages.find(img => img.uri === uriToRemove);
+    
+    // If it's an existing image (has ID), delete from server
+    if (imageToRemove?.id) {
+      Alert.alert(
+        'Delete Image',
+        'Are you sure you want to delete this image? This action cannot be undone.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          {
+            text: 'Delete',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                await shopService.deleteProductImage(productId, imageToRemove.id!);
+                setSelectedImages(prevImages => {
+                  const updatedImages = prevImages.filter(img => img.uri !== uriToRemove);
+                  if (imageToRemove.isMain && updatedImages.length > 0) {
+                    updatedImages[0].isMain = true;
+                  }
+                  return updatedImages;
+                });
+              } catch (error: any) {
+                Alert.alert('Error', 'Failed to delete image. Please try again.');
+              }
+            }
+          }
+        ]
+      );
+    } else {
+      // For new images, just remove from local state
+      setSelectedImages(prevImages => {
+        const updatedImages = prevImages.filter(img => img.uri !== uriToRemove);
+        if (imageToRemove?.isMain && updatedImages.length > 0) {
+          updatedImages[0].isMain = true;
+        }
+        return updatedImages;
+      });
+    }
+  }, [selectedImages, productId]);
 
   const setMainImage = useCallback((uriToSetMain: string) => {
     setSelectedImages(prevImages => {
@@ -417,7 +447,6 @@ const EditProductScreen: React.FC = () => {
           
           await shopService.addProductImage(productId, imageData);
         } catch (imageUploadError: any) {
-          console.error('Error uploading image:', img.uri, imageUploadError.response?.data || imageUploadError.message);
           setErrorMessage('An error occurred during image upload for one or more images.');
         }
       }
@@ -431,7 +460,7 @@ const EditProductScreen: React.FC = () => {
               is_main: img.isMain
             });
           } catch (error: any) {
-            console.error('Error updating image:', error.response?.data || error.message);
+            // Error updating image
           }
         }
       }
@@ -442,7 +471,6 @@ const EditProductScreen: React.FC = () => {
       navigation.goBack();
       
     } catch (error: any) {
-      console.error('Update product API error:', error.response?.data || error.message);
       let apiErrorMessage = 'Failed to update product. Please check your input.';
       if (error.response?.data) {
         apiErrorMessage = Object.values(error.response.data)
@@ -506,6 +534,7 @@ const EditProductScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <BackButton />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.container}>
           <Text style={styles.title}>Edit Product</Text>

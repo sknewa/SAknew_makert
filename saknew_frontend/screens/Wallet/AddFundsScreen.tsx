@@ -4,6 +4,7 @@ import { useNavigation } from '@react-navigation/native';
 import colors from '../../theme/colors';
 import { addFunds } from '../../services/walletService';
 import { useBadges } from '../../context/BadgeContext';
+import BackButton from '../../components/BackButton';
 
 const AddFundsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -42,6 +43,7 @@ const AddFundsScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
+      <BackButton />
       <Text style={styles.title}>Add Funds</Text>
       <TextInput
         style={styles.input}

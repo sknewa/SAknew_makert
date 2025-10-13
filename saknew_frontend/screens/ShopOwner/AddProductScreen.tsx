@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, CommonActions } from '@react-navigation/native'; // Import CommonActions
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
+import BackButton from '../../components/BackButton';
 // No need for AddProductImageData or Product from shop.types here as we are creating, not specifically handling existing product types for images
 
 // Define common colors
@@ -63,6 +64,8 @@ const AddProductScreen: React.FC = () => {
   const { user, isAuthenticated = false, refreshUserProfile } = useAuth();
   const navigation = useNavigation<MainNavigationProp>();
 
+
+
   // Product form states - initialized for a new product
   const [productName, setProductName] = useState('');
   const [productDescription, setProductDescription] = useState('');
@@ -84,6 +87,7 @@ const AddProductScreen: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
   const [loading, setLoading] = useState(false); // Overall loading for product submission
+  const [imagePickerLoading, setImagePickerLoading] = useState(false); // Loading for image picker
   const [categoriesLoading, setCategoriesLoading] = useState(true); // Loading specifically for categories
   const authReady = isAuthenticated;
 
@@ -95,22 +99,24 @@ const AddProductScreen: React.FC = () => {
 
   // Fetch categories on component mount
   useEffect(() => {
-    // Only fetch if authenticated and user is a seller, and categories haven't been loaded
-    if (authReady && user?.profile?.is_seller && allCategories.length === 0) {
+    
+    // Fetch categories when user is ready and is a seller
+    if (authReady && user?.profile?.is_seller) {
       const fetchCategories = async () => {
         setCategoriesLoading(true);
         try {
           const response = await apiClient.get<Category[]>('/api/categories/');
+          
           if (response.status === 200) {
             const fetchedCategories: Category[] = response.data || [];
             setAllCategories(fetchedCategories);
             // Initialize with root categories (parent_category is null)
-            setCurrentDisplayCategories(fetchedCategories.filter(cat => cat.parent_category === null));
+            const rootCategories = fetchedCategories.filter(cat => cat.parent_category === null);
+            setCurrentDisplayCategories(rootCategories);
           } else {
             setErrorMessage('Failed to load categories. Please try again.');
           }
         } catch (error: any) {
-          console.error('Error fetching categories:', error.response?.data || error.message);
           setErrorMessage('Failed to load categories. Network error or server issue.');
         } finally {
           setCategoriesLoading(false);
@@ -118,7 +124,7 @@ const AddProductScreen: React.FC = () => {
       };
       fetchCategories();
     }
-  }, [authReady, user, allCategories.length]); // Depend on allCategories.length to prevent refetching
+  }, [authReady, user]); // Fetch when auth and user are ready
 
   // Clear messages after a delay
   useEffect(() => {
@@ -185,9 +191,10 @@ const AddProductScreen: React.FC = () => {
 
   // Image Handling Functions
   const pickImages = useCallback(async () => {
-    setLoading(true); // Show overall loading during image picking
+    setImagePickerLoading(true); // Show image picker loading
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      
       if (status !== 'granted') {
         Alert.alert(
           'Permission Required',
@@ -197,12 +204,10 @@ const AddProductScreen: React.FC = () => {
       }
 
       let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        mediaTypes: ['images'],
         allowsMultipleSelection: true,
         quality: 0.5,
       });
-      
-      console.log('Image picker result:', result);
 
       if (result.canceled || !result.assets || result.assets.length === 0) {
         return; // User cancelled or no assets selected
@@ -222,10 +227,9 @@ const AddProductScreen: React.FC = () => {
         return updatedImages;
       });
     } catch (error) {
-      console.error('Error launching image library:', error);
       Alert.alert('Error', 'Failed to open image library. Please try again.');
     } finally {
-      setLoading(false); // Hide overall loading after image picking
+      setImagePickerLoading(false); // Hide image picker loading
     }
   }, []);
 
@@ -250,35 +254,28 @@ const AddProductScreen: React.FC = () => {
   }, []);
 
   // Helper to create image data for upload
-  const createImageData = useCallback((uri: string, isMain: boolean) => {
-    console.log('Creating image data for URI:', uri);
-    const filename = `image_${Date.now()}.jpg`; // Generate unique filename
+  const createImageData = useCallback(async (uri: string, isMain: boolean) => {
+    const filename = `image_${Date.now()}.jpg`;
     const type = 'image/jpeg';
-
-    // For web, we need to fetch the blob from the URI
-    const fetchImageBlob = async () => {
-      try {
-        const response = await fetch(uri);
-        const blob = await response.blob();
-        console.log('Fetched blob:', blob);
-        // Create a File object with proper name
-        const file = new File([blob], filename, { type: blob.type || type });
-        console.log('Created file:', file);
-        return file;
-      } catch (error) {
-        console.error('Error fetching blob:', error);
-        throw error;
-      }
-    };
-
+    
+    // Fetch the actual blob data from the URI
+    const response = await fetch(uri);
+    const blob = await response.blob();
+    
     return {
-      image: fetchImageBlob(),
+      image: {
+        uri: uri,
+        name: filename,
+        type: type,
+        blob: blob, // Include the actual blob data
+      },
       is_main: isMain,
     };
   }, []);
 
   // Product Submission Logic
   const handleAddProduct = useCallback(async () => {
+    
     setErrorMessage('');
     setSuccessMessage('');
     Keyboard.dismiss(); // Hide keyboard
@@ -330,6 +327,7 @@ const AddProductScreen: React.FC = () => {
     try {
       // Step 1: Create the product
       const productResponse = await shopService.createProduct(productData);
+      
       if (productResponse.id) {
         productId = productResponse.id;
         setSuccessMessage('Product created successfully. Uploading images...');
@@ -339,7 +337,6 @@ const AddProductScreen: React.FC = () => {
         return; // Exit if product ID is not returned
       }
     } catch (error: any) {
-      console.error('Add product API error:', error.response?.data || error.message);
       let apiErrorMessage = 'Failed to add product. Please check your input.';
       if (error.response?.data) {
         // Attempt to parse validation errors from Django
@@ -359,24 +356,33 @@ const AddProductScreen: React.FC = () => {
     // Step 2: Upload images if product was created successfully
     if (productId) {
       let allImagesUploadedSuccessfully = true;
-      for (const img of selectedImages) {
+      for (let i = 0; i < selectedImages.length; i++) {
+        const img = selectedImages[i];
+        
         try {
-          console.log('Processing image:', img);
-          const imageData = createImageData(img.uri, img.isMain);
-          console.log('Image data created:', imageData);
-          
-          // Wait for the blob if it's a promise
-          if (imageData.image instanceof Promise) {
-            imageData.image = await imageData.image;
-            console.log('Resolved image blob:', imageData.image);
-          }
-          
+          const imageData = await createImageData(img.uri, img.isMain);
           await shopService.addProductImage(productId, imageData);
         } catch (imageUploadError: any) {
-          console.error('Error uploading image:', img.uri, imageUploadError.response?.data || imageUploadError.message);
-          allImagesUploadedSuccessfully = false; // Mark failure but continue trying other images
-          // Update error message but don't stop the process
-          setErrorMessage(prev => prev + `\nFailed to upload image: ${img.uri.split('/').pop()}`);
+          
+          allImagesUploadedSuccessfully = false;
+          
+          // Get specific error message
+          let errorMsg = 'Unknown error';
+          if (imageUploadError.response?.data) {
+            if (typeof imageUploadError.response.data === 'string') {
+              errorMsg = imageUploadError.response.data;
+            } else if (imageUploadError.response.data.detail) {
+              errorMsg = imageUploadError.response.data.detail;
+            } else if (imageUploadError.response.data.error) {
+              errorMsg = imageUploadError.response.data.error;
+            } else {
+              errorMsg = JSON.stringify(imageUploadError.response.data);
+            }
+          } else if (imageUploadError.message) {
+            errorMsg = imageUploadError.message;
+          }
+          
+          setErrorMessage(prev => prev + `\nImage ${i + 1} upload failed: ${errorMsg}`);
         }
       }
 
@@ -433,7 +439,7 @@ const AddProductScreen: React.FC = () => {
     setSelectedImages([]);
   }, [allCategories]); // `allCategories` is needed here to properly reset `currentDisplayCategories`
 
-  const overallLoading = loading || imageUploadLoading || categoriesLoading;
+  const overallLoading = loading || imageUploadLoading || categoriesLoading || imagePickerLoading;
 
   // Render loading state for initial auth check
   if (!authReady && user === undefined) {
@@ -464,6 +470,7 @@ const AddProductScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <BackButton />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.container}>
           <Text style={styles.title}>Add New Product</Text>
@@ -638,7 +645,7 @@ const AddProductScreen: React.FC = () => {
               disabled={overallLoading}
               activeOpacity={0.7}
             >
-              {loading ? ( // Use `loading` state for image picker specific loading feedback
+              {imagePickerLoading ? ( // Use image picker loading state
                 <ActivityIndicator color={colors.buttonText} />
               ) : (
                 <>

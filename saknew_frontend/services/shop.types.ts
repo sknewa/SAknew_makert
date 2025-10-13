@@ -149,7 +149,7 @@ export interface UpdateProductData {
 }
 
 export interface AddProductImageData {
-  image: File | Blob; // File object for upload
+  image: File | Blob | { uri: string; name: string; type: string }; // File object for upload
   is_main?: boolean;
 }
 

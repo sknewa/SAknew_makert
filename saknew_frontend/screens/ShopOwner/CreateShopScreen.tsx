@@ -101,7 +101,7 @@ const CreateShopScreen: React.FC = () => {
           return;
         }
       } catch (err) {
-        console.error('Error checking existing shop:', err);
+        // Error checking existing shop
       } finally {
         setCheckingShop(false);
       }
@@ -185,8 +185,6 @@ const CreateShopScreen: React.FC = () => {
   }, []);
 
   const handleCreateShop = useCallback(async () => {
-    console.log('🏪 CREATE SHOP - Starting shop creation process');
-    console.log('🏪 CREATE SHOP - User:', user ? { id: user.id, profile: user.profile } : 'null');
     
     setError(null);
     Keyboard.dismiss();
@@ -208,12 +206,9 @@ const CreateShopScreen: React.FC = () => {
     // Allow any user to create a shop - they will become a seller automatically
 
     if (!name.trim()) {
-      console.log('🏪 CREATE SHOP - Shop name is empty');
       setError('Shop Name is required.');
       return;
     }
-    
-    console.log('🏪 CREATE SHOP - Shop name:', name.trim());
 
     // Attempt to geocode address if provided and no live location was set
     let finalLatitude = derivedLatitude;
@@ -240,7 +235,6 @@ const CreateShopScreen: React.FC = () => {
           return;
         }
       } catch (err: any) {
-        console.error('Error geocoding address:', err);
         setError('Failed to convert address to coordinates. Please check the address or use live location.');
         setGeocodingLoading(false);
         return;
@@ -264,14 +258,9 @@ const CreateShopScreen: React.FC = () => {
         social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       };
       
-      console.log('🏪 CREATE SHOP - Sending shop data:', shopData);
-      console.log('🏪 CREATE SHOP - Calling ShopService.createShop...');
-
       const newShop = await ShopService.createShop(shopData);
-      console.log('🏪 CREATE SHOP - Shop created successfully:', newShop);
       
       // Update user profile with new shop slug
-      console.log('🏪 CREATE SHOP - Updating user profile with shop slug:', newShop.slug);
       if (user) {
         const updatedUser = {
           ...user,
@@ -297,10 +286,6 @@ const CreateShopScreen: React.FC = () => {
         },
       ]);
     } catch (err: any) {
-      console.error('🏪 CREATE SHOP - Error creating shop:', err);
-      console.error('🏪 CREATE SHOP - Error response:', err.response?.data);
-      console.error('🏪 CREATE SHOP - Error status:', err.response?.status);
-      console.error('🏪 CREATE SHOP - Error message:', err.message);
       
       let errorMessage = 'Failed to create shop. Please try again.';
       if (err.response && err.response.data) {
@@ -320,7 +305,6 @@ const CreateShopScreen: React.FC = () => {
             .join('\n');
         }
       }
-      console.log('🏪 CREATE SHOP - Final error message:', errorMessage);
       setError(errorMessage);
     } finally {
       setLoading(false);

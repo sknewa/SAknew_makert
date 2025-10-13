@@ -199,11 +199,15 @@ const getMyOrders = async (): Promise<Order[]> => {
   }
 };
 
-const updateOrderStatus = async (orderId: string, actionType: string, verificationCode?: string): Promise<Order> => {
+const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string): Promise<Order> => {
   try {
-    const payload: { action_type: string; verification_code?: string } = { action_type: actionType };
-    if (verificationCode) {
-      payload.verification_code = verificationCode;
+    const payload: { action_type: string; verification_code?: string; cancellation_reason?: string } = { action_type: actionType };
+    if (verificationCodeOrReason) {
+      if (actionType === 'cancel_order') {
+        payload.cancellation_reason = verificationCodeOrReason;
+      } else {
+        payload.verification_code = verificationCodeOrReason;
+      }
     }
     const response = await apiClient.patch(`/api/orders/${orderId}/status-update/`, payload);
     return response.data.order; // Backend returns {"detail": ..., "order": OrderData}
