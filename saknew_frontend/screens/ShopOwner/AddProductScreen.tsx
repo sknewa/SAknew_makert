@@ -255,12 +255,15 @@ const AddProductScreen: React.FC = () => {
 
   // Helper to create image data for upload
   const createImageData = useCallback(async (uri: string, isMain: boolean) => {
+    console.log('🖼️ Creating image data for upload:', { uri, isMain });
     const filename = `image_${Date.now()}.jpg`;
     const type = 'image/jpeg';
     
     // Fetch the actual blob data from the URI
+    console.log('🖼️ Fetching blob from URI...');
     const response = await fetch(uri);
     const blob = await response.blob();
+    console.log('🖼️ Blob fetched:', { size: blob.size, type: blob.type });
     
     return {
       image: {
@@ -355,15 +358,22 @@ const AddProductScreen: React.FC = () => {
 
     // Step 2: Upload images if product was created successfully
     if (productId) {
+      console.log('📤 Starting image upload for product:', productId);
+      console.log('📤 Total images to upload:', selectedImages.length);
       let allImagesUploadedSuccessfully = true;
       for (let i = 0; i < selectedImages.length; i++) {
         const img = selectedImages[i];
+        console.log(`📤 Uploading image ${i + 1}/${selectedImages.length}:`, { uri: img.uri, isMain: img.isMain });
         
         try {
           const imageData = await createImageData(img.uri, img.isMain);
-          await shopService.addProductImage(productId, imageData);
+          console.log('📤 Image data created, calling addProductImage...');
+          const uploadResult = await shopService.addProductImage(productId, imageData);
+          console.log(`✅ Image ${i + 1} uploaded successfully:`, uploadResult);
         } catch (imageUploadError: any) {
-          
+          console.error(`❌ Image ${i + 1} upload failed:`, imageUploadError);
+          console.error('❌ Error response:', imageUploadError.response?.data);
+          console.error('❌ Error status:', imageUploadError.response?.status);
           allImagesUploadedSuccessfully = false;
           
           // Get specific error message
@@ -381,10 +391,12 @@ const AddProductScreen: React.FC = () => {
           } else if (imageUploadError.message) {
             errorMsg = imageUploadError.message;
           }
+          console.error('❌ Parsed error message:', errorMsg);
           
           setErrorMessage(prev => prev + `\nImage ${i + 1} upload failed: ${errorMsg}`);
         }
       }
+      console.log('📤 Image upload complete. All successful:', allImagesUploadedSuccessfully);
 
       setImageUploadLoading(false); // End image upload loading
       setLoading(false); // Ensure overall loading is false

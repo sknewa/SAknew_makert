@@ -335,11 +335,13 @@ const ShopService = {
    */
   async createProduct(data: CreateProductData): Promise<Product> {
     try {
-      console.log('ShopService: Creating new product...');
+      console.log('🏭 ShopService: Creating new product...');
+      console.log('🏭 ShopService: Product data:', data);
       const response = await apiClient.post<Product>('/api/products/', data);
+      console.log('✅ ShopService: Product created successfully:', { id: response.data.id, name: response.data.name });
       return response.data;
     } catch (error: any) {
-      console.error('ShopService: Failed to create product:', error.response?.data || error.message);
+      console.error('❌ ShopService: Failed to create product:', error.response?.data || error.message);
       throw error;
     }
   },
@@ -384,21 +386,32 @@ const ShopService = {
    */
   async addProductImage(productId: number, data: AddProductImageData): Promise<ProductImage> {
     try {
-      console.log(`ShopService: Adding image to product ${productId}...`);
+      console.log(`📤 ShopService: Adding image to product ${productId}...`);
+      console.log('📤 ShopService: Image data received:', { 
+        hasBlob: !!(data.image as any).blob,
+        uri: (data.image as any).uri,
+        name: (data.image as any).name,
+        type: (data.image as any).type,
+        isMain: data.is_main
+      });
       
       const formData = new FormData();
       
       // Handle blob data properly for React Native
       const imageData = data.image as any;
       if (imageData.blob) {
+        console.log('📤 ShopService: Using blob data for upload');
+        console.log('📤 ShopService: Blob details:', { size: imageData.blob.size, type: imageData.blob.type });
         // Use blob if available (React Native with fetch)
         formData.append('image', imageData.blob, imageData.name);
       } else {
+        console.log('📤 ShopService: Using direct image data for upload');
         // Fallback to direct image data
         formData.append('image', imageData);
       }
       
       formData.append('is_main', data.is_main.toString());
+      console.log('📤 ShopService: FormData prepared, making POST request...');
       
       const response = await apiClient.post<ProductImage>(
         `/api/products/${productId}/add-image/`, 
@@ -409,9 +422,12 @@ const ShopService = {
           },
         }
       );
+      console.log('✅ ShopService: Image uploaded successfully:', response.data);
       return response.data;
     } catch (error: any) {
-      console.error(`ShopService: Failed to add image to product ${productId}:`, error.response?.data || error.message);
+      console.error(`❌ ShopService: Failed to add image to product ${productId}:`, error.response?.data || error.message);
+      console.error('❌ ShopService: Error status:', error.response?.status);
+      console.error('❌ ShopService: Error headers:', error.response?.headers);
       throw error;
     }
   },
