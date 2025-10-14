@@ -20,7 +20,7 @@ export type MainStackParamList = {
   WalletDashboard: undefined;
   AddFundsScreen: undefined;
   ProductManagement: { productId: number };
-  AuthStack: undefined; // Likely a nested navigator
+  AuthStack: { screen: keyof AuthStackParamList } | undefined; // Nested navigator with optional screen param
 
   // Screens that were causing the TypeScript error in HomeScreen.tsx
   StatusViewer: { userStatus: any }; // TODO: Replace 'any' with a specific type for userStatus

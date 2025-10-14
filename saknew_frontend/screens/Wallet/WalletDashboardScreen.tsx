@@ -46,26 +46,85 @@ const formatCurrency = (amount: string | number): string => {
   return `R${(num || 0).toFixed(2)}`;
 };
 
+// Helper to format transaction description
+const formatTransactionDescription = (txn: Transaction): { title: string; subtitle: string } => {
+  const desc = txn.description || '';
+  
+  // Handle earnings from orders
+  if (txn.transaction_type.toUpperCase() === 'ESCROW_RELEASE') {
+    const orderMatch = desc.match(/Order #(\d+)/);
+    const orderId = orderMatch ? orderMatch[1] : '';
+    return {
+      title: '💰 Sale Earnings',
+      subtitle: orderId ? `Order #${orderId} completed` : 'Product sale completed'
+    };
+  }
+  
+  // Handle payments
+  if (txn.transaction_type.toUpperCase() === 'PAYMENT') {
+    const orderMatch = desc.match(/Order #(\d+)/);
+    const orderId = orderMatch ? orderMatch[1] : '';
+    return {
+      title: '🛍️ Purchase',
+      subtitle: orderId ? `Order #${orderId}` : 'Product purchase'
+    };
+  }
+  
+  // Handle refunds
+  if (txn.transaction_type.toUpperCase() === 'REFUND') {
+    const orderMatch = desc.match(/Order #(\d+)/);
+    const orderId = orderMatch ? orderMatch[1] : '';
+    return {
+      title: '↩️ Refund',
+      subtitle: orderId ? `Order #${orderId} cancelled` : 'Order refund'
+    };
+  }
+  
+  // Handle deposits
+  if (txn.transaction_type.toUpperCase() === 'DEPOSIT') {
+    return {
+      title: '💵 Funds Added',
+      subtitle: 'Wallet deposit'
+    };
+  }
+  
+  // Handle withdrawals
+  if (txn.transaction_type.toUpperCase() === 'WITHDRAWAL') {
+    return {
+      title: '🏦 Withdrawal',
+      subtitle: 'Funds withdrawn'
+    };
+  }
+  
+  // Default fallback
+  return {
+    title: desc.substring(0, 40) + (desc.length > 40 ? '...' : ''),
+    subtitle: txn.transaction_type
+  };
+};
+
 // Helper to get transaction icon
 const getTransactionIcon = (type: string) => {
-  switch (type) {
-    case 'deposit': return 'arrow-down-circle';
-    case 'withdrawal': return 'arrow-up-circle';
-    case 'purchase': return 'bag-handle';
-    case 'refund': return 'cash';
-    case 'payout': return 'wallet';
-    default: return 'help-circle';
+  const upperType = type.toUpperCase();
+  switch (upperType) {
+    case 'DEPOSIT': return 'arrow-down-circle';
+    case 'WITHDRAWAL': return 'arrow-up-circle';
+    case 'PAYMENT': return 'cart';
+    case 'REFUND': return 'refresh-circle';
+    case 'ESCROW_RELEASE': return 'trophy';
+    default: return 'swap-horizontal';
   }
 };
 
 // Helper to get transaction color
 const getTransactionColor = (type: string) => {
-  switch (type) {
-    case 'deposit': return colors.successText;
-    case 'refund': return colors.successText;
-    case 'withdrawal': return colors.dangerAction;
-    case 'purchase': return colors.textPrimary;
-    case 'payout': return colors.infoAction;
+  const upperType = type.toUpperCase();
+  switch (upperType) {
+    case 'DEPOSIT': return colors.successText;
+    case 'REFUND': return colors.infoAction;
+    case 'WITHDRAWAL': return colors.dangerAction;
+    case 'PAYMENT': return colors.textPrimary;
+    case 'ESCROW_RELEASE': return colors.accent;
     default: return colors.textSecondary;
   }
 };
@@ -106,14 +165,9 @@ const WalletDashboardScreen: React.FC = () => {
       const txnsResponse = await getMyTransactions();
       console.log('🔍 DEBUG: Transactions response:', txnsResponse);
       
-      // Handle paginated response
-      const txns = Array.isArray(txnsResponse) ? txnsResponse : txnsResponse?.results || [];
-      console.log('🔍 DEBUG: Extracted transactions array:', txns);
-      console.log('🔍 DEBUG: Transactions count:', txns.length);
-      
       // Sort transactions by date (newest first)
       console.log('🔍 DEBUG: Sorting transactions');
-      const sortedTxns = txns.sort((a, b) => {
+      const sortedTxns = txnsResponse.sort((a: Transaction, b: Transaction) => {
         const dateA = new Date(b.created_at).getTime();
         const dateB = new Date(a.created_at).getTime();
         console.log('🔍 DEBUG: Comparing dates:', { dateA, dateB, diff: dateA - dateB });
@@ -282,26 +336,54 @@ const WalletDashboardScreen: React.FC = () => {
                 {Array.isArray(transactions) ? transactions.map((txn) => {
                   console.log('🔍 DEBUG: Rendering transaction:', txn.id);
                   const amt = parseFloat(txn.amount);
+                  const { title, subtitle } = formatTransactionDescription(txn);
+                  const isEarning = txn.transaction_type.toUpperCase() === 'ESCROW_RELEASE';
+                  
                   return (
-                    <View key={txn.id} style={styles.transactionItem}>
-                      <Ionicons
-                        name={getTransactionIcon(txn.transaction_type)}
-                        size={28}
-                        color={getTransactionColor(txn.transaction_type)}
-                        style={styles.transactionIcon}
-                      />
+                    <View key={txn.id} style={[
+                      styles.transactionItem,
+                      isEarning && styles.transactionItemEarning
+                    ]}>
+                      <View style={[
+                        styles.transactionIconContainer,
+                        isEarning && styles.transactionIconContainerEarning
+                      ]}>
+                        <Ionicons
+                          name={getTransactionIcon(txn.transaction_type)}
+                          size={24}
+                          color={getTransactionColor(txn.transaction_type)}
+                        />
+                      </View>
                       <View style={styles.transactionDetails}>
-                        <Text style={styles.transactionDescription}>{txn.description}</Text>
+                        <Text style={[
+                          styles.transactionTitle,
+                          isEarning && styles.transactionTitleEarning
+                        ]}>{title}</Text>
+                        <Text style={styles.transactionSubtitle}>{subtitle}</Text>
                         <Text style={styles.transactionDate}>
-                          {new Date(txn.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                          {new Date(txn.created_at).toLocaleDateString('en-US', { 
+                            month: 'short', 
+                            day: 'numeric', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
                         </Text>
                       </View>
-                      <Text style={[
-                        styles.transactionAmount,
-                        amt > 0 ? styles.amountPositive : styles.amountNegative
-                      ]}>
-                        {amt > 0 ? '+' : ''}{formatCurrency(txn.amount)}
-                      </Text>
+                      <View style={styles.transactionAmountContainer}>
+                        <Text style={[
+                          styles.transactionAmount,
+                          amt > 0 ? styles.amountPositive : styles.amountNegative,
+                          isEarning && styles.amountEarning
+                        ]}>
+                          {amt > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                        </Text>
+                        {isEarning && (
+                          <View style={styles.earningBadge}>
+                            <Text style={styles.earningBadgeText}>Earned</Text>
+                          </View>
+                        )}
+                      </View>
                     </View>
                   );
                 }) : (
@@ -528,37 +610,83 @@ const styles = StyleSheet.create({
   transactionItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    justifyContent: 'space-between',
+    backgroundColor: colors.white,
+    borderRadius: 8,
+    marginBottom: 8,
   },
-  transactionIcon: {
-    marginRight: 15,
+  transactionItemEarning: {
+    backgroundColor: '#FFF9E6',
+    borderLeftWidth: 4,
+    borderLeftColor: colors.accent,
+  },
+  transactionIconContainer: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: colors.background,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  transactionIconContainerEarning: {
+    backgroundColor: '#FFF3CD',
   },
   transactionDetails: {
     flex: 1,
     marginRight: 10,
   },
-  transactionDescription: {
-    fontSize: 16,
+  transactionTitle: {
+    fontSize: 15,
     color: colors.textPrimary,
-    fontWeight: '500',
+    fontWeight: '600',
+    marginBottom: 3,
+  },
+  transactionTitleEarning: {
+    fontSize: 16,
+    fontWeight: '700',
+  },
+  transactionSubtitle: {
+    fontSize: 13,
+    color: colors.textSecondary,
     marginBottom: 2,
   },
   transactionDate: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textSecondary,
+  },
+  transactionAmountContainer: {
+    alignItems: 'flex-end',
   },
   transactionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
+    marginBottom: 4,
   },
   amountPositive: {
     color: colors.successText,
   },
   amountNegative: {
     color: colors.dangerAction,
+  },
+  amountEarning: {
+    fontSize: 18,
+    color: colors.accent,
+  },
+  earningBadge: {
+    backgroundColor: colors.accent,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  earningBadgeText: {
+    fontSize: 10,
+    color: colors.white,
+    fontWeight: '700',
+    textTransform: 'uppercase',
   },
 });
 
