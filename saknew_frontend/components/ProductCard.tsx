@@ -17,6 +17,7 @@ interface ProductCardProps {
   navigation?: MainNavigationProp;
   onCartUpdated?: () => void;
   onPress?: (product: Product) => void;
+  onProductDeleted?: () => void;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -24,7 +25,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   isShopOwner, 
   navigation, 
   onCartUpdated, 
-  onPress 
+  onPress,
+  onProductDeleted
 }) => {
   const [imageError, setImageError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -76,7 +78,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             try {
               await shopService.deleteProduct(product.id);
               Alert.alert('Success', 'Product deleted successfully');
-              onCartUpdated?.();
+              onProductDeleted?.();
             } catch (err: any) {
               Alert.alert('Error', 'Failed to delete product');
             }

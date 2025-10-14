@@ -578,6 +578,7 @@ const MyShopScreen: React.FC = () => {
                                 navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
                               }
                             }}
+                            onProductDeleted={fetchShopData}
                           />
                         ))}
                       </ScrollView>
@@ -616,6 +617,7 @@ const MyShopScreen: React.FC = () => {
                                 navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
                               }
                             }}
+                            onProductDeleted={fetchShopData}
                           />
                         ))}
                       </ScrollView>
