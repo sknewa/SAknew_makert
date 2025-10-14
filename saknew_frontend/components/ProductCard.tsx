@@ -34,7 +34,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   
   const allImages = [
     ...(product.main_image_url ? [{ uri: getFullImageUrl(product.main_image_url) || '', id: 'main' }] : []),
-    ...((product.images || []).map((img, idx) => ({ uri: getFullImageUrl(img.image) || '', id: `gallery-${idx}` })))
+    ...((product.images || []).map((img, idx) => ({ uri: getFullImageUrl(img.image_url || img.image) || '', id: `gallery-${idx}` })))
   ].filter(img => img.uri)
    .filter((img, index, self) => self.findIndex(i => i.uri === img.uri) === index);
 
