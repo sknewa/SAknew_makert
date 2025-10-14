@@ -28,29 +28,34 @@ export const getMyWallet = async (): Promise<Wallet> => {
 };
 
 export const getMyTransactions = async (): Promise<Transaction[]> => {
-  console.log('🔍 DEBUG: getMyTransactions - Making API call');
+  console.log('🔍 TRANSACTIONS: Making API call to /api/wallet/wallets/transactions/');
+  console.log('🔍 TRANSACTIONS: API Base URL:', apiClient.defaults.baseURL);
   try {
     const response = await apiClient.get('/api/wallet/wallets/transactions/');
-    console.log('🔍 DEBUG: Response status:', response.status);
-    console.log('🔍 DEBUG: Response data:', JSON.stringify(response.data, null, 2));
+    console.log('🔍 TRANSACTIONS: Response status:', response.status);
+    console.log('🔍 TRANSACTIONS: Response data type:', typeof response.data);
+    console.log('🔍 TRANSACTIONS: Response data:', JSON.stringify(response.data, null, 2));
     
     // Handle paginated response
     if (response.data?.results && Array.isArray(response.data.results)) {
-      console.log('🔍 DEBUG: Returning paginated results, count:', response.data.results.length);
+      console.log('🔍 TRANSACTIONS: Paginated response, count:', response.data.results.length);
       return response.data.results;
     }
     
     // Handle direct array response
     if (Array.isArray(response.data)) {
-      console.log('🔍 DEBUG: Returning direct array, count:', response.data.length);
+      console.log('🔍 TRANSACTIONS: Direct array response, count:', response.data.length);
       return response.data;
     }
     
-    console.log('🔍 DEBUG: No transactions found, returning empty array');
+    console.warn('🔍 TRANSACTIONS: Unexpected response format, returning empty array');
+    console.warn('🔍 TRANSACTIONS: Response keys:', Object.keys(response.data || {}));
     return [];
   } catch (error: any) {
-    console.error('🔍 DEBUG: getMyTransactions error:', error);
-    console.error('🔍 DEBUG: Error response:', error?.response?.data);
+    console.error('🔍 TRANSACTIONS ERROR:', error.message);
+    console.error('🔍 TRANSACTIONS: Error status:', error?.response?.status);
+    console.error('🔍 TRANSACTIONS: Error data:', error?.response?.data);
+    console.error('🔍 TRANSACTIONS: Full error:', error);
     throw error;
   }
 };

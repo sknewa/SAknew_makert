@@ -49,8 +49,7 @@
       "API_BASE_URL": "https://saknew-makert-e7ac1361decc.herokuapp.com/",
       "IMAGE_BASE_URL": "https://saknew-makert-e7ac1361decc.herokuapp.com",
       "DEBUG": "false",
-      "APP_ENV": "production",
-
+      "APP_ENV": "production"
     }
   }
 }
