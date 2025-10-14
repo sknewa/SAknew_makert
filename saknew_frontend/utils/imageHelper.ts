@@ -12,8 +12,12 @@ export const getFullImageUrl = (imageUrl: string | null | undefined): string | n
     return null;
   }
 
-  // If it's already a Cloudinary URL, return as is
+  // If it's already a Cloudinary URL, add extension if missing
   if (imageUrl.startsWith('https://res.cloudinary.com/')) {
+    // Check if URL already has an extension
+    if (!imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
+      return `${imageUrl}.jpg`; // Default to .jpg
+    }
     return imageUrl;
   }
 

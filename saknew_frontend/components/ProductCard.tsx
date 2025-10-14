@@ -205,7 +205,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
               style={styles.editButton}
               onPress={(e) => {
                 e.stopPropagation();
-                navigation?.navigate('EditProduct', { productId: product.id });
+                navigation?.navigate('ProductManagement', { productId: product.id });
               }}
             >
               <Ionicons name="pencil-outline" size={14} color={colors.white} />

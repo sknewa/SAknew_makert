@@ -10,6 +10,11 @@ export const colors = {
   error: '#E53935',
   border: '#DADDE1',
   iconColor: '#5C6BC0',
+  white: '#FFFFFF',
+  successText: '#2ECC71',
+  warningAction: '#FFB300',
+  dangerAction: '#E53935',
+  infoAction: '#5C6BC0',
 };
 
 export const spacing = {
