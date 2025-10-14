@@ -53,7 +53,7 @@ export const getMyTransactions = async (): Promise<Transaction[]> => {
     console.error('🔍 DEBUG: Error response:', error?.response?.data);
     throw error;
   }
-};}
+};
 
 
 // Add funds to wallet
