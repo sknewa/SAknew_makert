@@ -278,6 +278,9 @@ const AddProductScreen: React.FC = () => {
 
   // Product Submission Logic
   const handleAddProduct = useCallback(async () => {
+    console.log('🚀 ADD PRODUCT - Function called!');
+    console.log('🚀 Product Name:', productName);
+    console.log('🚀 Selected Images:', selectedImages.length);
     
     setErrorMessage('');
     setSuccessMessage('');
