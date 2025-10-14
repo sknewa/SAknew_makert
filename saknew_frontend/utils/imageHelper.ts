@@ -12,11 +12,18 @@ export const getFullImageUrl = (imageUrl: string | null | undefined): string | n
     return null;
   }
 
-  // If it's already a Cloudinary URL, add extension if missing
+  // If it's already a Cloudinary URL, handle missing extensions
   if (imageUrl.startsWith('https://res.cloudinary.com/')) {
     // Check if URL already has an extension
     if (!imageUrl.match(/\.(jpg|jpeg|png|gif|webp)$/i)) {
-      return `${imageUrl}.jpg`; // Default to .jpg
+      // Use Cloudinary's auto-format feature instead of hardcoding extension
+      // Insert /f_auto/ transformation before the version or path
+      const urlParts = imageUrl.split('/upload/');
+      if (urlParts.length === 2) {
+        return `${urlParts[0]}/upload/f_auto/${urlParts[1]}`;
+      }
+      // Fallback: try .jpg extension
+      return `${imageUrl}.jpg`;
     }
     return imageUrl;
   }
