@@ -1,3 +1,4 @@
+console.log('🚀 WalletDashboardScreen v2.0 - Enhanced transactions loaded');
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
