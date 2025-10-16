@@ -43,10 +43,8 @@ const StatusViewerScreen: React.FC = () => {
           if (currentIndex < userStatus.statuses.length - 1) {
             setCurrentIndex(prev => prev + 1);
             return 0;
-          } else {
-            navigation.goBack();
-            return 100;
           }
+          return 100;
         }
         return prev + 2;
       });
@@ -54,6 +52,12 @@ const StatusViewerScreen: React.FC = () => {
 
     return () => clearInterval(timer);
   }, [currentIndex, userStatus.statuses.length]);
+
+  useEffect(() => {
+    if (progress >= 100 && currentIndex >= userStatus.statuses.length - 1) {
+      navigation.goBack();
+    }
+  }, [progress, currentIndex, userStatus.statuses.length]);
 
   const handleNext = () => {
     if (currentIndex < userStatus.statuses.length - 1) {
