@@ -1,20 +1,28 @@
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView, TextInput, Animated } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { UserStatus, Status } from '../../services/status.types';
 import statusService from '../../services/statusService';
 import { IMAGE_BASE_URL } from '../../config';
+import { useAuth } from '../../context/AuthContext.minimal';
 
 const { width, height } = Dimensions.get('window');
 
 const StatusViewerScreen: React.FC = () => {
   const route = useRoute();
   const navigation = useNavigation();
+  const { user } = useAuth();
   const { userStatus } = route.params as { userStatus: UserStatus };
   
   const [currentIndex, setCurrentIndex] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
+  const [showReply, setShowReply] = useState(false);
+  const [replyText, setReplyText] = useState('');
+  const replyInputRef = useRef<TextInput>(null);
+  
+  const isMyStatus = userStatus.user.id === user?.id;
   
   const currentStatus = userStatus.statuses[currentIndex];
 
@@ -37,6 +45,8 @@ const StatusViewerScreen: React.FC = () => {
   }, [currentIndex]);
 
   useEffect(() => {
+    if (isPaused) return;
+    
     const timer = setInterval(() => {
       setProgress(prev => {
         if (prev >= 100) {
@@ -51,7 +61,7 @@ const StatusViewerScreen: React.FC = () => {
     }, 100);
 
     return () => clearInterval(timer);
-  }, [currentIndex, userStatus.statuses.length]);
+  }, [currentIndex, userStatus.statuses.length, isPaused]);
 
   useEffect(() => {
     if (progress >= 100 && currentIndex >= userStatus.statuses.length - 1) {
@@ -73,6 +83,65 @@ const StatusViewerScreen: React.FC = () => {
       setCurrentIndex(prev => prev - 1);
       setProgress(0);
     }
+  };
+
+  const handleLongPress = () => {
+    setIsPaused(true);
+  };
+
+  const handlePressOut = () => {
+    setIsPaused(false);
+  };
+
+  const handleReply = () => {
+    if (!isMyStatus) {
+      setShowReply(true);
+      setIsPaused(true);
+      setTimeout(() => replyInputRef.current?.focus(), 100);
+    }
+  };
+
+  const handleSendReply = () => {
+    if (replyText.trim()) {
+      // TODO: Implement reply functionality (send as private message)
+      Alert.alert('Reply Sent', `Reply to ${userStatus.user.username}: ${replyText}`);
+      setReplyText('');
+      setShowReply(false);
+      setIsPaused(false);
+    }
+  };
+
+  const handleCancelReply = () => {
+    setReplyText('');
+    setShowReply(false);
+    setIsPaused(false);
+  };
+
+  const handleDelete = async () => {
+    Alert.alert(
+      'Delete Status',
+      'Are you sure you want to delete this status?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await statusService.deleteStatus(currentStatus.id);
+              if (userStatus.statuses.length === 1) {
+                navigation.goBack();
+              } else {
+                // Remove from list and continue
+                handleNext();
+              }
+            } catch (error) {
+              Alert.alert('Error', 'Failed to delete status');
+            }
+          }
+        }
+      ]
+    );
   };
 
   if (!currentStatus) return null;
@@ -118,8 +187,20 @@ const StatusViewerScreen: React.FC = () => {
 
       {/* Status content */}
       <View style={styles.contentContainer}>
-        <TouchableOpacity style={styles.leftTap} onPress={handlePrevious} />
-        <TouchableOpacity style={styles.rightTap} onPress={handleNext} />
+        <TouchableOpacity 
+          style={styles.leftTap} 
+          onPress={handlePrevious}
+          onLongPress={handleLongPress}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+        />
+        <TouchableOpacity 
+          style={styles.rightTap} 
+          onPress={handleNext}
+          onLongPress={handleLongPress}
+          onPressOut={handlePressOut}
+          activeOpacity={1}
+        />
         
         {currentStatus.media_type === 'image' && currentStatus.media_url ? (
           (() => {
@@ -133,6 +214,55 @@ const StatusViewerScreen: React.FC = () => {
           </View>
         )}
       </View>
+
+      {/* Bottom actions */}
+      {!showReply && (
+        <View style={styles.bottomActions}>
+          {!isMyStatus ? (
+            <TouchableOpacity style={styles.replyButton} onPress={handleReply}>
+              <Ionicons name="arrow-up" size={20} color="#fff" />
+              <Text style={styles.replyText}>Reply</Text>
+            </TouchableOpacity>
+          ) : (
+            <View style={styles.viewsContainer}>
+              <Ionicons name="eye" size={16} color="#fff" />
+              <Text style={styles.viewsText}>{currentStatus.view_count} views</Text>
+            </View>
+          )}
+          
+          {isMyStatus && (
+            <TouchableOpacity style={styles.deleteIconButton} onPress={handleDelete}>
+              <Ionicons name="trash-outline" size={20} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+      )}
+
+      {/* Reply input */}
+      {showReply && (
+        <View style={styles.replyContainer}>
+          <TouchableOpacity onPress={handleCancelReply} style={styles.cancelButton}>
+            <Ionicons name="close" size={24} color="#fff" />
+          </TouchableOpacity>
+          <TextInput
+            ref={replyInputRef}
+            style={styles.replyInput}
+            placeholder="Reply to status..."
+            placeholderTextColor="#999"
+            value={replyText}
+            onChangeText={setReplyText}
+            multiline
+            maxLength={500}
+          />
+          <TouchableOpacity 
+            onPress={handleSendReply} 
+            style={[styles.sendButton, !replyText.trim() && styles.sendButtonDisabled]}
+            disabled={!replyText.trim()}
+          >
+            <Ionicons name="send" size={20} color="#fff" />
+          </TouchableOpacity>
+        </View>
+      )}
     </SafeAreaView>
   );
 };
@@ -259,6 +389,87 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
     lineHeight: 28,
+  },
+  bottomActions: {
+    position: 'absolute',
+    bottom: 20,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+  },
+  replyButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 20,
+    gap: 6,
+  },
+  replyText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  viewsContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 16,
+    gap: 6,
+  },
+  viewsText: {
+    color: '#fff',
+    fontSize: 12,
+  },
+  deleteIconButton: {
+    backgroundColor: 'rgba(220,53,69,0.8)',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  replyContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  cancelButton: {
+    padding: 8,
+  },
+  replyInput: {
+    flex: 1,
+    backgroundColor: 'rgba(255,255,255,0.1)',
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    color: '#fff',
+    fontSize: 14,
+    maxHeight: 100,
+  },
+  sendButton: {
+    backgroundColor: '#25D366',
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sendButtonDisabled: {
+    backgroundColor: '#666',
   },
 });
 

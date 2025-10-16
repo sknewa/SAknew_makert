@@ -24,7 +24,7 @@ const CreateStatusScreen: React.FC = () => {
   const pickImage = async () => {
     console.log('DEBUG: Starting image picker');
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ['images'],
       allowsEditing: true,
       aspect: [9, 16],
       quality: 0.8,
@@ -41,7 +41,7 @@ const CreateStatusScreen: React.FC = () => {
   const pickVideo = async () => {
     console.log('DEBUG: Starting video picker');
     const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Videos,
+      mediaTypes: ['videos'],
       allowsEditing: true,
       videoMaxDuration: 60,
       quality: 0.8,
