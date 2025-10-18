@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Share,
+  Platform,
   Dimensions,
   NativeSyntheticEvent,
   NativeScrollEvent,
@@ -232,6 +233,9 @@ const MyShopScreen: React.FC = () => {
         // Only count paid orders
         if (order.payment_status !== 'Completed') return false;
         
+        // Exclude orders where seller is the buyer
+        if (order.user.email === user.email) return false;
+        
         // Only count active orders (not completed or cancelled)
         if (!['processing', 'ready_for_delivery'].includes(order.order_status)) return false;
         
@@ -273,18 +277,36 @@ const MyShopScreen: React.FC = () => {
   }, [fetchShopData, refreshUserProfile, isAuthenticated]);
 
   const handleShareShopLink = async () => {
+    console.log('🔍 Share button pressed');
+    console.log('Shop data:', { slug: shop?.slug, name: shop?.name });
+    
     if (shop?.slug) {
-      // Use a dynamic URL that includes the shop slug
-      const shareableUrl = `saknew://shop/${shop.slug}`;
+      const webUrl = `https://saknew-makert-e7ac1361decc.herokuapp.com/shop/${shop.slug}`;
+      const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
+      
+      console.log('Share URL:', webUrl);
+      console.log('Share message:', shareMessage);
+      
       try {
-        await Share.share({
-          message: `Check out my shop on Saknew Market: ${shop.name}\n${shareableUrl}`,
-          url: shareableUrl,
+        const result = await Share.share({
+          message: shareMessage,
         });
+        console.log('Share result:', result);
+        
+        if (result.action === Share.sharedAction) {
+          console.log('✅ Share successful');
+          if (result.activityType) {
+            console.log('Shared via:', result.activityType);
+          }
+        } else if (result.action === Share.dismissedAction) {
+          console.log('❌ Share dismissed');
+        }
       } catch (shareError: any) {
-        Alert.alert('Error Sharing', 'Could not share the shop link. Please try again.');
+        console.error('Share error:', shareError);
+        Alert.alert('Error Sharing', `Could not share the shop link: ${shareError.message}`);
       }
     } else {
+      console.warn('⚠️ No shop slug available');
       Alert.alert('No Shop Link', 'Cannot share link as your shop details are not available.');
     }
   };

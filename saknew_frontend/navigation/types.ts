@@ -25,6 +25,9 @@ export type MainStackParamList = {
   // Screens that were causing the TypeScript error in HomeScreen.tsx
   StatusViewer: { userStatus: any }; // TODO: Replace 'any' with a specific type for userStatus
   CreateStatus: undefined;
+  
+  // Public shop screen for buyers
+  PublicShop: { shopSlug: string };
 };
 
 // This is the navigation prop type for components inside the MainStack.
@@ -34,6 +37,11 @@ export type MainNavigationProp = StackNavigationProp<MainStackParamList>;
 // Example types for individual screen props (navigation + route)
 export type CategoryProductsScreenProps = {
   route: RouteProp<MainStackParamList, 'CategoryProducts'>;
+  navigation: MainNavigationProp;
+};
+
+export type PublicShopScreenProps = {
+  route: RouteProp<MainStackParamList, 'PublicShop'>;
   navigation: MainNavigationProp;
 };
 

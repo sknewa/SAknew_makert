@@ -175,7 +175,10 @@ const ShippingScreen: React.FC = () => {
     phone_number: contactPhone,
   };
   
-  console.log('Shipping address data:', shippingAddress);
+  console.log('📦 Shipping address being sent:', shippingAddress);
+  console.log('📦 Contact Name:', contactName);
+  console.log('📦 Contact Phone:', contactPhone);
+  console.log('📦 Street:', street);
   
   try {
     setLoading(true);

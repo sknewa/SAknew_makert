@@ -13,6 +13,8 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  LayoutAnimation,
+  UIManager,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import ShopService from '../../services/shopService';
@@ -21,6 +23,10 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+
+if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
+  UIManager.setLayoutAnimationEnabledExperimental(true);
+}
 
 // Centralized colors
 const colors = {
@@ -69,19 +75,12 @@ const CreateShopScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [checkingShop, setCheckingShop] = useState<boolean>(true);
 
+  // Collapsible sections
+  const [showContactInfo, setShowContactInfo] = useState<boolean>(false);
+  const [showSocialLinks, setShowSocialLinks] = useState<boolean>(false);
+
   // Input focus states
-  const [isNameFocused, setIsNameFocused] = useState<boolean>(false);
-  const [isDescriptionFocused, setIsDescriptionFocused] = useState<boolean>(false);
-  const [isCountryFocused, setIsCountryFocused] = useState<boolean>(false);
-  const [isProvinceFocused, setIsProvinceFocused] = useState<boolean>(false);
-  const [isTownFocused, setIsTownFocused] = useState<boolean>(false);
-  const [isPhoneNumberFocused, setIsPhoneNumberFocused] = useState<boolean>(false);
-  const [isEmailContactFocused, setIsEmailContactFocused] = useState<boolean>(false);
-  // Social Links focus states
-  const [isFacebookUrlFocused, setIsFacebookUrlFocused] = useState<boolean>(false);
-  const [isInstagramUrlFocused, setIsInstagramUrlFocused] = useState<boolean>(false);
-  const [isTwitterUrlFocused, setIsTwitterUrlFocused] = useState<boolean>(false);
-  const [isLinkedinUrlFocused, setIsLinkedinUrlFocused] = useState<boolean>(false);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
 
   // Check if user already has a shop when component mounts
@@ -129,60 +128,96 @@ const CreateShopScreen: React.FC = () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Denied', 'Please enable location permission in your device settings.');
+        Alert.alert(
+          '📍 Location Permission Required',
+          'Please enable location access to automatically fill your shop address.',
+          [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Open Settings', onPress: () => Location.requestForegroundPermissionsAsync() }
+          ]
+        );
         setLocationLoading(false);
         return;
       }
 
+      // Get current position with highest accuracy
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
+        accuracy: Location.Accuracy.Highest,
         timeout: 20000,
-        maximumAge: 60000
+        maximumAge: 0
       });
       
-      setDerivedLatitude(location.coords.latitude.toFixed(6));
-      setDerivedLongitude(location.coords.longitude.toFixed(6));
+      const { latitude, longitude } = location.coords;
+      setDerivedLatitude(latitude.toFixed(6));
+      setDerivedLongitude(longitude.toFixed(6));
       
+      // Use Nominatim (OpenStreetMap) for reverse geocoding
       try {
-        const geocodedAddress = await Location.reverseGeocodeAsync({
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-        });
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&zoom=18&addressdetails=1`,
+          {
+            headers: {
+              'User-Agent': 'SaknewApp/1.0'
+            }
+          }
+        );
         
-        if (geocodedAddress && geocodedAddress.length > 0) {
-          const address = geocodedAddress[0];
-          setCountry(address.country || 'South Africa');
-          setProvince(address.region || address.administrativeArea || 'Gauteng');
-          setTown(address.city || address.locality || address.subregion || 'Pretoria');
+        if (response.ok) {
+          const data = await response.json();
+          const addr = data.address || {};
+          
+          // Extract detailed address components
+          const detectedCountry = addr.country || 'South Africa';
+          const detectedProvince = addr.state || addr.province || addr.region || '';
+          
+          // Build detailed address with street-level info
+          const addressParts = [
+            addr.house_number,
+            addr.road || addr.street,
+            addr.suburb || addr.neighbourhood || addr.quarter,
+            addr.city || addr.town || addr.village || addr.municipality,
+          ].filter(Boolean);
+          
+          const detectedTown = addressParts.join(', ');
+          
+          setCountry(detectedCountry);
+          setProvince(detectedProvince);
+          setTown(detectedTown);
+          
+          Alert.alert(
+            '✅ Location Detected',
+            `${detectedTown}\n${detectedProvince}, ${detectedCountry}\n\nCoordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
+            [{ text: 'OK' }]
+          );
         } else {
-          setCountry('South Africa');
-          setProvince('Gauteng');
-          setTown('Pretoria');
+          throw new Error('Geocoding service unavailable');
         }
-      } catch {
+      } catch (geoError) {
+        // Fallback: just save coordinates
         setCountry('South Africa');
-        setProvince('Gauteng');
-        setTown('Pretoria');
+        setProvince('');
+        setTown('');
+        Alert.alert(
+          '⚠️ Location Saved',
+          `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\nPlease enter address details manually.`,
+          [{ text: 'OK' }]
+        );
       }
       
-      Alert.alert('Success!', 'Location and address fields have been filled automatically.');
-      
     } catch (error: any) {
-      Alert.alert('Location Error', 'Could not get location. Please enter address manually.');
+      console.error('Location error:', error);
+      Alert.alert(
+        '❌ Location Error',
+        error.message || 'Unable to retrieve your location. Please enter your shop address manually.',
+        [{ text: 'OK' }]
+      );
       setError('Location failed. Please enter address manually.');
     } finally {
       setLocationLoading(false);
     }
   }, []);
 
-  const handleClearLocation = useCallback(() => {
-    setCountry('');
-    setProvince('');
-    setTown('');
-    setDerivedLatitude('');
-    setDerivedLongitude('');
-    setError(null);
-  }, []);
+
 
   const handleCreateShop = useCallback(async () => {
     
@@ -214,7 +249,7 @@ const CreateShopScreen: React.FC = () => {
     let finalLatitude = derivedLatitude;
     let finalLongitude = derivedLongitude;
 
-    if (!finalLatitude || !finalLongitude) { // If no live location was set, try geocoding the entered address
+    if (!finalLatitude || !finalLongitude) {
       if (!country.trim() && !province.trim() && !town.trim()) {
         setError('Shop location is required. Please use live location or enter address details.');
         return;
@@ -223,19 +258,32 @@ const CreateShopScreen: React.FC = () => {
       setGeocodingLoading(true);
       try {
         const fullAddress = `${town}, ${province}, ${country}`;
-        const geocodedResults = await Location.geocodeAsync(fullAddress);
+        const response = await fetch(
+          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(fullAddress)}&limit=1`,
+          {
+            headers: {
+              'User-Agent': 'SaknewApp/1.0'
+            }
+          }
+        );
 
-        if (geocodedResults && geocodedResults.length > 0) {
-          // Round geocoded coordinates to 6 decimal places
-          finalLatitude = geocodedResults[0].latitude.toFixed(6);
-          finalLongitude = geocodedResults[0].longitude.toFixed(6);
+        if (response.ok) {
+          const results = await response.json();
+          if (results && results.length > 0) {
+            finalLatitude = parseFloat(results[0].lat).toFixed(6);
+            finalLongitude = parseFloat(results[0].lon).toFixed(6);
+          } else {
+            setError('Could not find coordinates for this address. Please use live location or try a different address.');
+            setGeocodingLoading(false);
+            return;
+          }
         } else {
-          setError('Could not determine coordinates from the provided address. Please try a different address or use live location.');
+          setError('Geocoding service unavailable. Please use live location.');
           setGeocodingLoading(false);
           return;
         }
       } catch (err: any) {
-        setError('Failed to convert address to coordinates. Please check the address or use live location.');
+        setError('Failed to convert address to coordinates. Please use live location.');
         setGeocodingLoading(false);
         return;
       } finally {
@@ -339,253 +387,275 @@ const CreateShopScreen: React.FC = () => {
 
             {/* Header Section */}
             <View style={styles.header}>
-              <Ionicons name="storefront-outline" size={60} color={colors.primary} style={styles.headerIcon} />
+              <View style={styles.iconCircle}>
+                <Ionicons name="storefront" size={40} color="#fff" />
+              </View>
               <Text style={styles.title}>Create Your Shop</Text>
-              <Text style={styles.subtitle}>
-                Start selling by setting up your online shop details.
-              </Text>
+              <Text style={styles.subtitle}>Quick setup • Start selling in minutes</Text>
             </View>
 
             <View style={styles.formCard}>
-              <Text style={styles.inputLabel}>Shop Name <Text style={styles.requiredIndicator}>*</Text></Text>
-              <View style={[styles.inputContainer, isNameFocused && styles.inputFocused]}>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., My Awesome Store"
-                  placeholderTextColor="#999"
-                  value={name}
-                  onChangeText={setName}
-                  autoCapitalize="words"
-                  editable={!overallLoading}
-                  onFocus={() => setIsNameFocused(true)}
-                  onBlur={() => setIsNameFocused(false)}
-                />
+              {/* Shop Name */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Shop Name <Text style={styles.required}>*</Text></Text>
+                <View style={[styles.inputWrapper, focusedField === 'name' && styles.inputFocused]}>
+                  <Ionicons name="storefront-outline" size={20} color={colors.iconColor} />
+                  <TextInput
+                    style={styles.input}
+                    placeholder="My Awesome Store"
+                    placeholderTextColor="#999"
+                    value={name}
+                    onChangeText={setName}
+                    autoCapitalize="words"
+                    editable={!overallLoading}
+                    onFocus={() => setFocusedField('name')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
               </View>
 
-              <Text style={styles.inputLabel}>Description (Optional)</Text>
-              <View style={[styles.inputContainer, styles.textAreaContainer, isDescriptionFocused && styles.inputFocused]}>
-                <TextInput
-                  style={[styles.inputField, styles.textAreaField]}
-                  placeholder="Tell customers about your shop..."
-                  placeholderTextColor="#999"
-                  value={description}
-                  onChangeText={setDescription}
-                  multiline
-                  numberOfLines={4}
-                  editable={!overallLoading}
-                  onFocus={() => setIsDescriptionFocused(true)}
-                  onBlur={() => setIsDescriptionFocused(false)}
-                />
+              {/* Description */}
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Description</Text>
+                <View style={[styles.inputWrapper, styles.textArea, focusedField === 'desc' && styles.inputFocused]}>
+                  <TextInput
+                    style={[styles.input, styles.textAreaInput]}
+                    placeholder="What makes your shop special?"
+                    placeholderTextColor="#999"
+                    value={description}
+                    onChangeText={setDescription}
+                    multiline
+                    numberOfLines={3}
+                    editable={!overallLoading}
+                    onFocus={() => setFocusedField('desc')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
               </View>
 
-              <Text style={styles.inputLabel}>Shop Location <Text style={styles.requiredIndicator}>*</Text></Text>
-              <Text style={styles.locationInfoText}>
-                Required: Provide your shop's address or use your current location.
-                (This helps customers find you!)
-              </Text>
-
-              <View style={styles.locationButtonsContainer}>
+              {/* Location Section */}
+              <View style={styles.sectionCard}>
+                <View style={styles.sectionHeader}>
+                  <Ionicons name="location" size={24} color={colors.primary} />
+                  <Text style={styles.sectionTitle}>Shop Location <Text style={styles.required}>*</Text></Text>
+                </View>
+                
                 <TouchableOpacity
-                  style={styles.locationButton}
+                  style={styles.locationBtn}
                   onPress={handleUseLiveLocation}
                   disabled={overallLoading}
-                  activeOpacity={0.7}
+                  activeOpacity={0.8}
                 >
                   {locationLoading ? (
-                    <ActivityIndicator color="#fff" />
+                    <ActivityIndicator color="#fff" size="small" />
                   ) : (
-                    <>
-                      <Ionicons name="locate-outline" size={20} color="#fff" style={styles.buttonIcon} />
-                      <Text style={styles.locationButtonText}>Use Live Location</Text>
-                    </>
+                    <Ionicons name="navigate" size={20} color="#fff" />
                   )}
+                  <Text style={styles.locationBtnText}>
+                    {locationLoading ? 'Detecting...' : 'Use My Location'}
+                  </Text>
                 </TouchableOpacity>
-                { (country || province || town) ? (
-                  <TouchableOpacity
-                    style={[styles.locationButton, styles.clearLocationButton]}
-                    onPress={handleClearLocation}
-                    disabled={overallLoading}
-                    activeOpacity={0.7}
-                  >
-                    <Ionicons name="close-circle-outline" size={20} color={colors.textPrimary} style={styles.buttonIcon} />
-                    <Text style={[styles.locationButtonText, { color: colors.textPrimary }]}>Clear Address</Text>
-                  </TouchableOpacity>
-                ) : null }
+
+                <View style={styles.locationFields}>
+                  <View style={[styles.inputWrapper, styles.halfWidth, focusedField === 'country' && styles.inputFocused]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Country"
+                      placeholderTextColor="#999"
+                      value={country}
+                      onChangeText={setCountry}
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('country')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <View style={[styles.inputWrapper, styles.halfWidth, focusedField === 'province' && styles.inputFocused]}>
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Province"
+                      placeholderTextColor="#999"
+                      value={province}
+                      onChangeText={setProvince}
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('province')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                </View>
+                <View style={[styles.inputWrapper, focusedField === 'town' && styles.inputFocused]}>
+                  <TextInput
+                    style={styles.input}
+                    placeholder="Town/City & Street Address"
+                    placeholderTextColor="#999"
+                    value={town}
+                    onChangeText={setTown}
+                    editable={!overallLoading}
+                    onFocus={() => setFocusedField('town')}
+                    onBlur={() => setFocusedField(null)}
+                  />
+                </View>
               </View>
 
-              <Text style={styles.inputLabel}>Country</Text>
-              <View style={[styles.inputContainer, isCountryFocused && styles.inputFocused]}>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., South Africa"
-                  placeholderTextColor="#999"
-                  value={country}
-                  onChangeText={setCountry}
-                  autoCapitalize="words"
-                  editable={!overallLoading}
-                  onFocus={() => setIsCountryFocused(true)}
-                  onBlur={() => setIsCountryFocused(false)}
+              {/* Contact Info - Collapsible */}
+              <TouchableOpacity
+                style={styles.expandSection}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowContactInfo(!showContactInfo);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.expandHeader}>
+                  <Ionicons name="call" size={22} color={colors.textSecondary} />
+                  <Text style={styles.expandTitle}>Contact Info (Optional)</Text>
+                </View>
+                <Ionicons 
+                  name={showContactInfo ? 'chevron-up' : 'chevron-down'} 
+                  size={24} 
+                  color={colors.textSecondary} 
                 />
-              </View>
+              </TouchableOpacity>
 
-              <Text style={styles.inputLabel}>Province/State</Text>
-              <View style={[styles.inputContainer, isProvinceFocused && styles.inputFocused]}>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., Gauteng"
-                  placeholderTextColor="#999"
-                  value={province}
-                  onChangeText={setProvince}
-                  autoCapitalize="words"
-                  editable={!overallLoading}
-                  onFocus={() => setIsProvinceFocused(true)}
-                  onBlur={() => setIsProvinceFocused(false)}
+              {showContactInfo && (
+                <View style={styles.expandContent}>
+                  <View style={[styles.inputWrapper, focusedField === 'phone' && styles.inputFocused]}>
+                    <Ionicons name="call-outline" size={20} color={colors.iconColor} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Phone Number"
+                      placeholderTextColor="#999"
+                      value={phoneNumber}
+                      onChangeText={setPhoneNumber}
+                      keyboardType="phone-pad"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('phone')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <View style={[styles.inputWrapper, focusedField === 'email' && styles.inputFocused]}>
+                    <Ionicons name="mail-outline" size={20} color={colors.iconColor} />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Contact Email"
+                      placeholderTextColor="#999"
+                      value={emailContact}
+                      onChangeText={setEmailContact}
+                      keyboardType="email-address"
+                      autoCapitalize="none"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('email')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                </View>
+              )}
+
+              {/* Social Links - Collapsible */}
+              <TouchableOpacity
+                style={styles.expandSection}
+                onPress={() => {
+                  LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
+                  setShowSocialLinks(!showSocialLinks);
+                }}
+                activeOpacity={0.7}
+              >
+                <View style={styles.expandHeader}>
+                  <Ionicons name="share-social" size={22} color={colors.textSecondary} />
+                  <Text style={styles.expandTitle}>Social Media (Optional)</Text>
+                </View>
+                <Ionicons 
+                  name={showSocialLinks ? 'chevron-up' : 'chevron-down'} 
+                  size={24} 
+                  color={colors.textSecondary} 
                 />
-              </View>
+              </TouchableOpacity>
 
-              <Text style={styles.inputLabel}>Town/City</Text>
-              <View style={[styles.inputContainer, isTownFocused && styles.inputFocused]}>
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., Pretoria"
-                  placeholderTextColor="#999"
-                  value={town}
-                  onChangeText={setTown}
-                  autoCapitalize="words"
-                  editable={!overallLoading}
-                  onFocus={() => setIsTownFocused(true)}
-                  onBlur={() => setIsTownFocused(false)}
-                />
-              </View>
-
-              {/* Contact Information Section */}
-              <Text style={[styles.inputLabel, styles.sectionHeader]}>Contact Information (Optional)</Text>
-              <Text style={styles.locationInfoText}>
-                How can customers reach your shop?
-              </Text>
-
-              <Text style={styles.inputLabel}>Phone Number</Text>
-              <View style={[styles.inputContainer, isPhoneNumberFocused && styles.inputFocused]}>
-                <Ionicons name="call-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., +27 12 345 6789"
-                  placeholderTextColor="#999"
-                  value={phoneNumber}
-                  onChangeText={setPhoneNumber}
-                  keyboardType="phone-pad"
-                  textContentType="telephoneNumber"
-                  editable={!overallLoading}
-                  onFocus={() => setIsPhoneNumberFocused(true)}
-                  onBlur={() => setIsPhoneNumberFocused(false)}
-                />
-              </View>
-
-              <Text style={styles.inputLabel}>Contact Email</Text>
-              <View style={[styles.inputContainer, isEmailContactFocused && styles.inputFocused]}>
-                <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., info@myshop.com"
-                  placeholderTextColor="#999"
-                  value={emailContact}
-                  onChangeText={setEmailContact}
-                  keyboardType="email-address"
-                  textContentType="emailAddress"
-                  autoCapitalize="none"
-                  editable={!overallLoading}
-                  onFocus={() => setIsEmailContactFocused(true)}
-                  onBlur={() => setIsEmailContactFocused(false)}
-                />
-              </View>
-
-              {/* Social Media Links Section */}
-              <Text style={[styles.inputLabel, styles.sectionHeader]}>Social Media Links (Optional)</Text>
-              <Text style={styles.locationInfoText}>
-                Provide links to your shop's social media pages.
-              </Text>
-
-              <Text style={styles.inputLabel}>Facebook URL</Text>
-              <View style={[styles.inputContainer, isFacebookUrlFocused && styles.inputFocused]}>
-                <Ionicons name="logo-facebook" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., https://facebook.com/myshop"
-                  placeholderTextColor="#999"
-                  value={facebookUrl}
-                  onChangeText={setFacebookUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  editable={!overallLoading}
-                  onFocus={() => setIsFacebookUrlFocused(true)}
-                  onBlur={() => setIsFacebookUrlFocused(false)}
-                />
-              </View>
-
-              <Text style={styles.inputLabel}>Instagram URL</Text>
-              <View style={[styles.inputContainer, isInstagramUrlFocused && styles.inputFocused]}>
-                <Ionicons name="logo-instagram" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., https://instagram.com/myshop"
-                  placeholderTextColor="#999"
-                  value={instagramUrl}
-                  onChangeText={setInstagramUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  editable={!overallLoading}
-                  onFocus={() => setIsInstagramUrlFocused(true)}
-                  onBlur={() => setIsInstagramUrlFocused(false)}
-                />
-              </View>
-
-              <Text style={styles.inputLabel}>Twitter (X) URL</Text>
-              <View style={[styles.inputContainer, isTwitterUrlFocused && styles.inputFocused]}>
-                <Ionicons name="logo-twitter" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., https://twitter.com/myshop"
-                  placeholderTextColor="#999"
-                  value={twitterUrl}
-                  onChangeText={setTwitterUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  editable={!overallLoading}
-                  onFocus={() => setIsTwitterUrlFocused(true)}
-                  onBlur={() => setIsTwitterUrlFocused(false)}
-                />
-              </View>
-
-              <Text style={styles.inputLabel}>LinkedIn URL</Text>
-              <View style={[styles.inputContainer, isLinkedinUrlFocused && styles.inputFocused]}>
-                <Ionicons name="logo-linkedin" size={20} color={colors.iconColor} style={styles.inputIcon} />
-                <TextInput
-                  style={styles.inputField}
-                  placeholder="e.g., https://linkedin.com/company/myshop"
-                  placeholderTextColor="#999"
-                  value={linkedinUrl}
-                  onChangeText={setLinkedinUrl}
-                  keyboardType="url"
-                  autoCapitalize="none"
-                  editable={!overallLoading}
-                  onFocus={() => setIsLinkedinUrlFocused(true)}
-                  onBlur={() => setIsLinkedinUrlFocused(false)}
-                />
-              </View>
+              {showSocialLinks && (
+                <View style={styles.expandContent}>
+                  <View style={[styles.inputWrapper, focusedField === 'fb' && styles.inputFocused]}>
+                    <Ionicons name="logo-facebook" size={20} color="#1877F2" />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Facebook URL"
+                      placeholderTextColor="#999"
+                      value={facebookUrl}
+                      onChangeText={setFacebookUrl}
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('fb')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <View style={[styles.inputWrapper, focusedField === 'ig' && styles.inputFocused]}>
+                    <Ionicons name="logo-instagram" size={20} color="#E4405F" />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Instagram URL"
+                      placeholderTextColor="#999"
+                      value={instagramUrl}
+                      onChangeText={setInstagramUrl}
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('ig')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <View style={[styles.inputWrapper, focusedField === 'tw' && styles.inputFocused]}>
+                    <Ionicons name="logo-twitter" size={20} color="#1DA1F2" />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="Twitter URL"
+                      placeholderTextColor="#999"
+                      value={twitterUrl}
+                      onChangeText={setTwitterUrl}
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('tw')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                  <View style={[styles.inputWrapper, focusedField === 'li' && styles.inputFocused]}>
+                    <Ionicons name="logo-linkedin" size={20} color="#0A66C2" />
+                    <TextInput
+                      style={styles.input}
+                      placeholder="LinkedIn URL"
+                      placeholderTextColor="#999"
+                      value={linkedinUrl}
+                      onChangeText={setLinkedinUrl}
+                      keyboardType="url"
+                      autoCapitalize="none"
+                      editable={!overallLoading}
+                      onFocus={() => setFocusedField('li')}
+                      onBlur={() => setFocusedField(null)}
+                    />
+                  </View>
+                </View>
+              )}
 
 
-              {error && <Text style={styles.errorMessage}>{error}</Text>}
+              {error && (
+                <View style={styles.errorBox}>
+                  <Ionicons name="alert-circle" size={20} color={colors.error} />
+                  <Text style={styles.errorText}>{error}</Text>
+                </View>
+              )}
 
               <TouchableOpacity
-                style={styles.createShopButton}
+                style={[styles.createBtn, overallLoading && styles.createBtnDisabled]}
                 onPress={handleCreateShop}
                 disabled={overallLoading}
                 activeOpacity={0.8}
               >
                 {overallLoading ? (
-                  <ActivityIndicator color="#fff" />
+                  <ActivityIndicator color="#fff" size="small" />
                 ) : (
-                  <Text style={styles.createShopButtonText}>Create Shop</Text>
+                  <>
+                    <Ionicons name="checkmark-circle" size={24} color="#fff" />
+                    <Text style={styles.createBtnText}>Create My Shop</Text>
+                  </>
                 )}
               </TouchableOpacity>
             </View>
@@ -607,7 +677,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     paddingVertical: 10,
-    paddingHorizontal: 15,
+    paddingHorizontal: 16,
   },
   container: {
     flex: 1,
@@ -620,151 +690,195 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 50 : 20,
     left: 0,
     zIndex: 10,
-    padding: 5,
+    padding: 8,
   },
   header: {
-    marginBottom: 20,
     alignItems: 'center',
+    marginBottom: 24,
   },
-  headerIcon: {
-    marginBottom: 10,
+  iconCircle: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 10,
-    textAlign: 'center',
+    fontSize: 26,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 6,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 22,
+    fontWeight: '500',
   },
   formCard: {
     backgroundColor: colors.card,
-    borderRadius: 15,
+    borderRadius: 16,
     padding: 20,
-    width: '100%',
+    marginBottom: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  inputGroup: {
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: 8,
     fontWeight: '600',
   },
-  requiredIndicator: {
+  required: {
     color: colors.error,
-    fontWeight: 'bold',
   },
-  inputContainer: {
+  inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.backgroundLight,
+    borderRadius: 12,
+    paddingHorizontal: 14,
     height: 50,
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 15,
-    borderWidth: 1,
+    borderWidth: 1.5,
     borderColor: colors.border,
+    gap: 10,
   },
   inputFocused: {
-    borderColor: colors.focusedBorder,
-    backgroundColor: colors.backgroundDark,
+    borderColor: colors.primary,
+    backgroundColor: '#fff',
   },
-  inputIcon: {
-    marginRight: 10,
-  },
-  inputField: {
+  input: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 15,
     color: colors.textPrimary,
   },
-  textAreaContainer: {
-    height: 100,
+  textArea: {
+    height: 90,
     alignItems: 'flex-start',
-    paddingTop: 15,
-    paddingBottom: 15,
-  },
-  textAreaField: {
-    height: '100%',
-    textAlignVertical: 'top',
-  },
-  locationInfoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  locationButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-    width: '100%',
-    flexWrap: 'wrap',
-  },
-  locationButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
     paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 10,
-    flexShrink: 1,
-    minWidth: 150,
-    marginHorizontal: 5,
-    marginBottom: 10,
   },
-  clearLocationButton: {
-    backgroundColor: colors.backgroundDark,
-    borderColor: colors.border,
-    borderWidth: 1,
+  textAreaInput: {
+    textAlignVertical: 'top',
+    height: '100%',
   },
-  locationButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
-  buttonIcon: {
-    marginRight: 5,
+  sectionCard: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
   },
   sectionHeader: {
-    marginTop: 20,
-    marginBottom: 10,
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primary,
-    textAlign: 'center',
-    width: '100%',
-  },
-  errorMessage: {
-    color: colors.error,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: -10,
-    marginBottom: 15,
-  },
-  createShopButton: {
-    backgroundColor: colors.primary,
-    height: 55,
-    borderRadius: 10,
-    justifyContent: 'center',
+    flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 10,
+    gap: 10,
+    marginBottom: 12,
   },
-  createShopButtonText: {
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  locationBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    borderRadius: 12,
+    gap: 8,
+    marginBottom: 12,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.3,
+    shadowRadius: 5,
+    elevation: 4,
+  },
+  locationBtnText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 15,
+    fontWeight: '700',
+  },
+  locationFields: {
+    flexDirection: 'row',
+    gap: 10,
+    marginBottom: 10,
+  },
+  halfWidth: {
+    flex: 1,
+  },
+  expandSection: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: colors.backgroundLight,
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
+  },
+  expandHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  expandTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  expandContent: {
+    marginBottom: 16,
+    gap: 12,
+  },
+  errorBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFEBEE',
+    padding: 12,
+    borderRadius: 10,
+    marginBottom: 16,
+    gap: 10,
+  },
+  errorText: {
+    flex: 1,
+    color: colors.error,
+    fontSize: 13,
+    fontWeight: '500',
+  },
+  createBtn: {
+    backgroundColor: colors.primary,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    borderRadius: 12,
+    gap: 10,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  createBtnDisabled: {
+    opacity: 0.7,
+  },
+  createBtnText: {
+    color: '#fff',
+    fontSize: 17,
+    fontWeight: '800',
   },
 });
 

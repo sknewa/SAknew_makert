@@ -18,6 +18,9 @@ interface Order {
   delivery_verification_code?: string;
   cancellation_reason?: string;
   shipping_address?: {
+    contact_name?: string;
+    contact_phone?: string;
+    full_address?: string;
     city: string;
     country: string;
     street_name?: string;
@@ -97,16 +100,25 @@ const SellerOrdersScreen: React.FC = () => {
       console.log('🔍 DEBUG: Total orders from API:', allOrders.length);
       console.log('🔍 DEBUG: First 3 orders sample:', allOrders.slice(0, 3));
       
-      // Show only PAID orders that contain items from this shop
+      // Show only PAID orders that contain items from this shop AND where seller is NOT the buyer
       const sellerOrders = allOrders.filter((order: Order, index: number) => {
         // First check if payment is completed
         if (order.payment_status !== 'Completed') {
           console.log(`🔍 DEBUG: Order ${order.id} skipped - payment status: ${order.payment_status}`);
           return false;
         }
+        
+        // CRITICAL: Exclude orders where the seller is the buyer
+        console.log(`🔍 DEBUG: Order ${order.id} - Buyer email: ${order.user.email}, Seller email: ${user.email}`);
+        if (order.user.email === user.email) {
+          console.log(`🔍 DEBUG: Order ${order.id} skipped - seller is the buyer`);
+          return false;
+        }
         console.log(`🔍 DEBUG: Checking order ${index + 1}/${allOrders.length}:`, {
           orderId: order.id,
           orderStatus: order.order_status,
+          buyerEmail: order.user.email,
+          sellerEmail: user.email,
           itemsCount: order.items?.length || 0,
           hasItems: !!order.items
         });
@@ -130,12 +142,15 @@ const SellerOrdersScreen: React.FC = () => {
           const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
           const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
           
-          const shopSlugMatch = item.product?.shop?.slug === user.profile.shop_slug;
+          // product.shop is the shop ID (number), not an object
+          const shopSlugMatch = typeof item.product?.shop === 'object' && item.product?.shop?.slug === user.profile.shop_slug;
           const shopNameMatch = productShopSlug === user.profile.shop_slug;
           
           console.log(`🔍 DEBUG: Shop matching attempts:`, {
             productShopName: item.product?.shop_name,
             productShopSlug,
+            productShopType: typeof item.product?.shop,
+            productShopValue: item.product?.shop,
             sellerShopSlug: user.profile.shop_slug,
             shopSlugMatch,
             shopNameMatch,
@@ -349,21 +364,25 @@ const SellerOrdersScreen: React.FC = () => {
     const orderTotal = shopItems.reduce((sum, item: any) => sum + (parseFloat(item.price) * item.quantity), 0);
     const itemCount = shopItems.reduce((sum, item: any) => sum + item.quantity, 0);
     
-    const deliveryAddress = order.shipping_address ? 
-      `${order.shipping_address.street_number || ''} ${order.shipping_address.street_name || ''} ${order.shipping_address.suburb || ''} ${order.shipping_address.city}, ${order.shipping_address.country}`.trim() : 
-      'No address provided';
+    // Debug shipping address data
+    console.log('📦 Order shipping_address:', order.shipping_address);
+    console.log('📦 contact_name:', order.shipping_address?.contact_name);
+    console.log('📦 contact_phone:', order.shipping_address?.contact_phone);
+    console.log('📦 full_address:', order.shipping_address?.full_address);
+    
+    // Get buyer contact info from shipping address
+    const buyerName = order.shipping_address?.contact_name || order.user.username || 'Customer';
+    const buyerPhone = order.shipping_address?.contact_phone || order.user.phone;
+    const deliveryAddress = order.shipping_address?.full_address || 
+      (order.shipping_address ? 
+        `${order.shipping_address.street_number || ''} ${order.shipping_address.street_name || ''} ${order.shipping_address.suburb || ''} ${order.shipping_address.city}, ${order.shipping_address.country}`.trim() : 
+        'No address provided');
 
     return (
       <View key={order.id} style={styles.orderCard}>
         <View style={styles.orderHeader}>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={styles.orderId}>#{order.id.slice(-8)}</Text>
-            <Text style={styles.customerName}>{order.user.username || order.user.email}</Text>
-            {order.user.phone && (
-              <TouchableOpacity onPress={() => Alert.alert('Call Customer', order.user.phone)}>
-                <Text style={styles.customerPhone}>📞 {order.user.phone}</Text>
-              </TouchableOpacity>
-            )}
             <Text style={styles.orderDate}>{new Date(order.order_date).toLocaleDateString()}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.order_status) + '20' }]}>
@@ -373,9 +392,32 @@ const SellerOrdersScreen: React.FC = () => {
           </View>
         </View>
 
-        <View style={styles.deliveryInfo}>
-          <Ionicons name="location" size={14} color={colors.textLight} />
-          <Text style={styles.deliveryAddress}>{deliveryAddress}</Text>
+        {/* Buyer Contact Information */}
+        <View style={styles.buyerInfoCard}>
+          <View style={styles.buyerInfoHeader}>
+            <Ionicons name="person-circle" size={18} color={colors.primary} />
+            <Text style={styles.buyerInfoTitle}>Buyer Information</Text>
+          </View>
+          <View style={styles.buyerInfoRow}>
+            <Ionicons name="person" size={14} color={colors.textLight} />
+            <Text style={styles.buyerInfoText}>{buyerName}</Text>
+          </View>
+          {buyerPhone && (
+            <TouchableOpacity 
+              style={styles.buyerInfoRow}
+              onPress={() => Alert.alert('Call Buyer', `Call ${buyerPhone}?`, [
+                { text: 'Cancel', style: 'cancel' },
+                { text: 'Call', onPress: () => {} }
+              ])}
+            >
+              <Ionicons name="call" size={14} color={colors.primary} />
+              <Text style={[styles.buyerInfoText, { color: colors.primary, fontWeight: '600' }]}>{buyerPhone}</Text>
+            </TouchableOpacity>
+          )}
+          <View style={styles.buyerInfoRow}>
+            <Ionicons name="location" size={14} color={colors.textLight} />
+            <Text style={styles.buyerInfoText}>{deliveryAddress}</Text>
+          </View>
         </View>
 
         <View style={styles.orderSummary}>
@@ -586,6 +628,12 @@ const styles = StyleSheet.create({
   
   deliveryInfo: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.accent, borderRadius: 8 },
   deliveryAddress: { fontSize: 13, color: colors.text, marginLeft: 8, flex: 1, lineHeight: 18 },
+  
+  buyerInfoCard: { backgroundColor: '#EFF6FF', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#BFDBFE' },
+  buyerInfoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
+  buyerInfoTitle: { fontSize: 14, fontWeight: '700', color: colors.primary, marginLeft: 6 },
+  buyerInfoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
+  buyerInfoText: { fontSize: 13, color: colors.text, marginLeft: 8, flex: 1, lineHeight: 18 },
   orderSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 4 },
   itemsList: { marginBottom: 16 },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
