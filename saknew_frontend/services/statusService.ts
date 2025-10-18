@@ -11,7 +11,14 @@ class StatusService {
       
       // Ensure we return an array even if the response is unexpected
       if (Array.isArray(response.data)) {
-        console.log('DEBUG: User statuses data:', JSON.stringify(response.data, null, 2));
+        // Log media URLs for debugging
+        response.data.forEach((userStatus: any) => {
+          userStatus.statuses?.forEach((status: any) => {
+            if (status.media_url) {
+              console.log('DEBUG: Status media_url:', status.id, status.media_type, status.media_url);
+            }
+          });
+        });
         console.log('DEBUG: Returning', response.data.length, 'user statuses');
         return response.data;
       } else {
@@ -57,21 +64,35 @@ class StatusService {
           formData.append('background_color', backgroundColor);
         }
         
-        // Add the media file
-        const filename = mediaUri.split('/').pop() || 'media';
+        // Add the media file - fetch blob and convert to File
+        const baseFilename = mediaUri.split('/').pop() || 'media';
         const fileType = mediaType === 'image' ? 'image/jpeg' : 'video/mp4';
+        const extension = mediaType === 'image' ? '.jpg' : '.mp4';
+        const filename = baseFilename.includes('.') ? baseFilename : `${baseFilename}${extension}`;
         console.log('DEBUG: Media file details:', { filename, fileType, mediaUri });
         
-        formData.append('media_file', {
-          uri: mediaUri,
-          type: fileType,
-          name: filename,
-        } as any);
+        // Fetch the blob from the blob URL
+        const fetchResponse = await fetch(mediaUri);
+        const blob = await fetchResponse.blob();
+        const file = new File([blob], filename, { type: fileType });
+        console.log('DEBUG: File created:', { size: file.size, type: file.type, name: file.name });
+        
+        formData.append('media_file', file);
+        
+        // Debug: Log FormData contents
+        console.log('DEBUG: FormData entries:');
+        for (const [key, value] of (formData as any).entries()) {
+          if (value instanceof File) {
+            console.log(`  ${key}: File(name=${value.name}, size=${value.size}, type=${value.type})`);
+          } else {
+            console.log(`  ${key}: ${value}`);
+          }
+        }
         
         console.log('DEBUG: Sending FormData to /api/status/');
         const response = await api.post('/api/status/', formData, {
           headers: {
-            'Content-Type': 'multipart/form-data',
+            'Content-Type': undefined, // Let browser set multipart/form-data with boundary
           },
         });
         console.log('DEBUG: Media status created successfully:', response.status, response.data);
