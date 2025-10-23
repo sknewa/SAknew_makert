@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import { useAuth } from '../../context/AuthContext.minimal';
 import { getMyOrders, updateOrderStatus, Order, createReview } from '../../services/salesService';
-import colors from '../../theme/colors';
+import { colors } from '../../styles/globalStyles';
 import { SecurityUtils } from '../../utils/securityUtils';
 
 const formatCurrency = (amount: string | number): string => {
@@ -615,34 +615,34 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 10 },
   
-  pageTitle: { fontSize: 24, fontWeight: 'bold', color: colors.textPrimary, marginBottom: 20, textAlign: 'center' },
+  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16, textAlign: 'center' },
   
   emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, marginTop: 16, marginBottom: 8 },
-  emptySubtitle: { fontSize: 16, color: colors.textSecondary, marginBottom: 24, textAlign: 'center' },
+  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginTop: 16, marginBottom: 8 },
+  emptySubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, textAlign: 'center' },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginBottom: 16, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 3 },
+  orderCard: { backgroundColor: colors.card, borderRadius: 4, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
   
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  orderDate: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 4 },
-  orderNumber: { fontSize: 12, color: colors.textSecondary },
+  orderDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
+  orderNumber: { fontSize: 11, color: colors.textSecondary },
   orderStatus: { alignItems: 'flex-end' },
-  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, fontSize: 12, fontWeight: '600', marginBottom: 4 },
+  statusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, fontSize: 11, fontWeight: '600', marginBottom: 3 },
   statusPending: { backgroundColor: colors.warningAction + '20', color: colors.warningAction },
   statusProcessing: { backgroundColor: colors.infoAction + '20', color: colors.infoAction },
   statusShipped: { backgroundColor: colors.primary + '20', color: colors.primary },
   statusDelivered: { backgroundColor: colors.primary + '20', color: colors.primary },
   statusCompleted: { backgroundColor: colors.primary + '20', color: colors.primary },
   statusCancelled: { backgroundColor: colors.dangerAction + '20', color: colors.dangerAction },
-  orderTotal: { fontSize: 16, fontWeight: 'bold', color: colors.primary },
+  orderTotal: { fontSize: 14, fontWeight: '700', color: colors.primary },
   
   itemsContainer: { marginBottom: 12 },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  productImage: { width: 60, height: 60, borderRadius: 8, marginRight: 12, backgroundColor: colors.border },
+  productImage: { width: 60, height: 60, borderRadius: 4, marginRight: 10, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: colors.border },
   itemDetails: { flex: 1 },
-  productNameItem: { fontSize: 16, fontWeight: '500', color: colors.textPrimary, marginBottom: 4 },
-  itemQuantity: { fontSize: 14, color: colors.textSecondary, marginBottom: 2 },
-  itemPrice: { fontSize: 14, fontWeight: '600', color: colors.primary },
+  productNameItem: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
+  itemQuantity: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
+  itemPrice: { fontSize: 12, fontWeight: '700', color: colors.primary },
   
   actionButtons: { marginTop: 12 },
   quickActions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
@@ -654,9 +654,9 @@ const styles = StyleSheet.create({
   reviewLinkText: { color: colors.warningAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   mainActions: { marginTop: 12 },
-  markReceivedButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 8, marginBottom: 8 },
-  addReviewButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 12, borderRadius: 8, marginBottom: 8 },
-  mainActionText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  markReceivedButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 4, marginBottom: 8 },
+  addReviewButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800', paddingVertical: 10, borderRadius: 4, marginBottom: 8 },
+  mainActionText: { color: colors.white, fontSize: 13, fontWeight: '600', marginLeft: 6 },
   
   verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10', paddingVertical: 8, borderRadius: 6 },
   verifiedText: { fontSize: 12, color: colors.primary, fontWeight: '600', marginLeft: 4 },
@@ -665,11 +665,11 @@ const styles = StyleSheet.create({
   deliveryCode: { fontSize: 20, fontWeight: 'bold', color: colors.primary, letterSpacing: 2, marginBottom: 4 },
   codeInstruction: { fontSize: 11, color: colors.textSecondary, textAlign: 'center' },
   
-  tabContainer: { flexDirection: 'row', marginBottom: 16, backgroundColor: colors.border, borderRadius: 8, padding: 4 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+  tabContainer: { flexDirection: 'row', marginBottom: 12, backgroundColor: colors.border, borderRadius: 4, padding: 3 },
+  tab: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 3 },
   activeTab: { backgroundColor: colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.textSecondary },
-  activeTabText: { color: colors.buttonText },
+  tabText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
+  activeTabText: { color: colors.white },
   
   cancelActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.dangerAction, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
   cancelActionText: { color: colors.buttonText, fontSize: 11, fontWeight: '600', marginLeft: 4 },
@@ -681,20 +681,20 @@ const styles = StyleSheet.create({
   commentLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 },
   commentInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, textAlignVertical: 'top', marginBottom: 20 },
   
-  loginButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
-  shopButton: { backgroundColor: colors.infoAction, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
-  buttonText: { color: colors.buttonText, fontSize: 16, fontWeight: '600' },
+  loginButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
+  shopButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
+  buttonText: { color: colors.white, fontSize: 14, fontWeight: '600' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.card, borderRadius: 12, padding: 24, width: '90%', maxWidth: 400 },
-  modalTitle: { fontSize: 20, fontWeight: 'bold', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
-  modalSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 },
-  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 20, textAlign: 'center' },
-  reasonInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 14, marginBottom: 20, minHeight: 80, textAlignVertical: 'top' },
+  modalContent: { backgroundColor: colors.card, borderRadius: 8, padding: 20, width: '90%', maxWidth: 400, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
+  modalSubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 16 },
+  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 4, padding: 10, fontSize: 14, marginBottom: 16, textAlign: 'center' },
+  reasonInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 4, padding: 10, fontSize: 13, marginBottom: 16, minHeight: 70, textAlignVertical: 'top' },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  cancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 12, borderRadius: 8, marginRight: 8, alignItems: 'center' },
-  cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  confirmButton: { flex: 1, backgroundColor: colors.warningAction, paddingVertical: 12, borderRadius: 8, marginLeft: 8, alignItems: 'center' },
+  cancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 10, borderRadius: 4, marginRight: 6, alignItems: 'center' },
+  cancelButtonText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  confirmButton: { flex: 1, backgroundColor: '#FF9800', paddingVertical: 10, borderRadius: 4, marginLeft: 6, alignItems: 'center' },
 });
 
 export default MyOrdersScreen;

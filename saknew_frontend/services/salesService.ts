@@ -114,9 +114,15 @@ export interface Review {
 
 const getMyCart = async (): Promise<Cart> => {
   try {
+    console.log('🔧 [salesService.getMyCart] START - Making GET request to /api/carts/my_cart/');
     const response = await apiClient.get('/api/carts/my_cart/');
+    console.log('✅ [salesService.getMyCart] Response received');
+    console.log('✅ [salesService.getMyCart] Cart items count:', response.data?.items?.length || 0);
+    console.log('✅ [salesService.getMyCart] Cart total:', response.data?.total);
+    console.log('✅ [salesService.getMyCart] END - Returning cart data');
     return response.data;
   } catch (error: any) {
+    console.log('❌ [salesService.getMyCart] ERROR:', error.response?.data || error.message);
     SecurityUtils.safeLog('error', 'Error fetching cart:', error.response?.data || error.message);
     throw error;
   }
@@ -149,9 +155,27 @@ const updateCartItemQuantity = async (productId: number, quantity: number): Prom
 
 const removeCartItem = async (productId: number): Promise<Cart> => {
   try {
+    console.log('🔧 [salesService.removeCartItem] START - Called with productId:', productId);
+    console.log('🔧 [salesService.removeCartItem] Product ID type:', typeof productId);
+    console.log('🔧 [salesService.removeCartItem] Payload:', JSON.stringify({ product_id: productId }));
+    console.log('🔧 [salesService.removeCartItem] Making POST request to /api/carts/remove/');
+    
     const response = await apiClient.post('/api/carts/remove/', { product_id: productId });
+    
+    console.log('✅ [salesService.removeCartItem] Response received');
+    console.log('✅ [salesService.removeCartItem] Response status:', response.status);
+    console.log('✅ [salesService.removeCartItem] Response data:', JSON.stringify(response.data, null, 2));
+    console.log('✅ [salesService.removeCartItem] Cart from response:', response.data.cart);
+    console.log('✅ [salesService.removeCartItem] END - Returning cart');
+    
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
+    console.log('❌ [salesService.removeCartItem] ERROR occurred');
+    console.log('❌ [salesService.removeCartItem] Error object:', error);
+    console.log('❌ [salesService.removeCartItem] Error message:', error?.message);
+    console.log('❌ [salesService.removeCartItem] Error response:', error.response);
+    console.log('❌ [salesService.removeCartItem] Error response status:', error.response?.status);
+    console.log('❌ [salesService.removeCartItem] Error response data:', JSON.stringify(error.response?.data, null, 2));
     SecurityUtils.safeLog('error', 'Error removing item from cart:', error.response?.data || error.message);
     throw error;
   }
@@ -159,9 +183,13 @@ const removeCartItem = async (productId: number): Promise<Cart> => {
 
 const clearCart = async (): Promise<Cart> => {
   try {
+    console.log('🔧 [salesService.clearCart] START - Making POST request to /api/carts/clear/');
     const response = await apiClient.post('/api/carts/clear/');
+    console.log('✅ [salesService.clearCart] Response received:', JSON.stringify(response.data, null, 2));
+    console.log('✅ [salesService.clearCart] END - Returning cart');
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
+    console.log('❌ [salesService.clearCart] ERROR:', error.response?.data || error.message);
     SecurityUtils.safeLog('error', 'Error clearing cart:', error.response?.data || error.message);
     throw error;
   }

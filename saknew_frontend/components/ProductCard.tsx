@@ -1,15 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Alert, ScrollView, ActivityIndicator } from 'react-native';
 import { Product } from '../services/shop.types';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { getFullImageUrl } from '../utils/imageHelper';
 import { MainNavigationProp } from '../navigation/types';
 import shopService from '../services/shopService';
 import { addCartItem } from '../services/salesService';
 import { colors, spacing } from '../styles/globalStyles';
+import * as Location from 'expo-location';
 
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - (spacing.md * 4)) / 3;
+const productCardWidth = (screenWidth - (spacing.md * 4)) / 3 + 3;
 
 interface ProductCardProps {
   product: Product;
@@ -18,6 +19,8 @@ interface ProductCardProps {
   onCartUpdated?: () => void;
   onPress?: (product: Product) => void;
   onProductDeleted?: () => void;
+  shopLatitude?: string | null;
+  shopLongitude?: string | null;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -26,17 +29,84 @@ const ProductCard: React.FC<ProductCardProps> = ({
   navigation, 
   onCartUpdated, 
   onPress,
-  onProductDeleted
+  onProductDeleted,
+  shopLatitude,
+  shopLongitude
 }) => {
   const [imageError, setImageError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
+  const [distance, setDistance] = useState<string | null>(null);
+  
+  useEffect(() => {
+    const calculateDistance = async () => {
+      console.log('📍 [ProductCard] Distance calculation START for product:', product.id);
+      console.log('📍 [ProductCard] shopLatitude:', shopLatitude);
+      console.log('📍 [ProductCard] shopLongitude:', shopLongitude);
+      
+      if (!shopLatitude || !shopLongitude) {
+        console.log('❌ [ProductCard] No shop coordinates provided');
+        return;
+      }
+      
+      try {
+        console.log('📍 [ProductCard] Requesting location permission...');
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        console.log('📍 [ProductCard] Permission status:', status);
+        
+        if (status !== 'granted') {
+          console.log('❌ [ProductCard] Location permission not granted');
+          return;
+        }
+        
+        console.log('📍 [ProductCard] Getting current position...');
+        const location = await Location.getCurrentPositionAsync({});
+        console.log('📍 [ProductCard] User location:', location.coords.latitude, location.coords.longitude);
+        
+        const shopLat = parseFloat(shopLatitude);
+        const shopLon = parseFloat(shopLongitude);
+        console.log('📍 [ProductCard] Shop coordinates:', shopLat, shopLon);
+        
+        const R = 6371;
+        const dLat = (shopLat - location.coords.latitude) * Math.PI / 180;
+        const dLon = (shopLon - location.coords.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(location.coords.latitude * Math.PI / 180) * Math.cos(shopLat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const d = R * c;
+        
+        const distanceText = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`;
+        console.log('✅ [ProductCard] Distance calculated:', distanceText);
+        setDistance(distanceText);
+      } catch (error) {
+        console.log('❌ [ProductCard] Distance calculation error:', error);
+      }
+    };
+    
+    calculateDistance();
+  }, [shopLatitude, shopLongitude, product.id]);
+  
+  console.log('🎴 ProductCard - Rendering product:', product.id, product.name);
+  console.log('🎴 ProductCard - Has promotion:', !!product.promotion);
+  if (product.promotion) {
+    console.log('🎴 ProductCard - Promotion details:', {
+      id: product.promotion.id,
+      discount: product.promotion.discount_percentage,
+      start: product.promotion.start_date,
+      end: product.promotion.end_date
+    });
+  }
+  console.log('🎴 ProductCard - Prices:', {
+    price: product.price,
+    display_price: product.display_price
+  });
   
   if (!product) return null;
   
   const allImages = [
     ...(product.main_image_url ? [{ uri: getFullImageUrl(product.main_image_url) || '', id: 'main' }] : []),
-    ...((product.images || []).map((img, idx) => ({ uri: getFullImageUrl(img.image_url || img.image) || '', id: `gallery-${idx}` })))
+    ...((product.images || []).map((img, idx) => ({ uri: getFullImageUrl(img.image) || '', id: `gallery-${idx}` })))
   ].filter(img => img.uri)
    .filter((img, index, self) => self.findIndex(i => i.uri === img.uri) === index);
 
@@ -167,13 +237,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         )}
         
-        <View style={[
-          styles.stockBadge, 
-          product.stock === 0 ? styles.outOfStockBadge : 
-          product.stock <= 5 ? styles.lowStockBadge : 
-          styles.inStockBadge
-        ]}>
-          <Text style={styles.stockBadgeText}>
+        <View style={styles.stockBadge}>
+          <Text style={[
+            styles.stockBadgeText,
+            product.stock === 0 ? styles.outOfStockText : 
+            product.stock <= 5 ? styles.lowStockText : 
+            styles.inStockText
+          ]}>
             {product.stock === 0 ? 'Out' : 
              product.stock <= 5 ? 'Low' : 
              'Stock'}
@@ -182,32 +252,68 @@ const ProductCard: React.FC<ProductCardProps> = ({
         
         {product.promotion && (
           <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>{product.promotion.discount_percentage}% OFF</Text>
+            <Text style={styles.discountBadgeText}>
+              {product.promotion.discount_percentage}% OFF
+            </Text>
           </View>
         )}
       </View>
       
       <View style={styles.productDetails}>
-        <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-        <Text style={styles.shopName} numberOfLines={1}>{product.shop_name}</Text>
+        <TouchableOpacity 
+          onPress={(e) => {
+            e.stopPropagation();
+            const shopSlug = product.shop_name.toLowerCase().replace(/\s+/g, '-');
+            navigation?.navigate('PublicShop', { shopSlug });
+          }}
+        >
+          <Text style={styles.shopName} numberOfLines={1}>{product.shop_name}</Text>
+        </TouchableOpacity>
+        <View style={styles.infoRow}>
+          {distance && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="location-outline" size={10} color={colors.textSecondary} />
+              <Text style={styles.distanceText}>{distance} away</Text>
+            </View>
+          )}
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={10} color="#FFD700" />
+            <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
+          </View>
+        </View>
         
-        <View style={styles.priceRow}>
+        <View style={styles.priceContainer}>
           <Text style={styles.productPrice}>R{product.display_price}</Text>
           {product.promotion && product.price !== product.display_price && (
             <Text style={styles.originalPrice}>R{product.price}</Text>
           )}
         </View>
+        {!isShopOwner && (
+          <TouchableOpacity
+            style={[styles.addToCartIcon, product.stock <= 0 && styles.disabledIcon]}
+            onPress={handleAddToCart}
+            disabled={addingToCart || product.stock <= 0}
+          >
+            {addingToCart ? (
+              <ActivityIndicator size="small" color="#10B981" />
+            ) : product.stock <= 0 ? (
+              <Ionicons name="close-circle" size={17} color="#999" />
+            ) : (
+              <FontAwesome5 name="cart-plus" size={18} color="#10B981" light />
+            )}
+          </TouchableOpacity>
+        )}
         
-        {isShopOwner ? (
+        {isShopOwner && (
           <View style={styles.ownerActions}>
             <TouchableOpacity
               style={styles.editButton}
               onPress={(e) => {
                 e.stopPropagation();
-                navigation?.navigate('ProductManagement', { productId: product.id });
+                navigation?.navigate('EditProduct', { productId: product.id });
               }}
             >
-              <Ionicons name="pencil-outline" size={14} color={colors.white} />
+              <Ionicons name="create-outline" size={16} color="#3B82F6" />
             </TouchableOpacity>
             
             <TouchableOpacity
@@ -217,26 +323,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 handleDeleteProduct();
               }}
             >
-              <Ionicons name="trash-outline" size={14} color={colors.white} />
+              <Ionicons name="trash-outline" size={16} color="#FF4444" />
             </TouchableOpacity>
           </View>
-        ) : (
-          <TouchableOpacity
-            style={[styles.addToCartButton, product.stock <= 0 && styles.disabledButton]}
-            onPress={handleAddToCart}
-            disabled={addingToCart || product.stock <= 0}
-          >
-            {addingToCart ? (
-              <ActivityIndicator size="small" color={colors.white} />
-            ) : (
-              <>
-                <Ionicons name="cart-outline" size={16} color={colors.white} />
-                <Text style={styles.addToCartText}>
-                  {product.stock <= 0 ? 'Out of Stock' : 'Add to Cart'}
-                </Text>
-              </>
-            )}
-          </TouchableOpacity>
         )}
       </View>
     </TouchableOpacity>
@@ -246,22 +335,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
 const styles = StyleSheet.create({
   productCard: {
     width: productCardWidth,
-    backgroundColor: colors.card,
-    borderRadius: spacing.sm,
-    marginBottom: spacing.sm,
+    backgroundColor: '#fff',
+    borderRadius: 0,
+    marginBottom: 8,
     marginHorizontal: spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
     overflow: 'hidden',
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 120,
-    backgroundColor: colors.background,
+    height: 140,
+    backgroundColor: '#F8F8F8',
   },
   imageScroller: {
     width: '100%',
@@ -269,135 +353,149 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: productCardWidth,
-    height: 120,
-    backgroundColor: colors.background,
+    height: 140,
+    backgroundColor: '#F8F8F8',
   },
   placeholderContainer: {
     width: '100%',
-    height: 120,
+    height: 140,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.background,
+    backgroundColor: '#F8F8F8',
   },
   placeholderText: {
-    fontSize: 12,
-    color: colors.textSecondary,
+    fontSize: 10,
+    color: '#BDBDBD',
     marginTop: 4,
+    fontWeight: '400',
   },
   paginationDots: {
     flexDirection: 'row',
     justifyContent: 'center',
     position: 'absolute',
-    bottom: 8,
+    bottom: 4,
     width: '100%',
   },
   paginationDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+    width: 4,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: 'rgba(0, 0, 0, 0.2)',
     marginHorizontal: 2,
   },
   activeDot: {
-    backgroundColor: colors.white,
+    backgroundColor: '#000',
+    width: 4,
+    height: 4,
   },
   stockBadge: {
     position: 'absolute',
-    top: spacing.sm,
-    left: spacing.sm,
-    paddingHorizontal: spacing.xs + 2,
+    top: 4,
+    left: 4,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: spacing.xs,
   },
-  inStockBadge: { backgroundColor: colors.successText },
-  lowStockBadge: { backgroundColor: colors.warningAction },
-  outOfStockBadge: { backgroundColor: colors.error },
   stockBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
+    fontSize: 8,
+    fontWeight: '900',
+  },
+  inStockText: { 
+    color: '#4CAF50',
+  },
+  lowStockText: { 
+    color: '#FF9800',
+  },
+  outOfStockText: { 
+    color: '#F44336',
   },
   discountBadge: {
     position: 'absolute',
-    top: spacing.sm,
-    right: spacing.sm,
-    backgroundColor: colors.error,
-    paddingHorizontal: spacing.xs + 2,
+    top: 4,
+    right: 4,
+    paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: spacing.xs,
   },
   discountBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
+    color: '#FF4444',
+    fontSize: 8,
+    fontWeight: '900',
   },
   productDetails: {
-    padding: spacing.sm,
+    padding: 6,
+    paddingTop: 8,
   },
   productName: {
-    fontSize: 12,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
+    fontSize: 11,
+    fontWeight: '400',
+    color: '#222',
     marginBottom: 4,
-    lineHeight: 16,
+    lineHeight: 15,
   },
   shopName: {
-    fontSize: 10,
-    color: colors.textSecondary,
+    fontSize: 11,
+    color: '#000',
     marginBottom: 4,
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
-  priceRow: {
+  infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  distanceText: {
+    fontSize: 10,
+    color: '#8B4513',
+    marginLeft: 2,
+    fontWeight: '600',
+  },
+  ratingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  ratingText: {
+    fontSize: 10,
+    color: '#999',
+    marginLeft: 2,
+  },
+  priceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
   },
   productPrice: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginRight: 6,
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#222',
   },
   originalPrice: {
     fontSize: 12,
-    color: colors.textSecondary,
+    color: '#FF4444',
     textDecorationLine: 'line-through',
   },
   ownerActions: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 4,
+    marginTop: 4,
   },
   editButton: {
-    flex: 1,
-    backgroundColor: colors.infoAction,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginRight: 4,
+    padding: 4,
   },
   deleteButton: {
-    flex: 1,
-    backgroundColor: colors.dangerAction,
-    paddingVertical: 8,
-    borderRadius: 6,
-    alignItems: 'center',
-    marginLeft: 4,
+    padding: 4,
   },
-  addToCartButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.primary,
-    paddingVertical: 8,
-    borderRadius: 6,
+  addToCartIcon: {
+    padding: 4,
+    alignSelf: 'flex-end',
   },
-  disabledButton: {
-    backgroundColor: colors.textSecondary,
-  },
-  addToCartText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
-    marginLeft: 4,
+  disabledIcon: {
+    opacity: 0.5,
   },
 });
 

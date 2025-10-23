@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
-import colors from '../../theme/colors';
+import { colors } from '../../styles/globalStyles';
 import { createOrderFromCart } from '../../services/salesService';
 import BackButton from '../../components/BackButton';
 import { MainNavigationProp } from '../../navigation/types';
@@ -24,7 +25,39 @@ const ShippingScreen: React.FC = () => {
 
   useEffect(() => {
     checkLocationPermission();
+    loadSavedAddress();
   }, []);
+
+  useEffect(() => {
+    saveAddress();
+  }, [street, contactName, contactPhone, town, province, zip, country]);
+
+  const loadSavedAddress = async () => {
+    try {
+      const saved = await AsyncStorage.getItem('shippingAddress');
+      if (saved) {
+        const address = JSON.parse(saved);
+        setStreet(address.street || '');
+        setContactName(address.contactName || '');
+        setContactPhone(address.contactPhone || '');
+        setTown(address.town || '');
+        setProvince(address.province || '');
+        setZip(address.zip || '');
+        setCountry(address.country || 'South Africa');
+      }
+    } catch (error) {
+      console.log('Error loading saved address:', error);
+    }
+  };
+
+  const saveAddress = async () => {
+    try {
+      const address = { street, contactName, contactPhone, town, province, zip, country };
+      await AsyncStorage.setItem('shippingAddress', JSON.stringify(address));
+    } catch (error) {
+      console.log('Error saving address:', error);
+    }
+  };
 
   const checkLocationPermission = async () => {
     try {
@@ -36,7 +69,7 @@ const ShippingScreen: React.FC = () => {
     }
   };
 
-  const handleClearForm = () => {
+  const handleClearForm = async () => {
     setStreet('');
     setContactName('');
     setContactPhone('');
@@ -44,6 +77,11 @@ const ShippingScreen: React.FC = () => {
     setProvince('');
     setZip('');
     setCountry('South Africa');
+    try {
+      await AsyncStorage.removeItem('shippingAddress');
+    } catch (error) {
+      console.log('Error clearing saved address:', error);
+    }
   };
 
   const handleUseLocation = async () => {
@@ -333,136 +371,123 @@ const ShippingScreen: React.FC = () => {
 const styles = StyleSheet.create({
   container: { 
     flex: 1, 
-    backgroundColor: colors.background || '#F5F5F5',
+    backgroundColor: colors.background,
   },
   scrollContent: {
-    padding: 20,
+    padding: 16,
     paddingTop: Platform.OS === 'ios' ? 60 : 30,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: 20,
   },
   title: { 
-    fontSize: 26, 
-    fontWeight: 'bold', 
+    fontSize: 18, 
+    fontWeight: '700', 
     marginTop: 12,
     marginBottom: 8, 
-    color: colors.textPrimary || '#333',
+    color: colors.textPrimary,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
-    color: colors.textSecondary || '#666',
+    fontSize: 12,
+    color: colors.textSecondary,
     textAlign: 'center',
     paddingHorizontal: 20,
   },
   formCard: {
-    backgroundColor: colors.card || '#fff',
-    borderRadius: 16,
-    padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
-    marginBottom: 20,
+    backgroundColor: colors.card,
+    borderRadius: 4,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: colors.border,
+    marginBottom: 16,
   },
   sectionTitle: {
-    fontSize: 18,
+    fontSize: 14,
     fontWeight: '700',
-    color: colors.textPrimary || '#333',
-    marginBottom: 16,
-    marginTop: 8,
+    color: colors.textPrimary,
+    marginBottom: 12,
+    marginTop: 6,
   },
   inputLabel: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
-    color: colors.textPrimary || '#333',
-    marginBottom: 8,
+    color: colors.textPrimary,
+    marginBottom: 6,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 10,
   },
   halfInputContainer: {
     flex: 1,
   },
   input: { 
     borderWidth: 1, 
-    borderColor: colors.border || '#E0E0E0', 
-    borderRadius: 10, 
-    padding: 14, 
-    marginBottom: 16,
-    fontSize: 16,
-    backgroundColor: '#FAFAFA',
-    color: colors.textPrimary || '#333',
+    borderColor: colors.border, 
+    borderRadius: 4, 
+    padding: 10, 
+    marginBottom: 12,
+    fontSize: 14,
+    backgroundColor: colors.card,
+    color: colors.textPrimary,
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginTop: 8,
-    gap: 12,
+    marginTop: 6,
+    gap: 10,
   },
   locationButton: { 
-    backgroundColor: colors.infoAction || colors.primary, 
-    padding: 16, 
-    borderRadius: 12, 
+    backgroundColor: colors.primary, 
+    padding: 10, 
+    borderRadius: 4, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
   },
   clearButton: {
-    backgroundColor: colors.card || '#fff',
-    borderWidth: 2,
-    borderColor: colors.border || '#E0E0E0',
-    padding: 16,
-    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.border,
+    padding: 10,
+    borderRadius: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    minWidth: 100,
+    minWidth: 90,
   },
   clearButtonText: {
-    color: colors.textPrimary || '#333',
-    fontWeight: '700',
-    fontSize: 15,
-    marginLeft: 8,
+    color: colors.textPrimary,
+    fontWeight: '600',
+    fontSize: 13,
+    marginLeft: 6,
   },
   locationButtonDisabled: {
     opacity: 0.7,
   },
   locationButtonText: { 
-    color: colors.buttonText || '#fff', 
-    fontWeight: '700',
-    fontSize: 15,
-    marginLeft: 8,
+    color: colors.white, 
+    fontWeight: '600',
+    fontSize: 13,
+    marginLeft: 6,
   },
   continueButton: { 
-    backgroundColor: colors.primary || colors.buttonBg, 
-    padding: 18, 
-    borderRadius: 12, 
+    backgroundColor: colors.primary, 
+    padding: 12, 
+    borderRadius: 4, 
     alignItems: 'center',
-    shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
   },
   continueButtonDisabled: {
     opacity: 0.7,
   },
   continueButtonText: { 
-    color: colors.buttonText || '#fff', 
-    fontWeight: 'bold', 
-    fontSize: 18,
+    color: colors.white, 
+    fontWeight: '600', 
+    fontSize: 14,
   },
 });
 

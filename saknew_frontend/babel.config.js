@@ -9,8 +9,6 @@ module.exports = function(api) {
   return {
     presets: ['babel-preset-expo'],
     plugins: [
-      // Transform private methods with loose mode for TurboModule compatibility
-      // This prevents issues with React Native's new architecture
       ['@babel/plugin-transform-private-methods', { loose: true }],
     ],
   };

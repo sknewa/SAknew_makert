@@ -65,8 +65,21 @@ const CategoryProductsScreen = () => {
         return;
       }
 
-      const allShopProducts = await shopService.getShopProductsByCategory(user.profile.shop_slug, categorySlug);
-      setProducts(allShopProducts);
+      if (categorySlug === 'out-of-stock' || categorySlug === 'in-stock' || categorySlug === 'all') {
+        const allProducts = await shopService.getShopProducts(user.profile.shop_slug);
+        const productArray = Array.isArray(allProducts) ? allProducts : (allProducts as any).results || [];
+        
+        if (categorySlug === 'out-of-stock') {
+          setProducts(productArray.filter(p => p.stock === 0));
+        } else if (categorySlug === 'in-stock') {
+          setProducts(productArray.filter(p => p.stock > 0));
+        } else {
+          setProducts(productArray);
+        }
+      } else {
+        const allShopProducts = await shopService.getShopProductsByCategory(user.profile.shop_slug, categorySlug);
+        setProducts(allShopProducts);
+      }
     } catch (err: any) {
       console.error(`Error fetching products for category ${categoryName}:`, err.response?.data || err.message);
       setError(`Failed to load products for ${categoryName}. Please try again.`);
@@ -110,9 +123,15 @@ const CategoryProductsScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{categoryName}</Text>
+        <View style={styles.headerSpacer} />
+      </View>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         <View style={styles.container}>
-          <Text style={styles.screenTitle}>{categoryName} Products</Text>
           {products.length === 0 ? (
             <View style={styles.emptyStateContainer}>
               <Ionicons name="cube-outline" size={70} color={colors.textSecondary} />
@@ -125,7 +144,7 @@ const CategoryProductsScreen = () => {
                 <TouchableOpacity
                   key={product.id}
                   style={styles.productCard}
-                  onPress={() => navigation.navigate('ProductDetail' as never, { productId: product.id } as never)}
+                  onPress={() => navigation.navigate('ProductManagement' as never, { productId: product.id } as never)}
                   activeOpacity={0.7}
                 >
                   {/* Changed to consistently use product.main_image_url */}

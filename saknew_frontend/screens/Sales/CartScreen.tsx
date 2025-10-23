@@ -20,25 +20,17 @@ import { Cart, CartItem } from '../../services/salesService';
 import { MainNavigationProp } from '../../navigation/types';
 import { useBadges } from '../../context/BadgeContext';
 
-// Define common colors - Consistent with other screens
 const colors = {
-  background: '#F0F2F5', // Lighter, modern background
-  textPrimary: '#2C3E50', // Darker, more professional text
-  textSecondary: '#7F8C8D', // Softer secondary text
-  card: '#FFFFFF', // Pure white cards
-  border: '#E0E6EB', // Lighter, subtle border
-  primary: '#27AE60', // A more vibrant green
-  primaryLight: '#2ECC71', // Lighter primary for accents
-  buttonBg: '#27AE60', // Matches primary
+  background: '#F5F5F5',
+  textPrimary: '#222',
+  textSecondary: '#999',
+  card: '#FFFFFF',
+  border: '#E0E0E0',
+  primary: '#10B981',
   buttonText: '#FFFFFF',
-  errorText: '#E74C3C', // Clearer red for errors
-  successText: '#27AE60', // Matches primary for success
-  shadowColor: 'rgba(0, 0, 0, 0.1)', // Softer, more diffused shadow
-  infoAction: '#3498DB', // Blue for info actions
-  dangerAction: '#E74C3C', // Red for danger actions
-  warningAction: '#F39C12', // Orange for warnings
+  errorText: '#FF4444',
+  dangerAction: '#FF4444',
   white: '#FFFFFF',
-  accent: '#F1C40F', // Golden yellow for ratings/accents
 };
 
 
@@ -65,6 +57,7 @@ const CartScreen: React.FC = () => {
 
   useFocusEffect(
   useCallback(() => {
+  
     fetchCart();
   }, [])
 );
@@ -87,31 +80,123 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
 
 
   // Handle item removal (calls backend)
-  const handleRemoveItem = (productId: number) => {
-    Alert.alert(
-      "Remove Item",
-      "Are you sure you want to remove this item from your cart?",
-      [
-        { text: "Cancel", style: "cancel" },
-        {
-          text: "Remove",
-          onPress: async () => {
-            setLoading(true);
-            setError(null);
-            try {
-              const updatedCart = await salesService.removeCartItem(productId);
-              setCart(updatedCart);
-            } catch (err: any) {
-              setError(err?.response?.data?.detail || 'Failed to remove item.');
-            } finally {
-              setLoading(false);
-            }
+  const handleRemoveItem = async (productId: number) => {
+    console.log('🗑️ [CartScreen.handleRemoveItem] START - Product ID:', productId);
+    console.log('🗑️ [CartScreen.handleRemoveItem] Current cart state:', JSON.stringify(cart, null, 2));
+    
+    // Use window.confirm for web, Alert for mobile
+    const isWeb = typeof window !== 'undefined' && window.confirm;
+    
+    if (isWeb) {
+      console.log('🌐 [CartScreen.handleRemoveItem] Using window.confirm for web');
+      const confirmed = window.confirm('Are you sure you want to remove this item from your cart?');
+      console.log('🌐 [CartScreen.handleRemoveItem] User response:', confirmed);
+      
+      if (!confirmed) {
+        console.log('❌ [CartScreen.handleRemoveItem] User cancelled deletion');
+        return;
+      }
+      
+      console.log('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
+      await performRemoval(productId);
+    } else {
+      console.log('📱 [CartScreen.handleRemoveItem] Using Alert for mobile');
+      Alert.alert(
+        "Remove Item",
+        "Are you sure you want to remove this item from your cart?",
+        [
+          { 
+            text: "Cancel", 
+            style: "cancel",
+            onPress: () => console.log('❌ [CartScreen.handleRemoveItem] User cancelled deletion')
           },
-          style: "destructive",
-        },
-      ],
-      { cancelable: true }
-    );
+          {
+            text: "Remove",
+            onPress: () => {
+              console.log('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
+              performRemoval(productId);
+            },
+            style: "destructive",
+          },
+        ],
+        { cancelable: true }
+      );
+    }
+  };
+
+  const performRemoval = async (productId: number) => {
+    console.log('📤 [CartScreen.performRemoval] START - productId:', productId);
+    try {
+      console.log('🔧 [CartScreen.performRemoval] Calling salesService.removeCartItem...');
+      const result = await salesService.removeCartItem(productId);
+      console.log('✅ [CartScreen.performRemoval] salesService.removeCartItem returned successfully');
+      console.log('✅ [CartScreen.performRemoval] Result:', JSON.stringify(result, null, 2));
+      
+      console.log('🔄 [CartScreen.performRemoval] About to refresh cart and badges');
+      await fetchCart();
+      console.log('✅ [CartScreen.performRemoval] fetchCart completed');
+      console.log('✅ [CartScreen.performRemoval] END - Item removed successfully');
+    } catch (err: any) {
+      console.log('❌ [CartScreen.performRemoval] ERROR occurred');
+      console.log('❌ [CartScreen.performRemoval] Error object:', err);
+      console.log('❌ [CartScreen.performRemoval] Error message:', err?.message);
+      console.log('❌ [CartScreen.performRemoval] Error response:', err?.response);
+      console.log('❌ [CartScreen.performRemoval] Error response data:', err?.response?.data);
+      console.log('❌ [CartScreen.performRemoval] Error response status:', err?.response?.status);
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to remove item.');
+    }
+  };
+
+  // Handle clearing entire cart
+  const handleClearCart = async () => {
+    console.log('🗑️ [CartScreen.handleClearCart] START - Clearing entire cart');
+    
+    const isWeb = typeof window !== 'undefined' && window.confirm;
+    
+    if (isWeb) {
+      const confirmed = window.confirm('Are you sure you want to remove all items from your cart?');
+      if (!confirmed) {
+        console.log('❌ [CartScreen.handleClearCart] User cancelled');
+        return;
+      }
+      console.log('✅ [CartScreen.handleClearCart] User confirmed');
+      await performClearCart();
+    } else {
+      Alert.alert(
+        "Clear Cart",
+        "Are you sure you want to remove all items from your cart?",
+        [
+          { 
+            text: "Cancel", 
+            style: "cancel",
+            onPress: () => console.log('❌ [CartScreen.handleClearCart] User cancelled')
+          },
+          {
+            text: "Clear All",
+            onPress: () => {
+              console.log('✅ [CartScreen.handleClearCart] User confirmed');
+              performClearCart();
+            },
+            style: "destructive",
+          },
+        ]
+      );
+    }
+  };
+
+  const performClearCart = async () => {
+    try {
+      console.log('📤 [CartScreen.performClearCart] Calling salesService.clearCart');
+      await salesService.clearCart();
+      console.log('✅ [CartScreen.performClearCart] clearCart successful');
+      
+      console.log('🔄 [CartScreen.performClearCart] Refreshing cart');
+      await fetchCart();
+      console.log('✅ [CartScreen.performClearCart] END - Cart cleared successfully');
+    } catch (err: any) {
+      console.log('❌ [CartScreen.performClearCart] ERROR:', err?.response?.data);
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to clear cart.');
+    }
   };
 
   // Handle checkout (calls backend to create order)
@@ -125,19 +210,29 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
   };
 
   const handleContinueShopping = () => {
-    navigation.navigate('MainTabs', { screen: 'HomeTab' }); // Navigate to Home tab
+    (navigation as any).navigate('BottomTabs'); // Navigate to Home tab
   };
 
   // Fetch cart from backend
   const fetchCart = async () => {
+    console.log('🔄 [CartScreen.fetchCart] START - Fetching cart from backend');
     setLoading(true);
     setError(null);
     try {
+      console.log('📤 [CartScreen.fetchCart] Calling salesService.getMyCart');
       const backendCart = await salesService.getMyCart();
+      console.log('✅ [CartScreen.fetchCart] Cart received:', JSON.stringify(backendCart, null, 2));
+      console.log('✅ [CartScreen.fetchCart] Cart items count:', backendCart?.items?.length || 0);
+      
       setCart(backendCart);
+      console.log('✅ [CartScreen.fetchCart] Cart state updated');
+      
       // Refresh badges when cart is updated
+      console.log('🔄 [CartScreen.fetchCart] Refreshing badges');
       await refreshBadges();
+      console.log('✅ [CartScreen.fetchCart] END - Badges refreshed');
     } catch (err: any) {
+      console.log('❌ [CartScreen.fetchCart] ERROR:', err?.response?.data || err?.message);
       setError('Failed to load cart.');
     } finally {
       setLoading(false);
@@ -189,7 +284,19 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
         keyExtractor={item => item.product.id.toString()}
         ListHeaderComponent={
           <View style={styles.cartContent}>
-            <Text style={styles.pageTitle}>Your Cart</Text>
+            <View style={styles.headerRow}>
+              <Text style={styles.pageTitle}>Your Cart</Text>
+              {cart && cart.items.length > 0 && (
+                <TouchableOpacity
+                  onPress={handleClearCart}
+                  style={styles.clearCartBtn}
+                  accessibilityLabel="Clear all items from cart"
+                >
+                  <Ionicons name="trash-outline" size={20} color={colors.dangerAction} />
+                  <Text style={styles.clearCartText}>Clear Cart</Text>
+                </TouchableOpacity>
+              )}
+            </View>
             {(!cart || cart.items.length === 0) && (
               <View style={styles.emptyCartContainer}>
                 <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
@@ -205,14 +312,32 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
             )}
           </View>
         }
-        renderItem={({ item }) => (
+        renderItem={({ item }) => {
+          console.log('💰 [CartScreen.renderItem] Rendering product:', item.product.name);
+          console.log('💰 [CartScreen.renderItem] Original price:', item.product.price);
+          console.log('💰 [CartScreen.renderItem] Display price:', item.product.display_price);
+          console.log('💰 [CartScreen.renderItem] Has promotion:', !!item.product.promotion);
+          console.log('💰 [CartScreen.renderItem] Discount %:', item.product.discount_percentage_value);
+          console.log('💰 [CartScreen.renderItem] Quantity:', item.quantity);
+          const unitPrice = parseFloat(item.product.display_price || item.product.price || '0');
+          const lineTotal = unitPrice * item.quantity;
+          console.log('💰 [CartScreen.renderItem] Calculated unit price:', unitPrice);
+          console.log('💰 [CartScreen.renderItem] Calculated line total:', lineTotal);
+          
+          return (
           <View key={item.product.id} style={styles.cartItem}>
             <View style={styles.quantityBorder}>
               <View style={styles.scrollData}>
                 <View style={styles.itemHeader}>
                   <Text style={styles.productName}>{item.product.name}</Text>
                   <TouchableOpacity
-                    onPress={() => handleRemoveItem(item.product.id)}
+                    onPress={() => {
+                      console.log('🖱️ [CartScreen.renderItem] Trash icon PRESSED');
+                      console.log('🖱️ [CartScreen.renderItem] Product name:', item.product.name);
+                      console.log('🖱️ [CartScreen.renderItem] Product ID:', item.product.id);
+                      console.log('🖱️ [CartScreen.renderItem] Calling handleRemoveItem...');
+                      handleRemoveItem(item.product.id);
+                    }}
                     style={styles.deleteBtn}
                     accessibilityLabel={`Remove ${item.product.name} from cart`}
                   >
@@ -250,18 +375,37 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                     Out of Stock
                   </Text>
                 )}
+                {/* Show promotion badge if product has active promotion */}
+                {item.product.promotion && (
+                  <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
+                    <Ionicons name="pricetag" size={16} color={colors.errorText} />
+                    <Text style={{ color: colors.errorText, fontWeight: 'bold', marginLeft: 4, fontSize: 13 }}>
+                      {item.product.discount_percentage_value}% OFF
+                    </Text>
+                  </View>
+                )}
                 <Text style={styles.unitPriceDisplay}>
                   <Text style={styles.detailLabel}>Unit Price:</Text>{' '}
-                  <Text style={styles.unitPrice}>{formatCurrency(parseFloat(item.product.price || '0'))}</Text>
+                  {item.product.promotion && (
+                    <Text style={{ textDecorationLine: 'line-through', color: colors.textSecondary, marginRight: 8 }}>
+                      {formatCurrency(parseFloat(item.product.price || '0'))}
+                    </Text>
+                  )}
+                  <Text style={styles.unitPrice}>
+                    {formatCurrency(parseFloat(item.product.display_price || item.product.price || '0'))}
+                  </Text>
                 </Text>
                 <Text style={styles.lineTotalDisplay}>
                   <Text style={styles.detailLabel}>Line Total:</Text>{' '}
-                  <Text style={styles.lineTotal}>{formatCurrency((parseFloat(item.product.price || '0')) * item.quantity)}</Text>
+                  <Text style={styles.lineTotal}>
+                    {formatCurrency((parseFloat(item.product.display_price || item.product.price || '0')) * item.quantity)}
+                  </Text>
                 </Text>
               </View>
             </View>
           </View>
-        )}
+        );
+        }}
         ListFooterComponent={
           cart && cart.items && cart.items.length > 0 ? (
             <View style={styles.cartSummaryBox}>
@@ -326,15 +470,14 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.background,
-    paddingHorizontal: 12, // Add horizontal padding for space on both sides
   },
   scrollViewContent: {
     flexGrow: 1,
     paddingBottom: 30,
+    paddingHorizontal: 16,
   },
   cartContent: {
     flex: 1,
-    paddingHorizontal: 15,
     paddingTop: 20,
     backgroundColor: colors.background,
   },
@@ -344,44 +487,58 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: colors.background,
   },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
+  headerRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
     marginBottom: 25,
-    textAlign: 'center',
+  },
+  pageTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.textPrimary,
+  },
+  clearCartBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    backgroundColor: colors.card,
+    borderRadius: 4,
+    borderWidth: 1,
+    borderColor: colors.dangerAction,
+  },
+  clearCartText: {
+    color: colors.dangerAction,
+    fontSize: 12,
+    fontWeight: '600',
+    marginLeft: 4,
   },
   subtitle: {
-    fontSize: 16,
+    fontSize: 14,
     color: colors.textSecondary,
-    marginBottom: 25,
+    marginBottom: 20,
     textAlign: 'center',
-    lineHeight: 24,
   },
   button: {
-    backgroundColor: colors.buttonBg,
-    paddingVertical: 14,
-    paddingHorizontal: 25,
-    borderRadius: 10,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 7,
-    marginTop: 15,
+    marginTop: 12,
   },
   buttonText: {
     color: colors.buttonText,
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 0, // Removed default 10, can be added per button if needed
+    fontSize: 14,
+    fontWeight: '600',
   },
   detailLabel: {
-    fontWeight: 'bold',
+    fontWeight: '600',
     color: colors.textSecondary,
+    fontSize: 12,
   },
 
   // Empty Cart Styles
@@ -389,28 +546,22 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingVertical: 50,
+    paddingVertical: 40,
     backgroundColor: colors.card,
-    borderRadius: 15,
-    marginHorizontal: 10,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 5,
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
   },
   emptyCartMessage: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginTop: 20,
-    marginBottom: 10,
+    marginTop: 16,
+    marginBottom: 8,
     textAlign: 'center',
   },
-  startShoppingLink: { // Renamed from continueShoppingButton to match Django template
-    backgroundColor: colors.infoAction,
+  startShoppingLink: {
+    backgroundColor: colors.primary,
     width: '80%',
     alignSelf: 'center',
   },
@@ -430,10 +581,12 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   cartItem: {
-    marginBottom: 15, // Space between items
-    paddingBottom: 15,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
+    backgroundColor: colors.card,
+    borderRadius: 4,
+    padding: 12,
+    marginBottom: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   // Remove border from the last item
   // This requires a conditional style in JSX:
@@ -461,14 +614,19 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   productName: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
-    flexShrink: 1, // Allows text to wrap
+    flexShrink: 1,
     marginRight: 10,
   },
   deleteBtn: {
-    padding: 5,
+    padding: 8,
+    minWidth: 36,
+    minHeight: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
 
   itemDetails: {
@@ -477,24 +635,24 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   productImage: {
-    width: 80,
-    height: 80,
-    borderRadius: 10,
-    marginRight: 15,
+    width: 70,
+    height: 70,
+    borderRadius: 4,
+    marginRight: 12,
     resizeMode: 'cover',
-    backgroundColor: '#E9ECEF',
-    borderWidth: 0.5,
+    backgroundColor: '#F8F8F8',
+    borderWidth: 1,
     borderColor: colors.border,
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 8,
+    backgroundColor: colors.card,
+    borderRadius: 4,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'space-between',
-    width: 100, // Fixed width for quantity control
+    width: 90,
   },
   decreaseBtn: {
     padding: 8,
@@ -507,80 +665,75 @@ const styles = StyleSheet.create({
     borderLeftColor: colors.border,
   },
   quantityBtnText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.textPrimary,
   },
-  quantityInput: { // This is now a Text component, not TextInput
-    fontSize: 16,
-    fontWeight: 'bold',
+  quantityInput: {
+    fontSize: 14,
+    fontWeight: '600',
     color: colors.textPrimary,
-    paddingHorizontal: 5,
+    paddingHorizontal: 4,
   },
 
   unitPriceDisplay: {
-    fontSize: 15,
+    fontSize: 12,
     color: colors.textPrimary,
-    marginBottom: 5,
+    marginBottom: 4,
   },
   unitPrice: {
     fontWeight: '600',
-    color: colors.primaryLight,
+    color: colors.primary,
   },
   lineTotalDisplay: {
-    fontSize: 16,
+    fontSize: 13,
     color: colors.textPrimary,
-    fontWeight: 'bold',
-    marginBottom: 5, // Space before next item or summary
+    fontWeight: '600',
+    marginBottom: 4,
   },
   lineTotal: {
     color: colors.primary,
+    fontWeight: '700',
   },
 
   // Cart Summary Styles
   cartSummaryBox: {
     backgroundColor: colors.card,
-    borderRadius: 12,
-    padding: 16,
-    marginTop: 16,
-    marginHorizontal: 8,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 2,
+    borderRadius: 4,
+    padding: 12,
+    marginTop: 12,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   cartSummaryRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   cartSummaryLabel: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '400',
+    fontWeight: '500',
   },
   cartSummaryValue: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.primary,
-    fontWeight: '600',
+    fontWeight: '700',
   },
   checkoutButton: {
     backgroundColor: colors.primary,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 4,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 10,
+    marginTop: 8,
     width: '100%',
-    elevation: 1,
   },
   checkoutButtonText: {
     color: colors.white,
     fontSize: 14,
     fontWeight: '600',
-    letterSpacing: 0.5,
   },
 });
 

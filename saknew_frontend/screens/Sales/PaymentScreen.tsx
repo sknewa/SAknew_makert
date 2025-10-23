@@ -9,7 +9,7 @@ import {
   SafeAreaView,
   ScrollView,
   Modal,
-  TextInput
+  Image
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -20,22 +20,20 @@ import BackButton from '../../components/BackButton';
 import { MainNavigationProp } from '../../navigation/types';
 
 const colors = {
-  background: '#F5F7FA',
-  textPrimary: '#1A202C',
-  textSecondary: '#718096',
+  background: '#F5F5F5',
+  textPrimary: '#222',
+  textSecondary: '#999',
   card: '#FFFFFF',
-  border: '#E2E8F0',
-  primary: '#27AE60',
-  buttonBg: '#27AE60',
+  border: '#E0E0E0',
+  primary: '#10B981',
   buttonText: '#FFFFFF',
-  errorText: '#E53E3E',
-  successText: '#27AE60',
-  shadowColor: '#000',
+  errorText: '#FF4444',
   warningBg: '#FFF5E6',
   warningBorder: '#FFD699',
   warningText: '#CC7A00',
-  warningAction: '#F39C12',
+  warningAction: '#FF9800',
   iconBg: '#E8F5E9',
+  white: '#FFFFFF',
 };
 
 const formatCurrency = (amount: string | number): string => {
@@ -193,10 +191,22 @@ const PaymentScreen: React.FC = () => {
             <Text style={styles.cardTitle}>Order Summary</Text>
           </View>
           <View style={styles.divider} />
-          <View style={styles.summaryRow}>
-            <Text style={styles.summaryLabel}>Order ID</Text>
-            <Text style={styles.summaryValue}>#{order.id.slice(-8).toUpperCase()}</Text>
-          </View>
+          {order.items?.map((item: any, index: number) => (
+            <View key={index} style={styles.orderItem}>
+              <Image 
+                source={{ uri: item.product.main_image_url || 'https://placehold.co/60x60/F8F8F8/999?text=No+Image' }} 
+                style={styles.orderItemImage}
+              />
+              <View style={styles.orderItemDetails}>
+                <Text style={styles.orderItemName} numberOfLines={2}>{item.product.name}</Text>
+                <View style={styles.orderItemMeta}>
+                  <Text style={styles.orderItemQuantity}>Qty: {item.quantity}</Text>
+                  <Text style={styles.orderItemPrice}>{formatCurrency(parseFloat(item.product.display_price || item.product.price) * item.quantity)}</Text>
+                </View>
+              </View>
+            </View>
+          ))}
+          <View style={styles.divider} />
           <View style={styles.summaryRow}>
             <Text style={styles.summaryLabel}>Total Amount</Text>
             <Text style={styles.totalAmount}>{formatCurrency(orderTotal)}</Text>
@@ -254,7 +264,15 @@ const PaymentScreen: React.FC = () => {
           ) : (
             <TouchableOpacity 
               style={styles.addFundsButton}
-              onPress={() => navigation.goBack()}
+              onPress={() => {
+                console.log('💵 [PaymentScreen] Add Funds to Wallet button clicked');
+                console.log('💵 [PaymentScreen] Current wallet balance:', walletBalance);
+                console.log('💵 [PaymentScreen] Order total:', orderTotal);
+                console.log('💵 [PaymentScreen] Amount needed:', orderTotal - walletBalance);
+                console.log('💵 [PaymentScreen] Navigating to AddFundsScreen');
+                navigation.navigate('AddFundsScreen');
+                console.log('💵 [PaymentScreen] Navigation command sent');
+              }}
               activeOpacity={0.8}
             >
               <Ionicons name="add-circle" size={22} color={colors.buttonText} />
@@ -326,8 +344,12 @@ const PaymentScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.modalConfirmButton}
                 onPress={() => {
+                  console.log('💰 [PaymentScreen] Add Funds button clicked');
+                  console.log('💰 [PaymentScreen] Closing insufficient funds modal');
                   setShowInsufficientFundsModal(false);
-                  navigation.goBack();
+                  console.log('💰 [PaymentScreen] Navigating to AddFundsScreen');
+                  navigation.navigate('AddFundsScreen');
+                  console.log('💰 [PaymentScreen] Navigation command sent');
                 }}
               >
                 <Text style={styles.modalConfirmText}>Add Funds</Text>
@@ -357,8 +379,9 @@ const PaymentScreen: React.FC = () => {
             <TouchableOpacity 
               style={[styles.modalConfirmButton, { width: '100%' }]}
               onPress={() => {
+                console.log('🎯 [PaymentScreen] View My Orders button clicked');
                 setShowSuccessModal(false);
-                navigation.reset({ index: 0, routes: [{ name: 'BottomTabs' }] });
+                navigation.navigate('MainTabs', { screen: 'OrdersTab' });
               }}
             >
               <Text style={styles.modalConfirmText}>View My Orders</Text>
@@ -372,65 +395,72 @@ const PaymentScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, padding: 20, paddingBottom: 30 },
+  container: { flexGrow: 1, padding: 16, paddingBottom: 24 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 12, fontWeight: '500' },
+  loadingText: { fontSize: 14, color: colors.textSecondary, marginTop: 12, fontWeight: '500' },
   errorContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
-  errorTitle: { fontSize: 20, fontWeight: 'bold', color: colors.errorText, marginTop: 16, marginBottom: 20 },
-  backButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 8 },
-  buttonText: { color: colors.buttonText, fontSize: 16, fontWeight: 'bold', marginLeft: 8 },
+  errorTitle: { fontSize: 16, fontWeight: '700', color: colors.errorText, marginTop: 16, marginBottom: 20 },
+  backButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
+  buttonText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 6 },
   
   // Header
-  header: { alignItems: 'center', marginBottom: 24 },
-  headerIconContainer: { width: 64, height: 64, borderRadius: 32, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginBottom: 12 },
-  title: { fontSize: 26, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
-  subtitle: { fontSize: 15, color: colors.textSecondary, fontWeight: '400' },
+  header: { alignItems: 'center', marginBottom: 20 },
+  headerIconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
+  subtitle: { fontSize: 12, color: colors.textSecondary, fontWeight: '400' },
   
   // Card
-  card: { backgroundColor: colors.card, borderRadius: 16, padding: 20, marginBottom: 16, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
-  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  cardTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginLeft: 8 },
-  divider: { height: 1, backgroundColor: colors.border, marginBottom: 16 },
+  card: { backgroundColor: colors.card, borderRadius: 4, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+  cardHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 10 },
+  cardTitle: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginLeft: 6 },
+  divider: { height: 1, backgroundColor: colors.border, marginBottom: 12 },
   
   // Order Summary
-  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 8 },
-  summaryLabel: { fontSize: 15, color: colors.textSecondary, fontWeight: '500' },
-  summaryValue: { fontSize: 15, color: colors.textPrimary, fontWeight: '600' },
-  totalAmount: { fontSize: 20, fontWeight: '700', color: colors.primary },
+  orderItem: { flexDirection: 'row', marginBottom: 12 },
+  orderItemImage: { width: 60, height: 60, borderRadius: 4, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: colors.border, marginRight: 10 },
+  orderItemDetails: { flex: 1, justifyContent: 'space-between' },
+  orderItemName: { fontSize: 12, color: colors.textPrimary, fontWeight: '600', marginBottom: 4 },
+  orderItemMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  orderItemQuantity: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+  orderItemPrice: { fontSize: 13, color: colors.textPrimary, fontWeight: '700' },
+  summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
+  summaryLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
+  summaryValue: { fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
+  totalAmount: { fontSize: 16, fontWeight: '700', color: colors.primary },
   
   // Wallet Balance
-  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
-  balanceIconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+  balanceIconContainer: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   balanceInfo: { flex: 1 },
-  balanceLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
-  balanceAmount: { fontSize: 24, fontWeight: '700', color: colors.primary },
+  balanceLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
+  balanceAmount: { fontSize: 18, fontWeight: '700', color: colors.primary },
   
   // Warning
-  warningContainer: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 14, borderRadius: 12, borderWidth: 1, borderColor: colors.warningBorder },
-  warningTextContainer: { flex: 1, marginLeft: 10 },
-  warningTitle: { fontSize: 15, fontWeight: '700', color: colors.warningText, marginBottom: 4 },
-  warningText: { fontSize: 13, color: colors.warningText, lineHeight: 18, fontWeight: '500' },
+  warningContainer: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 10, borderRadius: 4, borderWidth: 1, borderColor: colors.warningBorder },
+  warningTextContainer: { flex: 1, marginLeft: 8 },
+  warningTitle: { fontSize: 12, fontWeight: '700', color: colors.warningText, marginBottom: 3 },
+  warningText: { fontSize: 11, color: colors.warningText, lineHeight: 16, fontWeight: '500' },
   
   // Actions
-  actionsContainer: { marginTop: 8 },
-  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 18, borderRadius: 14, marginBottom: 12, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  payButtonText: { color: colors.buttonText, fontSize: 18, fontWeight: '700', marginLeft: 10 },
-  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 18, borderRadius: 14, marginBottom: 12, shadowColor: colors.warningAction, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
-  addFundsButtonText: { color: colors.buttonText, fontSize: 18, fontWeight: '700', marginLeft: 10 },
-  cancelButton: { backgroundColor: colors.card, paddingVertical: 16, borderRadius: 14, alignItems: 'center', borderWidth: 1.5, borderColor: colors.border },
-  cancelButtonText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
+  actionsContainer: { marginTop: 6 },
+  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 4, marginBottom: 10 },
+  payButtonText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 8 },
+  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 12, borderRadius: 4, marginBottom: 10 },
+  addFundsButtonText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 8 },
+  cancelButton: { backgroundColor: colors.card, paddingVertical: 10, borderRadius: 4, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  cancelButtonText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
   buttonDisabled: { opacity: 0.6 },
   
   // Modal
-  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 20 },
-  modalContent: { backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '100%', maxWidth: 400, shadowColor: colors.shadowColor, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 16, elevation: 8 },
-  modalTitle: { fontSize: 22, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 12 },
-  modalMessage: { fontSize: 16, color: colors.textSecondary, textAlign: 'center', marginBottom: 24, lineHeight: 22 },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  modalCancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  modalCancelText: { color: colors.textPrimary, fontSize: 16, fontWeight: '600' },
-  modalConfirmButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 14, borderRadius: 12, alignItems: 'center' },
-  modalConfirmText: { color: colors.buttonText, fontSize: 16, fontWeight: '700' },
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0, 0, 0, 0.5)', justifyContent: 'center', alignItems: 'center', padding: 16 },
+  modalContent: { backgroundColor: colors.card, borderRadius: 8, padding: 20, width: '100%', maxWidth: 400, borderWidth: 1, borderColor: colors.border },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 10 },
+  modalMessage: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
+  modalButtons: { flexDirection: 'row', gap: 10 },
+  modalCancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 10, borderRadius: 4, alignItems: 'center' },
+  modalCancelText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  modalConfirmButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 4, alignItems: 'center' },
+  modalConfirmText: { color: colors.buttonText, fontSize: 13, fontWeight: '600' },
 });
 
 export default PaymentScreen;

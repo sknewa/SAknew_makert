@@ -29,10 +29,19 @@ const ProductManagementScreen = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const fetchProductDetails = useCallback(async () => {
+    console.log('🔍 ProductManagement - Fetching product details for ID:', productId);
     setLoading(true);
     setError(null);
     try {
       const fetchedProduct = await shopService.getProductById(productId);
+      console.log('✅ ProductManagement - Product fetched:', {
+        id: fetchedProduct.id,
+        name: fetchedProduct.name,
+        hasPromotion: !!fetchedProduct.promotion,
+        promotion: fetchedProduct.promotion,
+        price: fetchedProduct.price,
+        display_price: fetchedProduct.display_price
+      });
       setProduct(fetchedProduct);
       setReviewsLoading(true);
       try {
@@ -52,6 +61,7 @@ const ProductManagementScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
+      console.log('🔄 ProductManagement - Screen focused, fetching product details');
       fetchProductDetails();
     }, [fetchProductDetails])
   );
@@ -116,6 +126,11 @@ const ProductManagementScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.header}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
+        </TouchableOpacity>
+      </View>
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         {/* Product Image */}
         <View style={styles.imageContainer}>
@@ -219,21 +234,53 @@ const ProductManagementScreen = () => {
           {/* Owner Actions */}
           <View style={[styles.ownerActions, { marginTop: 0, marginBottom: 10 }]}> 
             <View style={[styles.actionButtonsRow, { justifyContent: 'flex-start', marginBottom: 8 }]}> 
-              <TouchableOpacity style={[styles.actionButton, styles.editButton, { minWidth: 40, minHeight: 32, maxWidth: 60, marginHorizontal: 2, paddingHorizontal: 6, paddingVertical: 4 }]} onPress={handleEditProduct}>
-                <Ionicons name="pencil-outline" size={16} color={colors.white} />
+              <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={handleEditProduct}>
+                <Ionicons name="create-outline" size={16} color="#3B82F6" />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.deleteButton, { minWidth: 40, minHeight: 32, maxWidth: 60, marginHorizontal: 2, paddingHorizontal: 6, paddingVertical: 4 }]} onPress={handleDeleteProduct}>
-                <Ionicons name="trash-outline" size={16} color={colors.white} />
+              <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleDeleteProduct}>
+                <Ionicons name="trash-outline" size={16} color="#FF4444" />
               </TouchableOpacity>
             </View>
-            <TouchableOpacity
-              style={[styles.actionButton, styles.promotionButton, { minWidth: 160, minHeight: 44, marginTop: 0, borderWidth: 2, borderColor: colors.warningAction, shadowColor: colors.warningAction, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }]}
-              onPress={() => navigation.navigate('AddPromotion', { productId: product?.id })}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="pricetag" size={22} color={colors.warningAction} style={{ marginRight: 8 }} />
-              <Text style={[styles.actionButtonText, { color: colors.warningAction, fontWeight: 'bold', fontSize: 16 }]}>Add Promotion</Text>
-            </TouchableOpacity>
+            {product.promotion ? (
+              <TouchableOpacity
+                style={[styles.actionButton, { minWidth: 160, minHeight: 44, marginTop: 0, backgroundColor: colors.dangerAction, borderWidth: 2, borderColor: colors.dangerAction }]}
+                onPress={() => {
+                  Alert.alert(
+                    'Remove Promotion',
+                    `Remove ${product.promotion.discount_percentage}% discount?`,
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      { 
+                        text: 'Remove', 
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await shopService.deleteProductPromotion(product.id, product.promotion.id);
+                            Alert.alert('Success', 'Promotion removed successfully');
+                            fetchProductDetails();
+                          } catch (err: any) {
+                            Alert.alert('Error', 'Failed to remove promotion');
+                          }
+                        }
+                      }
+                    ]
+                  );
+                }}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="close-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, { fontWeight: 'bold', fontSize: 16 }]}>Remove Promotion</Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                style={[styles.actionButton, styles.promotionButton, { minWidth: 160, minHeight: 44, marginTop: 0, borderWidth: 2, borderColor: colors.warningAction, shadowColor: colors.warningAction, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }]}
+                onPress={() => navigation.navigate('AddPromotion', { productId: product?.id })}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="pricetag" size={22} color={colors.warningAction} style={{ marginRight: 8 }} />
+                <Text style={[styles.actionButtonText, { color: colors.warningAction, fontWeight: 'bold', fontSize: 16 }]}>Add Promotion</Text>
+              </TouchableOpacity>
+            )}
           </View>
         </View>
         {/* Reviews Section */}
@@ -291,6 +338,15 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: colors.background,
     paddingTop: 10,
+  },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 15,
+    paddingVertical: 10,
+  },
+  backButton: {
+    padding: 4,
   },
   scrollViewContent: {
     paddingTop: 15,
@@ -571,11 +627,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 8,
     marginHorizontal: 2,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 2,
   },
   actionButtonText: {
     color: colors.white,
@@ -585,10 +636,10 @@ const styles = StyleSheet.create({
     fontFamily: typography.fontFamily,
   },
   editButton: {
-    backgroundColor: colors.infoAction || '#17a2b8',
+    padding: 4,
   },
   deleteButton: {
-    backgroundColor: colors.dangerAction,
+    padding: 4,
   },
   promotionButton: {
     backgroundColor: colors.white,

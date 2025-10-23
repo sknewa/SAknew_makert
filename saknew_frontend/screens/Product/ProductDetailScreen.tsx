@@ -1,7 +1,8 @@
 // saknew_frontend/screens/Product/ProductDetailScreen.tsx
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';
+import * as Location from 'expo-location';
 import {
   View,
   Text,
@@ -48,6 +49,8 @@ const ProductDetailScreen = () => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [reviews, setReviews] = useState<Review[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState<boolean>(false);
+  const [distance, setDistance] = useState<string | null>(null);
+  const [shopData, setShopData] = useState<any>(null);
 
   // Determine if the logged-in user is the owner of this product
   const isOwner = isAuthenticated && product?.user?.id === user?.id;
@@ -63,10 +66,15 @@ const ProductDetailScreen = () => {
     setError(null);
     try {
       const fetchedProduct = await shopService.getProductById(productId);
-      
-
-      
       setProduct(fetchedProduct);
+      
+      // Fetch shop data for location
+      try {
+        const shop = await shopService.getShopBySlug(fetchedProduct.shop_name.toLowerCase().replace(/\s+/g, '-'));
+        setShopData(shop);
+      } catch (err) {
+        console.log('Could not fetch shop data');
+      }
       
       // Fetch reviews for this product
       setReviewsLoading(true);
@@ -92,6 +100,36 @@ const ProductDetailScreen = () => {
       fetchProductDetails();
     }, [fetchProductDetails])
   );
+  
+  useEffect(() => {
+    const calculateDistance = async () => {
+      if (!shopData?.latitude || !shopData?.longitude) return;
+      
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') return;
+        
+        const location = await Location.getCurrentPositionAsync({});
+        const shopLat = parseFloat(shopData.latitude);
+        const shopLon = parseFloat(shopData.longitude);
+        
+        const R = 6371;
+        const dLat = (shopLat - location.coords.latitude) * Math.PI / 180;
+        const dLon = (shopLon - location.coords.longitude) * Math.PI / 180;
+        const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                  Math.cos(location.coords.latitude * Math.PI / 180) * Math.cos(shopLat * Math.PI / 180) *
+                  Math.sin(dLon/2) * Math.sin(dLon/2);
+        const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+        const d = R * c;
+        
+        setDistance(d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`);
+      } catch (error) {
+        console.log('Distance calculation error:', error);
+      }
+    };
+    
+    calculateDistance();
+  }, [shopData]);
 
   // Handle add to cart
   const handleAddToCart = async () => {
@@ -296,6 +334,12 @@ const ProductDetailScreen = () => {
           <View style={styles.productHeader}>
             <Text style={styles.productName}>{product?.name || 'Unnamed Product'}</Text>
             <Text style={styles.productShop}>by {product?.shop_name || 'Unknown Shop'}</Text>
+            {distance && (
+              <View style={styles.distanceContainer}>
+                <Ionicons name="location-outline" size={14} color={colors.textSecondary} />
+                <Text style={styles.distanceText}>{distance} away</Text>
+              </View>
+            )}
             <Text style={styles.productCategory}>Category: {product?.category_name || 'Uncategorized'}</Text>
           </View>
           
@@ -621,6 +665,18 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeS,
     color: colors.textSecondary,
     fontStyle: 'italic',
+    fontFamily: typography.fontFamily,
+  },
+  distanceContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 4,
+    marginBottom: 4,
+  },
+  distanceText: {
+    fontSize: typography.fontSizeS,
+    color: colors.textSecondary,
+    marginLeft: 4,
     fontFamily: typography.fontFamily,
   },
   

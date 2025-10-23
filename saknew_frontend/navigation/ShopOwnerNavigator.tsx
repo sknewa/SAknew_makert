@@ -27,7 +27,7 @@ export type ShopOwnerStackParamList = {
   EditShop: { shopSlug: string };
   ShopStatistics: { shopSlug: string };
   SellerOrders: undefined;
-  CategoryProductsScreen: { shopSlug: string; categorySlug: string; categoryName: string };
+  CategoryProductsScreen: { categoryName: string; products: any[] };
   AddPromotion: { productId: number };
 };
 
@@ -137,7 +137,12 @@ const ShopOwnerCustomHeader = () => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.navLinkContent}>
-                      <Ionicons name="receipt-outline" size={22} color={colors.navLinkText} />
+                      <View style={{ position: 'relative' }}>
+                        <Ionicons name="receipt-outline" size={22} color={colors.navLinkText} />
+                        <View style={styles.badge}>
+                          <View style={styles.badgeDot} />
+                        </View>
+                      </View>
                       <Text style={styles.navLinkText}>Orders</Text>
                     </View>
                   </TouchableOpacity>
@@ -275,6 +280,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.1,
     marginTop: 1,
+  },
+  badge: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+  },
+  badgeDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#FF4444',
   },
 });
 

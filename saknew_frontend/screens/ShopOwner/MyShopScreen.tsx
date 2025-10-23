@@ -27,34 +27,29 @@ import statusService from '../../services/statusService';
 
 // Import types from shop.types.ts instead of types.ts
 import { Shop, Product } from '../../services/shop.types';
+import { Order, OrderItem } from '../../types';
 import { UserStatus } from '../../services/status.types';
 
 // Import shopService directly
 import shopService from '../../services/shopService';
 import apiClient from '../../services/apiClient';
 
-// Define common colors, used throughout the component and stylesheet
 const colors = {
-  background: '#F8F9FA',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
+  background: '#F5F5F5',
+  textPrimary: '#222',
+  textSecondary: '#999',
   card: '#FFFFFF',
-  border: '#DEE2E6',
-  primary: '#28A745',
-  primaryLight: '#2ECC71',
-  buttonBg: '#28A745',
+  border: '#E0E0E0',
+  primary: '#10B981',
   buttonText: '#FFFFFF',
-  inputBorder: '#CED4DA',
-  inputFocusBorder: '#28A745',
-  errorText: '#DC3545',
-  successText: '#28A745',
+  errorText: '#FF4444',
+  successText: '#10B981',
   shadowColor: '#000',
-  infoAction: '#17A2B8',
-  dangerAction: '#DC3545',
-  shareAction: '#6F42C1',
-  warningAction: '#FFC107',
+  infoAction: '#3B82F6',
+  dangerAction: '#FF4444',
+  shareAction: '#8B5CF6',
+  warningAction: '#FF9800',
   white: '#FFFFFF',
-  accent: '#FFD700', // Added for star icon
 };
 
 const screenWidth = Dimensions.get('window').width;
@@ -124,6 +119,7 @@ const MyShopScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [salesCount, setSalesCount] = useState(0);
 
   const groupProductsByCategory = useCallback((allProducts: Product[]) => {
     const grouped: { [categoryId: number]: { categoryId: number; categoryName: string; categorySlug: string; products: Product[] } } = {};
@@ -221,36 +217,47 @@ const MyShopScreen: React.FC = () => {
   }, [user, isAuthenticated, refreshing]);
   
   const fetchNewOrdersCount = useCallback(async () => {
-    if (!user?.profile?.is_seller || !user?.profile?.shop_slug) return;
+    if (!user?.profile?.is_seller || !user?.profile?.shop_slug) {
+      return;
+    }
     
     try {
       const response = await apiClient.get('/api/orders/');
-      const allOrders = response.data.results || [];
+      const allOrders = response.data.results || response.data || [];
       
       const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
       
-      const activeOrders = allOrders.filter(order => {
-        // Only count paid orders
-        if (order.payment_status !== 'Completed') return false;
-        
-        // Exclude orders where seller is the buyer
+      const activeOrders = allOrders.filter((order: Order) => {
+        if (order.payment_status !== 'paid') return false;
         if (order.user.email === user.email) return false;
+        if (!['pending', 'processing', 'ready_for_delivery'].includes(order.order_status)) return false;
         
-        // Only count active orders (not completed or cancelled)
-        if (!['processing', 'ready_for_delivery'].includes(order.order_status)) return false;
-        
-        // Check if order has items from this shop
-        const hasSellerItems = order.items?.some(item => {
+        const hasSellerItems = order.items?.some((item: OrderItem) => {
           const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-          return item.product?.shop?.slug === user.profile.shop_slug || productShopSlug === user.profile.shop_slug;
+          return productShopSlug === user.profile.shop_slug;
         });
         
         return hasSellerItems;
       });
       
       setNewOrdersCount(activeOrders.length);
+      
+      const completedOrders = allOrders.filter((order: Order) => {
+        if (order.payment_status !== 'paid') return false;
+        if (order.user.email === user.email) return false;
+        if (order.order_status !== 'delivered') return false;
+        
+        const hasSellerItems = order.items?.some((item: OrderItem) => {
+          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+          return productShopSlug === user.profile.shop_slug;
+        });
+        
+        return hasSellerItems;
+      });
+      
+      setSalesCount(completedOrders.length);
     } catch (error) {
-      console.error('Error fetching orders count:', error);
+      console.error('Error fetching orders:', error);
     }
   }, [user]);
 
@@ -258,8 +265,9 @@ const MyShopScreen: React.FC = () => {
     useCallback(() => {
       if (!authLoading) {
         fetchShopData();
+        fetchNewOrdersCount();
       }
-    }, [authLoading, fetchShopData])
+    }, [authLoading, fetchShopData, fetchNewOrdersCount])
   );
 
   const onRefresh = useCallback(() => {
@@ -284,23 +292,13 @@ const MyShopScreen: React.FC = () => {
       const webUrl = `https://saknew-makert-e7ac1361decc.herokuapp.com/shop/${shop.slug}`;
       const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
       
-      console.log('Share URL:', webUrl);
       console.log('Share message:', shareMessage);
       
       try {
-        const result = await Share.share({
+        await Share.share({
           message: shareMessage,
         });
-        console.log('Share result:', result);
-        
-        if (result.action === Share.sharedAction) {
-          console.log('✅ Share successful');
-          if (result.activityType) {
-            console.log('Shared via:', result.activityType);
-          }
-        } else if (result.action === Share.dismissedAction) {
-          console.log('❌ Share dismissed');
-        }
+        console.log('✅ Share completed');
       } catch (shareError: any) {
         console.error('Share error:', shareError);
         Alert.alert('Error Sharing', `Could not share the shop link: ${shareError.message}`);
@@ -312,16 +310,11 @@ const MyShopScreen: React.FC = () => {
   };
 
   const handleCategoryTitlePress = (categorySlug: string, categoryName: string) => {
-    if (shop?.slug) {
-      // Navigate to the category products screen with correct params and route name
-      navigation.navigate('CategoryProductsScreen', {
-        shopSlug: shop.slug,
-        categorySlug,
-        categoryName
-      });
-    } else {
-      Alert.alert('Shop Not Found', 'Cannot view category products without a shop context.');
-    }
+    const categoryProducts = products.filter(p => p.category_slug === categorySlug);
+    navigation.navigate('CategoryProductsScreen', {
+      categoryName,
+      products: categoryProducts
+    });
   };
 
   const handleStatusPress = (userStatus: UserStatus) => {
@@ -399,7 +392,7 @@ const MyShopScreen: React.FC = () => {
           }
         >
           <View style={styles.infoContainer}>
-            <Ionicons name="storefront-outline" size={60} color={colors.primaryLight} />
+            <Ionicons name="storefront-outline" size={60} color={colors.primary} />
             <Text style={styles.title}>Welcome, Seller!</Text>
             <Text style={styles.messageText}>It looks like you haven't created your shop yet. Get started and create one to begin selling!</Text>
             <TouchableOpacity
@@ -434,9 +427,15 @@ const MyShopScreen: React.FC = () => {
                 <View style={styles.shopActions}>
                   <TouchableOpacity 
                     style={styles.iconButton} 
+                    onPress={handleShareShopLink}
+                  >
+                    <Ionicons name="share-social-outline" size={16} color={colors.shareAction} />
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.iconButton} 
                     onPress={() => navigation.navigate('EditShop', { shopSlug: shop.slug })}
                   >
-                    <Ionicons name="pencil-outline" size={18} color={colors.infoAction} />
+                    <Ionicons name="create-outline" size={16} color={colors.infoAction} />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
@@ -449,14 +448,14 @@ const MyShopScreen: React.FC = () => {
                           Alert.alert('Shop Deleted', 'Your shop has been successfully deleted.');
                           setShop(null);
                           setProducts([]);
-                          await refreshUserProfile(); // Await to ensure state is up-to-date
+                          await refreshUserProfile();
                         } catch (deleteError: any) {
           Alert.alert('Deletion Failed', 'Could not delete shop. Please try again.');
                         }
                       }}
                     ])}
                   >
-                    <Ionicons name="trash-outline" size={18} color={colors.dangerAction} />
+                    <Ionicons name="trash-outline" size={16} color={colors.dangerAction} />
                   </TouchableOpacity>
                 </View>
               )}
@@ -475,78 +474,72 @@ const MyShopScreen: React.FC = () => {
             )}
 
             {/* Shop Stats Section */}
-            <View style={styles.shopStatsSection}>
-              <View style={styles.statsSectionHeader}>
-                <Text style={styles.statsSectionTitle}>Shop Statistics</Text>
-                <View style={styles.headerButtons}>
-                  <TouchableOpacity style={styles.shareButton} onPress={handleShareShopLink}>
-                    <Ionicons name="share-social-outline" size={14} color={colors.buttonText} />
-                    <Text style={styles.shareButtonText}>Share</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-              
-              <View style={styles.statsGrid}>
-                <TouchableOpacity 
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'all', categoryName: 'All Products' })}
-                >
-                  <Ionicons name="cube-outline" size={18} color={colors.primary} />
-                  <Text style={styles.statValue}>{shop.products_count || products.length}</Text>
-                  <Text style={styles.statLabel}>Total Products</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'in-stock', categoryName: 'In Stock' })}
-                >
-                  <Ionicons name="checkmark-circle-outline" size={18} color={colors.successText} />
-                  <Text style={styles.statValue}>{shop.active_products_count || products.filter(p => p.stock > 0).length}</Text>
-                  <Text style={styles.statLabel}>In Stock</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate('CategoryProductsScreen', { shopSlug: shop.slug, categorySlug: 'out-of-stock', categoryName: 'Out of Stock' })}
-                >
-                  <Ionicons name="alert-circle-outline" size={18} color={colors.errorText} />
-                  <Text style={styles.statValue}>{(shop.products_count || 0) - (shop.active_products_count || 0)}</Text>
-                  <Text style={styles.statLabel}>Out of Stock</Text>
-                </TouchableOpacity>
-                
-                <TouchableOpacity 
-                  style={styles.statCard}
-                  onPress={() => navigation.navigate('SellerOrders')}
-                >
-                  <View style={styles.statCardContent}>
-                    <Ionicons name="bag-handle-outline" size={18} color={colors.infoAction} />
-                    {newOrdersCount > 0 && (
-                      <View style={styles.orderBadge}>
-                        <Text style={styles.orderBadgeText}>{newOrdersCount}</Text>
-                      </View>
-                    )}
-                  </View>
-                  <Text style={styles.statValue}>{newOrdersCount}</Text>
-                  <Text style={styles.statLabel}>New Orders</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-
-            {/* Status Section */}
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.statusScrollView}>
-              {/* My Status Button */}
-              <TouchableOpacity style={styles.myStatusCard} onPress={handleCreateStatus}>
-                <View style={styles.myStatusContent}>
-                  <Ionicons name="add" size={24} color="#25D366" />
-                  <Text style={styles.myStatusText}>My Status</Text>
+            <View style={styles.statsRow}>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'All Products', products: products })}
+              >
+                <Text style={styles.statLabel}>Total</Text>
+                <View style={styles.statValueRow}>
+                  <Ionicons name="cube-outline" size={14} color={colors.primary} />
+                  <Text style={styles.statText}>{products.length}</Text>
                 </View>
               </TouchableOpacity>
               
-              {/* Status Cards */}
-              {shop?.user?.id && (
-                <StatusCards userId={shop.user.id} onStatusPress={handleStatusPress} />
-              )}
-            </ScrollView>
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'In Stock', products: products.filter(p => p.stock > 0) })}
+              >
+                <Text style={styles.statLabel}>In Stock</Text>
+                <View style={styles.statValueRow}>
+                  <Ionicons name="checkmark-circle-outline" size={14} color={colors.successText} />
+                  <Text style={styles.statText}>{products.filter(p => p.stock > 0).length}</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'Out of Stock', products: products.filter(p => p.stock === 0) })}
+              >
+                <Text style={styles.statLabel}>Out</Text>
+                <View style={styles.statValueRow}>
+                  <Ionicons name="alert-circle-outline" size={14} color={colors.errorText} />
+                  <Text style={styles.statText}>{products.filter(p => p.stock === 0).length}</Text>
+                </View>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => navigation.navigate('SellerOrders')}
+              >
+                <Text style={styles.statLabel}>Orders</Text>
+                <View style={styles.statValueRow}>
+                  <Ionicons name="bag-handle-outline" size={14} color={colors.infoAction} />
+                  <Text style={styles.statText}>{newOrdersCount}</Text>
+                </View>
+              </TouchableOpacity>
+            </View>
+
+            {/* Sales Chart */}
+            <View style={styles.chartContainer}>
+              <Text style={styles.chartTitle}>Sales Overview</Text>
+              <View style={styles.chartBars}>
+                <View style={styles.barItem}>
+                  <View style={styles.barWrapper}>
+                    <View style={[styles.bar, { height: Math.min((salesCount / Math.max(products.length, salesCount, 1)) * 80, 80), backgroundColor: colors.primary }]} />
+                  </View>
+                  <Text style={styles.barLabel}>Sales</Text>
+                  <Text style={styles.barValue}>{salesCount}</Text>
+                </View>
+                <View style={styles.barItem}>
+                  <View style={styles.barWrapper}>
+                    <View style={[styles.bar, { height: Math.min((products.length / Math.max(products.length, salesCount, 1)) * 80, 80), backgroundColor: colors.infoAction }]} />
+                  </View>
+                  <Text style={styles.barLabel}>Products</Text>
+                  <Text style={styles.barValue}>{products.length}</Text>
+                </View>
+              </View>
+            </View>
           </View>
 
           {/* Product Listing Section */}
@@ -601,6 +594,8 @@ const MyShopScreen: React.FC = () => {
                               }
                             }}
                             onProductDeleted={fetchShopData}
+                            shopLatitude={shop.latitude}
+                            shopLongitude={shop.longitude}
                           />
                         ))}
                       </ScrollView>
@@ -640,6 +635,8 @@ const MyShopScreen: React.FC = () => {
                               }
                             }}
                             onProductDeleted={fetchShopData}
+                            shopLatitude={shop.latitude}
+                            shopLongitude={shop.longitude}
                           />
                         ))}
                       </ScrollView>
@@ -663,11 +660,11 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   container: {
     flex: 1,
-    paddingHorizontal: 15,
+    paddingHorizontal: 10,
     backgroundColor: colors.background,
   },
   loadingContainer: {
@@ -693,48 +690,43 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   title: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 15,
+    fontSize: 13,
     color: colors.textSecondary,
-    marginBottom: 20,
+    marginBottom: 16,
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 18,
   },
   messageText: {
-    fontSize: 15,
+    fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
     paddingHorizontal: 10,
-    lineHeight: 22,
+    lineHeight: 18,
   },
   button: {
-    backgroundColor: colors.buttonBg,
-    paddingVertical: 12,
-    paddingHorizontal: 25,
-    borderRadius: 8,
+    backgroundColor: colors.primary,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 4,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 6,
-    marginTop: 10,
+    marginTop: 8,
     marginHorizontal: 5,
   },
   buttonText: {
     color: colors.buttonText,
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
-    marginLeft: 8,
+    marginLeft: 6,
   },
   buttonPrimary: { backgroundColor: colors.primary },
   buttonInfo: { backgroundColor: colors.infoAction },
@@ -742,49 +734,44 @@ const styles = StyleSheet.create({
 
   shopHeader: {
     backgroundColor: colors.card,
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    marginTop: 15,
-    marginBottom: 15,
-    borderRadius: 10,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 8,
-    elevation: 4,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    marginTop: 8,
+    marginBottom: 8,
+    borderRadius: 4,
     alignItems: 'center',
     borderWidth: 1,
     borderColor: colors.border,
   },
   shopName: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 18,
+    fontWeight: '700',
     color: colors.textPrimary,
     textTransform: 'capitalize',
     flex: 1,
   },
   shopDescription: {
-    fontSize: 13,
+    fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 18,
-    marginBottom: 10,
-    paddingHorizontal: 10,
+    lineHeight: 16,
+    marginBottom: 8,
+    paddingHorizontal: 8,
   },
   ownerTag: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight + '20',
-    borderRadius: 12,
+    backgroundColor: colors.primary + '20',
+    borderRadius: 4,
     paddingVertical: 3,
     paddingHorizontal: 6,
-    marginBottom: 8,
+    marginBottom: 6,
     alignSelf: 'center',
   },
   ownerTagText: {
     fontSize: 10,
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: '700',
     marginLeft: 3,
   },
   shopNameRow: {
@@ -799,113 +786,17 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   iconButton: {
-    padding: 6,
-    marginLeft: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
+    padding: 4,
+    marginLeft: 4,
   },
   // --- NEW STYLES FOR HEADER LAYOUT ---
-  shopStatsSection: {
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'center',
     width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 8,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statsSectionHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-    paddingBottom: 6,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  statsSectionTitle: {
-    fontSize: 15,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-  },
-  statsGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-  },
-  statCard: {
-    width: '48%',
-    backgroundColor: colors.background,
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  statCardContent: {
-    position: 'relative',
-    alignItems: 'center',
-  },
-  orderBadge: {
-    position: 'absolute',
-    top: -8,
-    right: -8,
-    backgroundColor: colors.errorText,
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  orderBadgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  statValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 3,
-    marginBottom: 1,
-  },
-  statLabel: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  headerButtons: {
-    flexDirection: 'row',
-    alignItems: 'center',
-  },
-  statsButton: {
-    backgroundColor: colors.primary,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 8,
-  },
-
-  shareButton: {
-    backgroundColor: colors.shareAction,
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 5,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  shareButtonText: {
-    color: colors.buttonText,
-    fontSize: 12,
-    fontWeight: '600',
-    marginLeft: 4,
+    paddingVertical: 6,
+    marginTop: 4,
   },
   descriptionContainer: {
     width: '100%',
@@ -934,28 +825,29 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   statItem: {
+    alignItems: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+  },
+  statLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  statValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.background,
-    borderRadius: 6, // Slightly less rounded
-    paddingVertical: 5, // Reduced padding
-    paddingHorizontal: 8, // Reduced padding
-    margin: 3, // Reduced margin
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04, // Even softer shadow
-    shadowRadius: 2,
-    elevation: 1, // Reduced elevation
   },
   statText: {
-    fontSize: 11, // Further reduced font size
+    fontSize: 13,
     color: colors.textPrimary,
-    fontWeight: '600',
-    marginLeft: 5, // Reduced icon margin
+    fontWeight: '700',
+    marginLeft: 3,
   },
   productListingSection: {
     width: '100%',
-    marginTop: 10,
+    marginTop: 6,
   },
 
   emptyStateContainer: {
@@ -974,22 +866,22 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   categorySection: {
-    marginBottom: 15,
+    marginBottom: 10,
   },
   categoryTitleTouchable: {
-    paddingVertical: 10,
-    paddingHorizontal: 5,
-    marginBottom: 5,
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    marginBottom: 4,
   },
   categoryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   productCountText: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
-    fontWeight: 'normal',
+    fontWeight: '400',
   },
   carouselWrapper: {
     // Add any specific styling for your carousel wrapper if needed
@@ -997,62 +889,70 @@ const styles = StyleSheet.create({
   productCarousel: {
     paddingRight: 10, // Add some padding so the last item isn't cut off
   },
-  statusScrollView: {
-    paddingLeft: 15,
-    marginTop: 12,
+  chartContainer: {
+    width: '100%',
+    paddingVertical: 10,
+    marginTop: 6,
   },
-  myStatusCard: {
-    width: 80,
-    height: 100,
-    marginRight: 12,
-    borderRadius: 12,
-    backgroundColor: colors.background,
-    borderWidth: 2,
-    borderColor: colors.primary,
-    borderStyle: 'dashed',
-  },
-  myStatusContent: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  myStatusText: {
-    marginTop: 8,
+  chartTitle: {
     fontSize: 12,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 8,
+  },
+  chartBars: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    alignItems: 'flex-end',
+  },
+  barItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  barWrapper: {
+    height: 80,
+    justifyContent: 'flex-end',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  bar: {
+    width: 40,
+    borderRadius: 4,
+    minHeight: 10,
+  },
+  barLabel: {
+    fontSize: 10,
+    color: colors.textSecondary,
     fontWeight: '600',
-    color: colors.primary,
+    marginTop: 4,
+  },
+  barValue: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    fontWeight: '700',
+    marginTop: 2,
   },
   statusCard: {
-    width: 80,
-    height: 100,
-    marginRight: 12,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  statusPreview: {
-    flex: 1,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    padding: 8,
-    justifyContent: 'center',
+    marginRight: 10,
     alignItems: 'center',
   },
+  statusPreview: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 5,
+  },
   statusContent: {
-    color: '#fff',
-    fontSize: 12,
-    fontWeight: '600',
+    color: colors.white,
+    fontSize: 10,
     textAlign: 'center',
   },
   statusTime: {
     fontSize: 10,
     color: colors.textSecondary,
-    textAlign: 'center',
-    paddingVertical: 6,
+    marginTop: 4,
   },
 });
 

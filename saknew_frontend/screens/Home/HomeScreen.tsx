@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+﻿import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import ProductCard from '../../components/ProductCard';
 import {
   View,
@@ -25,6 +25,7 @@ import { shopService } from '../../services/apiService';
 import { getImageUrl, isImageAccessible } from '../../utils/imageUtils';
 import { testApiConnectivity } from '../../utils/apiTest';
 import StatusSection from '../../components/StatusSection';
+import * as Location from 'expo-location';
 
 /**
  * Converts a product from the service layer type to the app's product type.
@@ -41,6 +42,14 @@ const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   } as AppProduct;
 };
 
+const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: number): number => {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2) * Math.sin(dLat/2) + Math.cos(lat1 * Math.PI / 180) * Math.cos(lat2 * Math.PI / 180) * Math.sin(dLon/2) * Math.sin(dLon/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+};
+
 const HomeScreen = () => {
   const { logout, loading } = useAuth();
   const navigation = useNavigation<MainNavigationProp>();
@@ -49,9 +58,13 @@ const HomeScreen = () => {
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [error, setError] = useState<string | null>(null);
-  const [cartUpdated, setCartUpdated] = useState(0);
   const [groupedProducts, setGroupedProducts] = useState<{[key: string]: AppProduct[]}>({});
   const [statusRefreshTrigger, setStatusRefreshTrigger] = useState(0);
+  const [categories, setCategories] = useState<any[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState<string>('all');
+  const [allProducts, setAllProducts] = useState<AppProduct[]>([]);
+  const [userLocation, setUserLocation] = useState<{latitude: number; longitude: number} | null>(null);
+  const [isSearching, setIsSearching] = useState(false);
 
   // Memoize the category data structure for the FlatList to prevent re-renders
   const categorySections = useMemo(() => 
@@ -63,9 +76,7 @@ const HomeScreen = () => {
   };
 
   const handleCreateStatus = () => {
-    navigation.navigate('CreateStatus', {
-      onStatusCreated: () => setStatusRefreshTrigger(prev => prev + 1)
-    });
+    navigation.navigate('CreateStatus');
   };
 
   // getImageUrl is now imported from utils/imageUtils
@@ -76,53 +87,88 @@ const HomeScreen = () => {
     return `R${(num || 0).toFixed(2)}`;
   };
 
-  // Removed fetchCategories logic
+  // Fetch categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await shopService.getCategories();
+      const categoryList = Array.isArray(response) ? response : response.results || [];
+      setCategories([{ id: 0, name: 'All', slug: 'all' }, ...categoryList]);
+    } catch (err) {
+      console.error('Error fetching categories:', err);
+    }
+  }, []);
 
-  // Fetch products
+  // Filter and sort categories based on product count from all products, not filtered
+  const visibleCategories = useMemo(() => {
+    if (categories.length === 0) return [];
+    
+    const allCategoryName = categories[0];
+    const categoriesWithCount = categories.slice(1).map(cat => ({
+      ...cat,
+      productCount: allProducts.filter(p => p.category_name === cat.name).length
+    })).filter(cat => cat.productCount > 0).sort((a, b) => b.productCount - a.productCount);
+    
+    return [allCategoryName, ...categoriesWithCount];
+  }, [categories, allProducts]);
+
+  useEffect(() => {
+    (async () => {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const location = await Location.getCurrentPositionAsync({});
+        setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+      }
+    })();
+  }, []);
+
+  const enrichProductWithShopData = async (product: ServiceProduct) => {
+    try {
+      const shopData = await shopService.getShopBySlug(product.shop_name.toLowerCase().replace(/\s+/g, '-'));
+      return {
+        ...product,
+        shop_latitude: shopData?.latitude,
+        shop_longitude: shopData?.longitude
+      };
+    } catch {
+      return product;
+    }
+  };
+
   const fetchProducts = useCallback(async (categorySlug?: string) => {
     setProductsLoading(true);
     setError(null);
     try {
-      let response;
+      const response = await shopService.getRecommendedProducts();
       
-      if (categorySlug && categorySlug !== 'all') {
-        // Fetch products by category
-        response = await shopService.getCategoryProducts(categorySlug);
-        console.log(`Fetching products for category: ${categorySlug}`);
-      } else {
-        // Fetch all products
-        response = await shopService.getRecommendedProducts();
-        console.log('Fetching all products');
-      }
-      
-      // Check if response is an array or has results property
       const isPaginatedResponse = response && typeof response === 'object' && 'results' in response;
       
       if (response && (isPaginatedResponse || Array.isArray(response))) {
-        // Handle both paginated responses and direct arrays
         const productList = Array.isArray(response) ? response : (isPaginatedResponse ? (response as PaginatedResponse<ServiceProduct>).results : []);
-        console.log(`Fetched ${productList.length} products`);
         
-        // Log the first product's image URL for debugging
-        if (productList.length > 0) {
-          console.log('First product image URL:', productList[0].main_image_url);
-          const absoluteUrl = getImageUrl(productList[0].main_image_url);
-          console.log('Absolute URL:', absoluteUrl);
-          
-          // Verify image URL is accessible
-          isImageAccessible(absoluteUrl)
-            .then(accessible => {
-              if (!accessible) {
-                console.warn('Image URL may not be accessible:', absoluteUrl);
-              }
-            });
+        const enrichedProducts = await Promise.all(productList.map(enrichProductWithShopData));
+        let convertedProducts = enrichedProducts.map(convertServiceProduct);
+        
+        if (userLocation) {
+          convertedProducts = convertedProducts.sort((a, b) => {
+            const distA = (a as any).shop_latitude && (a as any).shop_longitude 
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, (a as any).shop_latitude, (a as any).shop_longitude)
+              : Infinity;
+            const distB = (b as any).shop_latitude && (b as any).shop_longitude
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, (b as any).shop_latitude, (b as any).shop_longitude)
+              : Infinity;
+            return distA - distB;
+          });
         }
-        const convertedProducts = productList.map(convertServiceProduct);
         
-        setProducts(convertedProducts);
+        setAllProducts(convertedProducts);
         
-        // Group products by category
-        const grouped = convertedProducts.reduce((acc, product) => {
+        const filteredProducts = categorySlug && categorySlug !== 'all'
+          ? convertedProducts.filter(p => p.category_slug === categorySlug)
+          : convertedProducts;
+        
+        setProducts(filteredProducts);
+        
+        const grouped = filteredProducts.reduce((acc, product) => {
           const categoryName = product.category_name || 'Other';
           if (!acc[categoryName]) acc[categoryName] = [];
           acc[categoryName].push(product);
@@ -131,54 +177,73 @@ const HomeScreen = () => {
         setGroupedProducts(grouped);
       } else {
         setProducts([]);
-        // Don't set error, just show empty state
         setError(null);
       }
     } catch (err: any) {
-      console.error('Error fetching products:', err.message);
       setError('Unable to connect to the server. Please check your internet connection.');
     } finally {
-    setProductsLoading(false);
+      setProductsLoading(false);
       setRefreshing(false);
     }
   }, []);
 
   // Search products
-  const handleSearch = useCallback(async () => {
-    if (!searchQuery.trim()) {
+  const handleSearch = useCallback(async (query: string) => {
+    console.log('🔍 [HomeScreen] Search triggered with query:', query);
+    if (!query.trim()) {
+      console.log('🔍 [HomeScreen] Empty query, fetching all products');
+      setIsSearching(false);
       fetchProducts();
       return;
     }
     
+    setIsSearching(true);
     setProductsLoading(true);
     try {
-      const response = await shopService.searchProducts(searchQuery);
-      // Check if response has results property
+      console.log('🔍 [HomeScreen] Calling searchProducts API...');
+      const response = await shopService.searchProducts(query);
+      console.log('🔍 [HomeScreen] Search response:', response);
       const isPaginatedResponse = response && typeof response === 'object' && 'results' in response;
       
       if (isPaginatedResponse) {
-        // Convert ServiceProduct[] to AppProduct[]
         const convertedProducts = (response as PaginatedResponse<ServiceProduct>).results.map(convertServiceProduct);
-        
+        console.log('🔍 [HomeScreen] Found', convertedProducts.length, 'products');
         setProducts(convertedProducts);
+        const grouped = convertedProducts.reduce((acc, product) => {
+          const categoryName = product.category_name || 'Other';
+          if (!acc[categoryName]) acc[categoryName] = [];
+          acc[categoryName].push(product);
+          return acc;
+        }, {} as {[key: string]: AppProduct[]});
+        setGroupedProducts(grouped);
       } else {
+        console.log('🔍 [HomeScreen] No results found');
         setProducts([]);
+        setGroupedProducts({});
         setError(null);
       }
     } catch (err: any) {
-      console.error('Error searching products:', err.message);
+      console.error('🔍 [HomeScreen] Search error:', err.message);
+      console.error('🔍 [HomeScreen] Error details:', err);
       setError('Search failed. Please try again later.');
     } finally {
       setProductsLoading(false);
+      console.log('🔍 [HomeScreen] Search completed');
     }
-  }, [searchQuery, fetchProducts]);
+  }, [fetchProducts]);
 
-  // Removed handleCategorySelect logic
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, handleSearch]);
 
   // Load categories and products when screen is focused
   useFocusEffect(
     useCallback(() => {
-      // Test API connectivity first
+      setStatusRefreshTrigger(prev => prev + 1);
+      fetchCategories();
       testApiConnectivity().then(isConnected => {
         if (isConnected) {
           fetchProducts();
@@ -187,14 +252,22 @@ const HomeScreen = () => {
           setProductsLoading(false);
         }
       });
-    }, [fetchProducts])
+    }, [fetchProducts, fetchCategories])
   );
 
   // Pull to refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     setSearchQuery('');
+    setSelectedCategory('all');
     fetchProducts();
+  }, [fetchProducts]);
+
+  // Handle category selection
+  const handleCategorySelect = useCallback((categorySlug: string) => {
+    setSelectedCategory(categorySlug);
+    setSearchQuery('');
+    fetchProducts(categorySlug === 'all' ? undefined : categorySlug);
   }, [fetchProducts]);
 
   return (
@@ -203,18 +276,24 @@ const HomeScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <View style={styles.headerContent}>
-          <Text style={styles.headerTitle}>Discover</Text>
-          <Text style={styles.headerSubtitle}>Find amazing products</Text>
-        </View>
+        <Text style={styles.headerTitle}>SA_knew markets</Text>
         <TouchableOpacity
           style={styles.logoutButton}
           onPress={logout}
           disabled={loading}
           accessibilityLabel="Logout"
         >
-          <Ionicons name="log-out-outline" size={20} color={'white'} />
+          <Ionicons name="log-out-outline" size={20} color={'#DC3545'} />
         </TouchableOpacity>
+      </View>
+      
+      {/* Status Section */}
+      <View style={styles.statusSectionContainer}>
+        <StatusSection 
+          onStatusPress={handleStatusPress}
+          onCreateStatus={handleCreateStatus}
+          refreshTrigger={statusRefreshTrigger}
+        />
       </View>
       
       {/* Search Bar */}
@@ -227,7 +306,6 @@ const HomeScreen = () => {
             placeholderTextColor={colors.textSecondary}
             value={searchQuery}
             onChangeText={setSearchQuery}
-            onSubmitEditing={handleSearch}
             returnKeyType="search"
           />
           {searchQuery ? (
@@ -238,15 +316,35 @@ const HomeScreen = () => {
         </View>
       </View>
       
-      {/* Status Section */}
-      <View style={styles.statusSectionContainer}>
-        <StatusSection 
-          onStatusPress={handleStatusPress}
-          onCreateStatus={handleCreateStatus}
-          refreshTrigger={statusRefreshTrigger}
-        />
-      </View>
-      
+      {/* Categories Navigation */}
+      {visibleCategories.length > 0 && (
+        <View style={styles.categoriesContainer}>
+          <FlatList
+            data={visibleCategories}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.slug}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.categoryItem,
+                  selectedCategory === item.slug && styles.activeCategoryItem
+                ]}
+                onPress={() => handleCategorySelect(item.slug)}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  selectedCategory === item.slug && styles.activeCategoryText
+                ]}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.categoriesList}
+          />
+        </View>
+      )}
+
       {/* Main Content */}
       {productsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
@@ -263,9 +361,6 @@ const HomeScreen = () => {
         </View>
       ) : (
         <>
-          {/* Categories removed */}
-          
-          {/* Products by Category */}
           <FlatList
             data={categorySections}
             keyExtractor={([categoryName]) => categoryName}
@@ -274,7 +369,6 @@ const HomeScreen = () => {
                 categoryName={categoryName}
                 products={products}
                 navigation={navigation}
-                onCartUpdated={() => setCartUpdated(c => c + 1)}
               />
             )}
             style={styles.productsContainer}
@@ -307,14 +401,12 @@ interface CategorySectionProps {
   categoryName: string;
   products: AppProduct[];
   navigation: MainNavigationProp;
-  onCartUpdated: () => void;
 }
 
 const CategorySection: React.FC<CategorySectionProps> = React.memo(({
   categoryName,
   products,
   navigation,
-  onCartUpdated,
 }) => {
   // All products in this group should have the same category slug.
   const categorySlug = products.length > 0 ? products[0].category_slug : null;
@@ -325,7 +417,7 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
     if (categorySlug) {
       navigation.navigate('CategoryProducts', {
         categoryName,
-        categorySlug: categorySlug,
+        categorySlug,
       });
     } else {
       // Handle cases where there's no slug, like the "Other" category
@@ -338,16 +430,15 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
       <Text style={styles.categoryTitle}>{categoryName}</Text>
       <FlatList
         data={products.slice(0, 6)}
-        renderItem={({ item }) => {
-          return (
-            <ProductCard
-              product={item}
-              isShopOwner={false}
-              navigation={navigation} // Pass navigation prop without `as any`
-              onCartUpdated={onCartUpdated}
-            />
-          );
-        }}
+        renderItem={({ item }) => (
+          <ProductCard
+            product={item}
+            isShopOwner={false}
+            navigation={navigation}
+            shopLatitude={(item as any).shop_latitude}
+            shopLongitude={(item as any).shop_longitude}
+          />
+        )}
         keyExtractor={(item) => item.id.toString()}
         numColumns={3}
         scrollEnabled={false}
@@ -368,69 +459,51 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.md,
-    paddingTop: spacing.xl + spacing.md,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
     backgroundColor: colors.primary,
-    borderBottomLeftRadius: spacing.lg,
-    borderBottomRightRadius: spacing.lg,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 12,
-    elevation: 8,
-  },
-  headerContent: {
-    flex: 1,
   },
   headerTitle: {
-    fontSize: 28,
-    fontWeight: '800',
+    fontSize: 18,
+    fontWeight: '700',
     color: 'white',
-    letterSpacing: -0.5,
-  },
-  headerSubtitle: {
-    fontSize: 14,
-    color: 'white',
-    opacity: 0.8,
-    marginTop: 2,
+    letterSpacing: 0.5,
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 2,
   },
   logoutButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    padding: 10,
-    borderRadius: 12,
+    padding: 6,
+    borderRadius: 8,
   },
   searchContainer: {
     paddingHorizontal: spacing.md,
-    marginTop: -spacing.md - spacing.xs,
-    marginBottom: spacing.md,
-    zIndex: 1,
+    marginTop: spacing.xs,
+    marginBottom: spacing.xs,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: spacing.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm + spacing.xs,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    borderRadius: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   searchIcon: {
     marginRight: 12,
   },
   searchInput: {
     flex: 1,
-    height: 24,
-    fontSize: 16,
+    height: 32,
+    fontSize: 14,
     color: colors.textPrimary,
   },
   statusSectionContainer: {
-    paddingHorizontal: spacing.md,
-    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    marginBottom: spacing.xs,
+    marginTop: spacing.xs,
   },
   loadingContainer: {
     flex: 1,
@@ -466,9 +539,8 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   categoriesContainer: {
-    marginTop: 8,
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: spacing.md,
+    marginBottom: spacing.xs,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -505,139 +577,58 @@ const styles = StyleSheet.create({
     marginRight: 4,
   },
   categoriesList: {
-    paddingVertical: 8,
-    paddingRight: 16, // Add extra padding at the end for better scrolling
+    paddingVertical: 2,
   },
   categoryItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    marginRight: 10,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    marginRight: 6,
+    borderRadius: 12,
     backgroundColor: colors.card,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-    minWidth: 80, // Ensure minimum width for categories
-    alignItems: 'center', // Center text horizontally
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   activeCategoryItem: {
     backgroundColor: colors.primary,
   },
   categoryText: {
-    fontSize: 14,
-    color: colors.textPrimary,
-    textAlign: 'center',
+    fontSize: 11,
+    color: colors.textSecondary,
   },
   activeCategoryText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
   productsContainer: {
     flex: 1,
-    paddingHorizontal: spacing.md,
+    paddingHorizontal: spacing.xs,
   },
   categorySection: {
-    marginBottom: spacing.lg,
+    marginBottom: spacing.md,
   },
   categoryTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.sm,
+    marginBottom: spacing.xs,
+    paddingHorizontal: spacing.xs,
   },
   categoryGrid: {
-    paddingBottom: spacing.sm,
+    paddingBottom: spacing.xs,
   },
   viewMoreButton: {
     flexDirection: 'row',
     alignItems: 'center',
     alignSelf: 'center',
-    paddingVertical: spacing.xs,
-    paddingHorizontal: spacing.md,
-    backgroundColor: colors.background,
-    borderRadius: spacing.sm,
-    borderWidth: 1,
-    borderColor: colors.border,
+    paddingVertical: 6,
+    paddingHorizontal: spacing.sm,
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    marginTop: spacing.xs,
   },
   viewMoreText: {
     color: colors.primary,
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  productsList: {
-    paddingHorizontal: spacing.md,
-    paddingBottom: spacing.lg,
-  },
-  productCard: { // This style is no longer used in HomeScreen, but may be used in ProductCard.tsx
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    marginBottom: 12,
-    marginHorizontal: 2,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.12,
-    shadowRadius: 16,
-    elevation: 6,
-    overflow: 'hidden',
-  },
-  imageContainer: {
-    position: 'relative',
-    width: '100%',
-    height: 150,
-    backgroundColor: '#E0E6ED',
-    overflow: 'hidden',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-  },
-  productImage: {
-    width: '100%',
-    height: '100%',
-    backgroundColor: '#E0E6ED',
-  },
-  discountBadge: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    backgroundColor: colors.error,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 4,
-  },
-  discountText: {
-    color: 'white',
     fontSize: 12,
-    fontWeight: 'bold',
-  },
-  productInfo: {
-    padding: 12,
-  },
-  shopName: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 4,
-  },
-  productName: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  price: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 4,
-  },
-  outOfStock: {
-    fontSize: 12,
-    color: colors.error,
-    fontWeight: '500',
-  },
-  lowStock: {
-    fontSize: 12,
-    color: colors.accent,
     fontWeight: '500',
   },
   emptyContainer: {
@@ -661,12 +652,6 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: colors.textPrimary,
     marginBottom: 8,
-  },
-  emptySubText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 20,
   },
   refreshButton: {
     flexDirection: 'row',

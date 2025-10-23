@@ -69,9 +69,6 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
 
   return (
     <View style={styles.container}>
-      <View style={styles.titleContainer}>
-        <Text style={styles.sectionTitle}>Status</Text>
-      </View>
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
         {/* My Status */}
         <StatusItem
@@ -109,26 +106,10 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
 const styles = StyleSheet.create({
   container: {
     backgroundColor: '#fff',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#e9edef',
-  },
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingBottom: 8,
-  },
-
-  sectionTitle: {
-    fontSize: 19,
-    fontWeight: '600',
-    color: '#111b21',
+    paddingVertical: 4,
   },
   scrollView: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+    paddingHorizontal: 4,
   },
 });
 
