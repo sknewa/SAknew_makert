@@ -305,10 +305,9 @@ const MyShopScreen: React.FC = () => {
   };
 
   const handleCategoryTitlePress = (categorySlug: string, categoryName: string) => {
-    const categoryProducts = products.filter(p => p.category_slug === categorySlug);
     navigation.navigate('CategoryProductsScreen', {
-      categoryName,
-      products: categoryProducts
+      categorySlug,
+      categoryName
     });
   };
 
@@ -486,7 +485,7 @@ const MyShopScreen: React.FC = () => {
             <View style={styles.statsRow}>
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'All Products', products: products })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products' })}
               >
                 <Text style={styles.statLabel}>Total</Text>
                 <View style={styles.statValueRow}>
@@ -497,7 +496,7 @@ const MyShopScreen: React.FC = () => {
               
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'In Stock', products: products.filter(p => p.stock > 0) })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock' })}
               >
                 <Text style={styles.statLabel}>In Stock</Text>
                 <View style={styles.statValueRow}>
@@ -508,7 +507,7 @@ const MyShopScreen: React.FC = () => {
               
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categoryName: 'Out of Stock', products: products.filter(p => p.stock === 0) })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock' })}
               >
                 <Text style={styles.statLabel}>Out</Text>
                 <View style={styles.statValueRow}>

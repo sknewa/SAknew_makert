@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView, TextInput, Animated } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView, TextInput, Animated, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { UserStatus, Status } from '../../services/status.types';
@@ -20,26 +20,15 @@ const StatusViewerScreen: React.FC = () => {
   const [isPaused, setIsPaused] = useState(false);
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
+  const [showFullImage, setShowFullImage] = useState(false);
   const replyInputRef = useRef<TextInput>(null);
   
   const isMyStatus = userStatus.user.id === user?.id;
   
   const currentStatus = userStatus.statuses[currentIndex];
 
-  console.log('DEBUG StatusViewerScreen:', {
-    currentIndex,
-    totalStatuses: userStatus.statuses.length,
-    currentStatus: {
-      id: currentStatus?.id,
-      mediaType: currentStatus?.media_type,
-      mediaUrl: currentStatus?.media_url,
-      content: currentStatus?.content
-    }
-  });
-
   useEffect(() => {
     if (currentStatus) {
-      console.log('DEBUG StatusViewerScreen - Marking status as viewed:', currentStatus.id);
       statusService.viewStatus(currentStatus.id);
     }
   }, [currentIndex]);
@@ -128,14 +117,13 @@ const StatusViewerScreen: React.FC = () => {
           style: 'destructive',
           onPress: async () => {
             try {
+              console.log('Deleting status:', currentStatus.id);
               await statusService.deleteStatus(currentStatus.id);
-              if (userStatus.statuses.length === 1) {
-                navigation.goBack();
-              } else {
-                // Remove from list and continue
-                handleNext();
-              }
+              console.log('Status deleted successfully');
+              Alert.alert('Success', 'Status deleted successfully');
+              navigation.goBack();
             } catch (error) {
+              console.log('Delete error:', error);
               Alert.alert('Error', 'Failed to delete status');
             }
           }
@@ -186,7 +174,7 @@ const StatusViewerScreen: React.FC = () => {
       </View>
 
       {/* Status content */}
-      <View style={styles.contentContainer}>
+      <View style={styles.contentContainer} pointerEvents="box-none">
         <TouchableOpacity 
           style={styles.leftTap} 
           onPress={handlePrevious}
@@ -203,11 +191,16 @@ const StatusViewerScreen: React.FC = () => {
         />
         
         {currentStatus.media_type === 'image' && currentStatus.media_url ? (
-          (() => {
-            const imageUrl = currentStatus.media_url.startsWith('http') ? currentStatus.media_url : `${IMAGE_BASE_URL}${currentStatus.media_url}`;
-            console.log('DEBUG StatusViewerScreen - Displaying image:', imageUrl);
-            return <Image source={{ uri: imageUrl }} style={styles.mediaImage} />;
-          })()
+          <TouchableOpacity onPress={() => setShowFullImage(true)} activeOpacity={0.9}>
+            <Image 
+              source={{ 
+                uri: currentStatus.media_url.startsWith('http') 
+                  ? currentStatus.media_url 
+                  : `${IMAGE_BASE_URL}${currentStatus.media_url}` 
+              }} 
+              style={styles.mediaImage}
+            />
+          </TouchableOpacity>
         ) : (
           <View style={[styles.textStatus, { backgroundColor: currentStatus.background_color || '#25D366' }]}>
             <Text style={styles.statusText} numberOfLines={8}>{currentStatus.content}</Text>
@@ -262,6 +255,36 @@ const StatusViewerScreen: React.FC = () => {
             <Ionicons name="send" size={20} color="#fff" />
           </TouchableOpacity>
         </View>
+      )}
+
+      {/* Full screen image modal */}
+      {showFullImage && (
+        <Modal
+          visible={true}
+          transparent={false}
+          animationType="fade"
+          onRequestClose={() => setShowFullImage(false)}
+        >
+          <View style={styles.fullImageModal}>
+            <TouchableOpacity 
+              style={styles.fullImageCloseButton} 
+              onPress={() => setShowFullImage(false)}
+            >
+              <Ionicons name="close" size={30} color="#fff" />
+            </TouchableOpacity>
+            {currentStatus.media_type === 'image' && currentStatus.media_url && (
+              <Image 
+                source={{ 
+                  uri: currentStatus.media_url.startsWith('http') 
+                    ? currentStatus.media_url 
+                    : `${IMAGE_BASE_URL}${currentStatus.media_url}` 
+                }} 
+                style={styles.fullImage}
+                resizeMode="contain"
+              />
+            )}
+          </View>
+        </Modal>
       )}
     </SafeAreaView>
   );
@@ -371,8 +394,8 @@ const styles = StyleSheet.create({
     zIndex: 1,
   },
   mediaImage: {
-    width: width - 20,
-    maxHeight: height * 0.6,
+    width: width,
+    height: height * 0.7,
     resizeMode: 'contain',
   },
   textStatus: {
@@ -399,6 +422,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 16,
+    elevation: 10,
   },
   replyButton: {
     flexDirection: 'row',
@@ -434,6 +458,7 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    elevation: 10,
   },
   replyContainer: {
     position: 'absolute',
@@ -470,6 +495,23 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#666',
+  },
+  fullImageModal: {
+    flex: 1,
+    backgroundColor: '#000',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  fullImageCloseButton: {
+    position: 'absolute',
+    top: 50,
+    right: 20,
+    zIndex: 10,
+    padding: 10,
+  },
+  fullImage: {
+    width: '100%',
+    height: '100%',
   },
 });
 

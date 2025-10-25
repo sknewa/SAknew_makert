@@ -189,9 +189,7 @@ const HomeScreen = () => {
 
   // Search products
   const handleSearch = useCallback(async (query: string) => {
-    console.log('🔍 [HomeScreen] Search triggered with query:', query);
     if (!query.trim()) {
-      console.log('🔍 [HomeScreen] Empty query, fetching all products');
       setIsSearching(false);
       fetchProducts();
       return;
@@ -200,14 +198,11 @@ const HomeScreen = () => {
     setIsSearching(true);
     setProductsLoading(true);
     try {
-      console.log('🔍 [HomeScreen] Calling searchProducts API...');
       const response = await shopService.searchProducts(query);
-      console.log('🔍 [HomeScreen] Search response:', response);
       const isPaginatedResponse = response && typeof response === 'object' && 'results' in response;
       
       if (isPaginatedResponse) {
         const convertedProducts = (response as PaginatedResponse<ServiceProduct>).results.map(convertServiceProduct);
-        console.log('🔍 [HomeScreen] Found', convertedProducts.length, 'products');
         setProducts(convertedProducts);
         const grouped = convertedProducts.reduce((acc, product) => {
           const categoryName = product.category_name || 'Other';
@@ -217,18 +212,14 @@ const HomeScreen = () => {
         }, {} as {[key: string]: AppProduct[]});
         setGroupedProducts(grouped);
       } else {
-        console.log('🔍 [HomeScreen] No results found');
         setProducts([]);
         setGroupedProducts({});
         setError(null);
       }
     } catch (err: any) {
-      console.error('🔍 [HomeScreen] Search error:', err.message);
-      console.error('🔍 [HomeScreen] Error details:', err);
       setError('Search failed. Please try again later.');
     } finally {
       setProductsLoading(false);
-      console.log('🔍 [HomeScreen] Search completed');
     }
   }, [fetchProducts]);
 

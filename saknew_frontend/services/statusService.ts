@@ -133,8 +133,11 @@ class StatusService {
 
   async deleteStatus(statusId: number): Promise<void> {
     try {
-      await api.delete(`/api/status/${statusId}/`);
+      console.log('DEBUG: Deleting status with ID:', statusId);
+      const response = await api.delete(`/api/status/${statusId}/`);
+      console.log('DEBUG: Delete response:', response.status, response.data);
     } catch (error: any) {
+      console.log('DEBUG: Delete error:', error?.response?.status, error?.response?.data, error?.message);
       SecurityUtils.safeLog('error', 'Error deleting status:', error?.message);
       throw error;
     }
