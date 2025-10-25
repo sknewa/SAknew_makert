@@ -1,13 +1,40 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Alert, TextInput, Modal, RefreshControl, Image } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Alert, TextInput, Modal, RefreshControl, Image, Linking } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import apiClient from '../../services/apiClient';
-import { updateOrderStatus } from '../../services/salesService';
-import { formatApiError } from '../../utils/errorHandler';
-import { SecurityUtils } from '../../utils/securityUtils';
+
+interface ShippingAddress {
+  contact_name?: string;
+  contact_phone?: string;
+  full_address?: string;
+  street_number?: string;
+  street_name?: string;
+  suburb?: string;
+  city?: string;
+  state?: string;
+  zip_code?: string;
+  postal_code?: string;
+  country?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
+interface OrderItem {
+  id: number;
+  product: {
+    id: number;
+    name: string;
+    main_image_url?: string;
+    shop?: { id: number; name: string; slug: string };
+  };
+  price: string;
+  quantity: number;
+  subtotal: string;
+  size?: string;
+}
 
 interface Order {
   id: string;
@@ -15,41 +42,23 @@ interface Order {
   order_date: string;
   order_status: string;
   payment_status: string;
+  total_price: string;
   delivery_verification_code?: string;
   cancellation_reason?: string;
-  shipping_address?: {
-    contact_name?: string;
-    contact_phone?: string;
-    full_address?: string;
-    city: string;
-    country: string;
-    street_name?: string;
-    street_number?: string;
-    suburb?: string;
-  };
-  items: Array<{
-    product: {
-      shop?: { slug: string };
-      shop_name?: string;
-      name: string;
-      main_image_url?: string;
-    };
-    price: string;
-    quantity: number;
-  }>;
+  shipping_address?: ShippingAddress;
+  items: OrderItem[];
 }
 
 const colors = {
-  background: '#F8FAFC',
+  background: '#F8F9FA',
   card: '#FFFFFF',
-  primary: '#3B82F6',
-  success: '#10B981',
-  warning: '#F59E0B',
-  error: '#EF4444',
-  text: '#1F2937',
-  textLight: '#6B7280',
-  border: '#E5E7EB',
-  accent: '#F3F4F6',
+  primary: '#28A745',
+  info: '#17A2B8',
+  warning: '#FFC107',
+  error: '#DC3545',
+  text: '#212529',
+  textLight: '#6C757D',
+  border: '#DEE2E6',
 };
 
 const formatCurrency = (amount: string | number): string => {
@@ -66,128 +75,36 @@ const SellerOrdersScreen: React.FC = () => {
   const [modalVisible, setModalVisible] = useState(false);
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [deliveryCode, setDeliveryCode] = useState('');
-  const [modalType, setModalType] = useState<'generate' | 'confirm'>('generate');
   const [activeTab, setActiveTab] = useState<'active' | 'completed'>('active');
-  const [newOrdersCount, setNewOrdersCount] = useState(0);
+  const [expandedOrders, setExpandedOrders] = useState<Set<string>>(new Set());
+  const [cancelModalVisible, setCancelModalVisible] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
   const fetchOrders = useCallback(async () => {
-    console.log('🔍 DEBUG: === FETCH ORDERS START ===');
-    console.log('🔍 DEBUG: isAuthenticated:', isAuthenticated);
-    console.log('🔍 DEBUG: user:', user);
-    console.log('🔍 DEBUG: user.profile:', user?.profile);
-    console.log('🔍 DEBUG: is_seller:', user?.profile?.is_seller);
-    console.log('🔍 DEBUG: shop_slug:', user?.profile?.shop_slug);
-    
-    if (!isAuthenticated || !user?.profile?.is_seller || !user?.profile?.shop_slug) {
-      console.log('🔍 DEBUG: EARLY RETURN - Missing requirements');
+    if (!isAuthenticated || !user?.profile?.is_seller) {
       setOrders([]);
+      setLoading(false);
       return;
     }
     
     try {
-      console.log('🔍 DEBUG: Making API call to /api/orders/');
       const response = await apiClient.get('/api/orders/');
-      console.log('🔍 DEBUG: API Response status:', response.status);
-      console.log('🔍 DEBUG: API Response data structure:', {
-        hasResults: !!response.data.results,
-        resultsLength: response.data.results?.length,
-        dataLength: response.data?.length,
-        dataType: typeof response.data,
-        isArray: Array.isArray(response.data)
-      });
+      const allOrders: Order[] = response.data.results || response.data || [];
       
-      const allOrders = response.data.results || response.data || [];
-      console.log('🔍 DEBUG: Total orders from API:', allOrders.length);
-      console.log('🔍 DEBUG: First 3 orders sample:', allOrders.slice(0, 3));
-      
-      // Show only PAID orders that contain items from this shop AND where seller is NOT the buyer
-      const sellerOrders = allOrders.filter((order: Order, index: number) => {
-        // First check if payment is completed
-        if (order.payment_status !== 'Completed') {
-          console.log(`🔍 DEBUG: Order ${order.id} skipped - payment status: ${order.payment_status}`);
-          return false;
-        }
+        const sellerOrders = allOrders.filter((order: Order) => {
+        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
+        if (order.user.email === user.email) return false;
         
-        // CRITICAL: Exclude orders where the seller is the buyer
-        console.log(`🔍 DEBUG: Order ${order.id} - Buyer email: ${order.user.email}, Seller email: ${user.email}`);
-        if (order.user.email === user.email) {
-          console.log(`🔍 DEBUG: Order ${order.id} skipped - seller is the buyer`);
-          return false;
-        }
-        console.log(`🔍 DEBUG: Checking order ${index + 1}/${allOrders.length}:`, {
-          orderId: order.id,
-          orderStatus: order.order_status,
-          buyerEmail: order.user.email,
-          sellerEmail: user.email,
-          itemsCount: order.items?.length || 0,
-          hasItems: !!order.items
-        });
-        
-        if (!order.items || !Array.isArray(order.items)) {
-          console.log('🔍 DEBUG: Order has no items or items is not array');
-          return false;
-        }
-        
-        // Check each item in the order
-        const matchingItems = order.items.filter((item, itemIndex) => {
-          console.log(`🔍 DEBUG: Item ${itemIndex + 1} FULL STRUCTURE:`, {
-            fullItem: item,
-            product: item.product,
-            productShop: item.product?.shop,
-            productShopSlug: item.product?.shop?.slug,
-            sellerShopSlug: user.profile.shop_slug
-          });
-          
-          // Convert shop name to slug format for comparison
-          const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
-          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-          
-          // product.shop is the shop ID (number), not an object
-          const shopSlugMatch = typeof item.product?.shop === 'object' && item.product?.shop?.slug === user.profile.shop_slug;
-          const shopNameMatch = productShopSlug === user.profile.shop_slug;
-          
-          console.log(`🔍 DEBUG: Shop matching attempts:`, {
-            productShopName: item.product?.shop_name,
-            productShopSlug,
-            productShopType: typeof item.product?.shop,
-            productShopValue: item.product?.shop,
-            sellerShopSlug: user.profile.shop_slug,
-            shopSlugMatch,
-            shopNameMatch,
-            finalMatch: shopSlugMatch || shopNameMatch
-          });
-          
-          return shopSlugMatch || shopNameMatch;
-        });
-        
-        const hasSellerItems = matchingItems.length > 0;
-        console.log(`🔍 DEBUG: Order ${order.id} has ${matchingItems.length} matching items, belongs to shop: ${hasSellerItems}`);
+        const hasSellerItems = order.items?.some((item: OrderItem) => 
+          item.product?.shop?.id === user.profile.shop_id
+        );
         
         return hasSellerItems;
       }).sort((a: Order, b: Order) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
       
-      console.log('🔍 DEBUG: Filtered seller orders:', sellerOrders.length);
-      console.log('🔍 DEBUG: Seller orders details:', sellerOrders.map((o: Order) => ({
-        id: o.id,
-        status: o.order_status,
-        itemsCount: o.items?.length,
-        shopItems: o.items?.filter((item: any) => item.product?.shop?.slug === user.profile.shop_slug).length
-      })));
-      
-      // Count new orders (processing status)
-      const newOrders = sellerOrders.filter((order: Order) => order.order_status === 'processing');
-      setNewOrdersCount(newOrders.length);
-      console.log('🔍 DEBUG: New orders count:', newOrders.length);
-      
       setOrders(sellerOrders);
-      console.log('🔍 DEBUG: === FETCH ORDERS END ===');
     } catch (error: any) {
-      console.error('🔍 DEBUG: Error fetching orders:', error);
-      console.error('🔍 DEBUG: Error details:', {
-        message: error.message,
-        status: error.response?.status,
-        data: error.response?.data
-      });
+      console.error('Error fetching orders:', error);
       setOrders([]);
     } finally {
       setLoading(false);
@@ -197,12 +114,7 @@ const SellerOrdersScreen: React.FC = () => {
 
   useFocusEffect(useCallback(() => {
     fetchOrders();
-    
-    // Set up auto-refresh every 30 seconds when screen is focused
-    const interval = setInterval(() => {
-      fetchOrders();
-    }, 30000);
-    
+    const interval = setInterval(fetchOrders, 30000);
     return () => clearInterval(interval);
   }, [fetchOrders]));
 
@@ -211,99 +123,114 @@ const SellerOrdersScreen: React.FC = () => {
     fetchOrders();
   }, [fetchOrders]);
 
-  const handleGenerateCode = (order: Order) => {
+  const handleConfirmDelivery = (order: Order) => {
     setSelectedOrder(order);
-    setModalType('generate');
+    setDeliveryCode('');
     setModalVisible(true);
   };
 
-  const handleConfirmDelivery = (order: Order) => {
-    console.log('🔍 DEBUG: === HANDLE CONFIRM DELIVERY START ===');
-    console.log('🔍 DEBUG: Order ID:', order.id);
-    console.log('🔍 DEBUG: Order status:', order.order_status);
-    console.log('🔍 DEBUG: Order verification code:', order.delivery_verification_code);
-    
+  const handleCancelOrder = (order: Order) => {
     setSelectedOrder(order);
-    setModalType('confirm');
-    setDeliveryCode('');
-    setModalVisible(true);
-    
-    console.log('🔍 DEBUG: Modal should now be visible');
-    console.log('🔍 DEBUG: === HANDLE CONFIRM DELIVERY END ===');
+    setCancelReason('');
+    setCancelModalVisible(true);
+  };
+
+  const executeCancelOrder = async () => {
+    if (!selectedOrder) return;
+
+    try {
+      if (!cancelReason.trim()) {
+        Alert.alert('Error', 'Please provide a reason for cancellation');
+        return;
+      }
+      
+      await apiClient.patch(`/api/orders/${selectedOrder.id}/`, {
+        action_type: 'cancel_order',
+        cancellation_reason: cancelReason.trim()
+      });
+      
+      setCancelModalVisible(false);
+      Alert.alert('Order Cancelled', 'The order has been cancelled successfully.');
+      fetchOrders();
+    } catch (error: any) {
+      Alert.alert('Error', error.response?.data?.detail || 'Failed to cancel order');
+    }
   };
 
   const executeAction = async () => {
-    console.log('🔍 DEBUG: === EXECUTE ACTION START ===');
-    console.log('🔍 DEBUG: selectedOrder:', selectedOrder?.id);
-    console.log('🔍 DEBUG: deliveryCode entered:', deliveryCode);
-    console.log('🔍 DEBUG: deliveryCode length:', deliveryCode.length);
-    console.log('🔍 DEBUG: deliveryCode trimmed:', deliveryCode.trim());
-    
+    console.log('=== MARK AS DELIVERED DEBUG START ===');
     if (!selectedOrder) {
-      console.log('🔍 DEBUG: No selected order, returning');
+      console.log('No selected order');
       return;
     }
 
+    console.log('Selected Order ID:', selectedOrder.id);
+    console.log('Delivery Code Entered:', deliveryCode);
+    console.log('Delivery Code (trimmed):', deliveryCode.trim());
+
     try {
       if (!deliveryCode.trim()) {
-        console.log('🔍 DEBUG: Empty delivery code, showing error');
+        console.log('Delivery code is empty');
         Alert.alert('Error', 'Please enter the delivery code');
         return;
       }
       
-      console.log('🔍 DEBUG: Making API call to updateOrderStatus');
-      console.log('🔍 DEBUG: - orderId:', selectedOrder.id);
-      console.log('🔍 DEBUG: - action: confirm_delivery');
-      console.log('🔍 DEBUG: - code:', deliveryCode);
+      console.log('Making API request to:', `/api/orders/${selectedOrder.id}/`);
+      console.log('Request payload:', {
+        action_type: 'confirm_delivery',
+        verification_code: deliveryCode.trim()
+      });
       
-      const response = await updateOrderStatus(selectedOrder.id, 'confirm_delivery', deliveryCode);
+      const response = await apiClient.patch(`/api/orders/${selectedOrder.id}/`, {
+        action_type: 'confirm_delivery',
+        verification_code: deliveryCode.trim()
+      });
       
-      console.log('🔍 DEBUG: API Response received:', response);
-      console.log('🔍 DEBUG: Response type:', typeof response);
-      console.log('🔍 DEBUG: Response keys:', Object.keys(response || {}));
+      console.log('API Response:', response);
+      console.log('Response data:', response?.data);
       
-      // Check if response is valid
-      if (!response || response === undefined) {
-        console.log('🔍 DEBUG: Invalid response - likely wrong delivery code');
+      if (!response || !response.data) {
+        console.log('Invalid response received');
         Alert.alert('Error', 'Invalid delivery code. Please check the code and try again.');
         return;
       }
       
-      // Calculate seller's earnings from this order
-      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
-      const shopItems = selectedOrder.items.filter((item: any) => {
-        const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-        return item.product?.shop?.slug === user?.profile?.shop_slug || productShopSlug === user?.profile?.shop_slug;
-      });
-      const earnings = shopItems.reduce((sum, item: any) => sum + (parseFloat(item.price) * item.quantity), 0);
+      const shopItems = selectedOrder.items.filter((item: OrderItem) => 
+        item.product?.shop?.id === user?.profile?.shop_id
+      );
+      console.log('Shop items count:', shopItems.length);
       
-      console.log('🔍 DEBUG: Calculated earnings:', earnings);
-      console.log('🔍 DEBUG: Shop items count:', shopItems.length);
+      const earnings = shopItems.reduce((sum, item: OrderItem) => 
+        sum + (parseFloat(item.price) * item.quantity), 0
+      );
+      console.log('Calculated earnings:', earnings);
       
       setModalVisible(false);
       Alert.alert(
         'Delivery Confirmed!', 
         `Order completed successfully.\n\nEarnings: ${formatCurrency(earnings)}\nPayment added to your wallet.`,
-        [{ text: 'View Wallet', onPress: () => {
-          navigation.navigate('Wallet' as any);
-        }}]
+        [{ text: 'View Wallet', onPress: () => navigation.navigate('Wallet' as any) }]
       );
+      console.log('Fetching updated orders...');
+      fetchOrders();
+      console.log('=== MARK AS DELIVERED DEBUG END ===');
     } catch (error: any) {
-      console.error('🔍 DEBUG: Error in executeAction:', error);
-      console.error('🔍 DEBUG: Error message:', error.message);
-      console.error('🔍 DEBUG: Error response:', error.response);
-      console.error('🔍 DEBUG: Error response status:', error.response?.status);
-      console.error('🔍 DEBUG: Error response data:', error.response?.data);
+      console.error('=== MARK AS DELIVERED ERROR ===');
+      console.error('Error object:', error);
+      console.error('Error response:', error.response);
+      console.error('Error response status:', error.response?.status);
+      console.error('Error response data:', error.response?.data);
+      console.error('Error message:', error.message);
       
-      // Check if it's a validation error (wrong code)
       if (error.response?.status === 400 || error.response?.data?.detail?.includes('code')) {
+        console.log('Invalid code error');
         Alert.alert('Invalid Code', 'The delivery code you entered is incorrect. Please ask the buyer to show you their code again.');
       } else {
-        Alert.alert('Error', formatApiError(error));
+        console.log('General error');
+        Alert.alert('Error', error.response?.data?.detail || 'Failed to confirm delivery');
       }
+      console.log('=== MARK AS DELIVERED ERROR END ===');
     }
-    
-    console.log('🔍 DEBUG: === EXECUTE ACTION END ===');
   };
 
   const getStatusColor = (status: string) => {
@@ -311,7 +238,7 @@ const SellerOrdersScreen: React.FC = () => {
       case 'pending': return colors.warning;
       case 'processing': return colors.warning;
       case 'ready_for_delivery': return colors.primary;
-      case 'completed': return colors.success;
+      case 'completed': return colors.primary;
       case 'cancelled': return colors.error;
       default: return colors.textLight;
     }
@@ -319,9 +246,9 @@ const SellerOrdersScreen: React.FC = () => {
 
   const getStatusText = (status: string) => {
     switch (status) {
-      case 'pending': return 'Pending Payment';
+      case 'pending': return 'Pending';
       case 'processing': return 'New Order';
-      case 'ready_for_delivery': return 'Ready for Delivery';
+      case 'ready_for_delivery': return 'Ready';
       case 'completed': return 'Completed';
       case 'cancelled': return 'Cancelled';
       default: return status;
@@ -329,54 +256,73 @@ const SellerOrdersScreen: React.FC = () => {
   };
 
   const getFilteredOrders = () => {
-    console.log('🔍 DEBUG: === FILTER ORDERS START ===');
-    console.log('🔍 DEBUG: Active tab:', activeTab);
-    console.log('🔍 DEBUG: Total orders before filter:', orders.length);
-    console.log('🔍 DEBUG: Orders statuses:', orders.map((o: Order) => ({ id: o.id, status: o.order_status })));
-    
     const filtered = orders.filter((order: Order) => {
-      const isActive = ['pending', 'processing', 'ready_for_delivery'].includes(order.order_status);
+      const isActive = ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status);
       const isCompleted = ['completed', 'cancelled'].includes(order.order_status);
-      
-      if (activeTab === 'active') {
-        console.log(`🔍 DEBUG: Order ${order.id} status ${order.order_status} - isActive: ${isActive}`);
-        return isActive;
-      } else {
-        console.log(`🔍 DEBUG: Order ${order.id} status ${order.order_status} - isCompleted: ${isCompleted}`);
-        return isCompleted;
-      }
+      return activeTab === 'active' ? isActive : isCompleted;
     });
     
-    console.log('🔍 DEBUG: Filtered orders count:', filtered.length);
-    console.log('🔍 DEBUG: Filtered orders:', filtered.map((o: Order) => ({ id: o.id, status: o.order_status })));
-    console.log('🔍 DEBUG: === FILTER ORDERS END ===');
+    if (activeTab === 'completed') {
+      console.log('=== HISTORY TAB ORDERS ===');
+      console.log('Total history orders:', filtered.length);
+      const cancelledOrders = filtered.filter(o => o.order_status === 'cancelled');
+      console.log('Cancelled orders count:', cancelledOrders.length);
+      if (cancelledOrders.length > 0) {
+        console.log('First cancelled order:', JSON.stringify(cancelledOrders[0], null, 2));
+      }
+    }
+    
     return filtered;
   };
 
   const renderOrderCard = (order: Order) => {
-    // Filter items from this shop and convert shop name to slug
-    const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
-    const shopItems = order.items.filter((item: any) => {
-      const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-      return item.product?.shop?.slug === user?.profile?.shop_slug || productShopSlug === user?.profile?.shop_slug;
+    const shopItems = order.items.filter((item: OrderItem) => 
+      item.product?.shop?.id === user?.profile?.shop_id
+    );
+    
+    console.log('=== ORDER ITEMS DEBUG ===');
+    console.log('Order ID:', order.id);
+    console.log('Order Status:', order.order_status);
+    console.log('Shop Items Count:', shopItems.length);
+    shopItems.forEach((item, index) => {
+      console.log(`Item ${index + 1}:`, {
+        name: item.product.name,
+        quantity: item.quantity,
+        price: item.price,
+        size: item.size,
+        hasSize: !!item.size
+      });
     });
+    console.log('=== END ORDER ITEMS DEBUG ===');
     
-    const orderTotal = shopItems.reduce((sum, item: any) => sum + (parseFloat(item.price) * item.quantity), 0);
-    const itemCount = shopItems.reduce((sum, item: any) => sum + item.quantity, 0);
+    const orderTotal = shopItems.reduce((sum, item: OrderItem) => 
+      sum + (parseFloat(item.price) * item.quantity), 0
+    );
+    const itemCount = shopItems.reduce((sum, item: OrderItem) => sum + item.quantity, 0);
     
-    // Debug shipping address data
-    console.log('📦 Order shipping_address:', order.shipping_address);
-    console.log('📦 contact_name:', order.shipping_address?.contact_name);
-    console.log('📦 contact_phone:', order.shipping_address?.contact_phone);
-    console.log('📦 full_address:', order.shipping_address?.full_address);
-    
-    // Get buyer contact info from shipping address
     const buyerName = order.shipping_address?.contact_name || order.user.username || 'Customer';
-    const buyerPhone = order.shipping_address?.contact_phone || order.user.phone;
-    const deliveryAddress = order.shipping_address?.full_address || 
-      (order.shipping_address ? 
-        `${order.shipping_address.street_number || ''} ${order.shipping_address.street_name || ''} ${order.shipping_address.suburb || ''} ${order.shipping_address.city}, ${order.shipping_address.country}`.trim() : 
-        'No address provided');
+    const buyerPhone = order.shipping_address?.contact_phone || order.user.phone || 'Not provided';
+    const buyerEmail = order.user.email || 'Not provided';
+    
+    let deliveryAddress = 'No address provided';
+    if (order.shipping_address?.full_address) {
+      deliveryAddress = order.shipping_address.full_address;
+    } else if (order.shipping_address) {
+      const parts = [
+        order.shipping_address.street_number,
+        order.shipping_address.street_name,
+        order.shipping_address.suburb,
+        order.shipping_address.city,
+        order.shipping_address.state,
+        order.shipping_address.zip_code,
+        order.shipping_address.country
+      ].filter(Boolean);
+      deliveryAddress = parts.join(', ');
+    }
+    
+    const hasCoordinates = order.shipping_address?.latitude && order.shipping_address?.longitude;
+    const isHistory = ['completed', 'cancelled'].includes(order.order_status);
+    const isExpanded = expandedOrders.has(order.id);
 
     return (
       <View key={order.id} style={styles.orderCard}>
@@ -392,33 +338,116 @@ const SellerOrdersScreen: React.FC = () => {
           </View>
         </View>
 
-        {/* Buyer Contact Information */}
-        <View style={styles.buyerInfoCard}>
+        {order.order_status === 'cancelled' && (
+          <>
+            {console.log('Rendering cancelled order:', order.id, 'Reason:', order.cancellation_reason)}
+            {order.cancellation_reason ? (
+              <View style={styles.cancellationBox}>
+                <View style={styles.cancellationHeader}>
+                  <Ionicons name="information-circle" size={14} color={colors.error} />
+                  <Text style={styles.cancellationLabel}>Cancellation Reason</Text>
+                </View>
+                <Text style={styles.cancellationText}>{order.cancellation_reason}</Text>
+              </View>
+            ) : (
+              <View style={styles.cancellationBox}>
+                <View style={styles.cancellationHeader}>
+                  <Ionicons name="information-circle" size={14} color={colors.error} />
+                  <Text style={styles.cancellationLabel}>Cancelled</Text>
+                </View>
+                <Text style={styles.cancellationText}>No reason provided</Text>
+              </View>
+            )}
+          </>
+        )}
+
+        {isHistory && (
+          <TouchableOpacity 
+            style={styles.expandButton}
+            onPress={() => {
+              const newExpanded = new Set(expandedOrders);
+              if (isExpanded) {
+                newExpanded.delete(order.id);
+              } else {
+                newExpanded.add(order.id);
+              }
+              setExpandedOrders(newExpanded);
+            }}
+          >
+            <Ionicons name="person-circle" size={14} color={colors.primary} />
+            <Text style={styles.expandButtonText}>
+              {isExpanded ? 'Hide' : 'Show'} Customer Details
+            </Text>
+            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
+          </TouchableOpacity>
+        )}
+
+        {(!isHistory || isExpanded) && (
+          <View style={styles.buyerInfoCard}>
           <View style={styles.buyerInfoHeader}>
-            <Ionicons name="person-circle" size={18} color={colors.primary} />
-            <Text style={styles.buyerInfoTitle}>Buyer Information</Text>
+            <Ionicons name="person-circle" size={16} color={colors.primary} />
+            <Text style={styles.buyerInfoTitle}>Customer Details</Text>
           </View>
-          <View style={styles.buyerInfoRow}>
+          
+          <View style={styles.infoRow}>
             <Ionicons name="person" size={14} color={colors.textLight} />
-            <Text style={styles.buyerInfoText}>{buyerName}</Text>
+            <Text style={styles.infoLabel}>Name:</Text>
+            <Text style={styles.infoText}>{buyerName}</Text>
           </View>
+          
           {buyerPhone && (
             <TouchableOpacity 
-              style={styles.buyerInfoRow}
-              onPress={() => Alert.alert('Call Buyer', `Call ${buyerPhone}?`, [
-                { text: 'Cancel', style: 'cancel' },
-                { text: 'Call', onPress: () => {} }
-              ])}
+              style={styles.infoRow}
+              onPress={() => {
+                Alert.alert(
+                  'Call Customer',
+                  `Call ${buyerPhone}?`,
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Call', onPress: () => Linking.openURL(`tel:${buyerPhone}`) }
+                  ]
+                );
+              }}
             >
               <Ionicons name="call" size={14} color={colors.primary} />
-              <Text style={[styles.buyerInfoText, { color: colors.primary, fontWeight: '600' }]}>{buyerPhone}</Text>
+              <Text style={styles.infoLabel}>Phone:</Text>
+              <Text style={[styles.infoText, { color: colors.primary, fontWeight: '600' }]}>{buyerPhone}</Text>
             </TouchableOpacity>
           )}
-          <View style={styles.buyerInfoRow}>
-            <Ionicons name="location" size={14} color={colors.textLight} />
-            <Text style={styles.buyerInfoText}>{deliveryAddress}</Text>
+          
+          <View style={styles.infoRow}>
+            <Ionicons name="mail" size={14} color={colors.textLight} />
+            <Text style={styles.infoLabel}>Email:</Text>
+            <Text style={styles.infoText} numberOfLines={1}>{buyerEmail}</Text>
           </View>
-        </View>
+          
+          <View style={styles.divider} />
+          
+          <View style={styles.deliveryHeader}>
+            <Ionicons name="location" size={16} color={colors.error} />
+            <Text style={styles.deliveryTitle}>Delivery Location</Text>
+          </View>
+          
+          <Text style={styles.deliveryAddress}>{deliveryAddress}</Text>
+          
+          {hasCoordinates && (
+            <TouchableOpacity 
+              style={styles.mapButton}
+              onPress={() => {
+                const lat = order.shipping_address?.latitude;
+                const lng = order.shipping_address?.longitude;
+                const url = `https://www.google.com/maps/search/?api=1&query=${lat},${lng}`;
+                Linking.openURL(url).catch(err => 
+                  Alert.alert('Error', 'Could not open maps')
+                );
+              }}
+            >
+              <Ionicons name="map" size={14} color={colors.card} />
+              <Text style={styles.mapButtonText}>Open in Maps</Text>
+            </TouchableOpacity>
+          )}
+          </View>
+        )}
 
         <View style={styles.orderSummary}>
           <Text style={styles.itemCount}>{itemCount} items</Text>
@@ -433,46 +462,45 @@ const SellerOrdersScreen: React.FC = () => {
                 style={styles.productImage}
               />
               <View style={styles.itemDetails}>
-                <Text style={styles.productName}>{item.product.name}</Text>
-                <Text style={styles.itemPrice}>{formatCurrency(item.price)} × {item.quantity}</Text>
-                <Text style={styles.itemSubtotal}>{formatCurrency(parseFloat(item.price) * item.quantity)}</Text>
+                <Text style={styles.productName} numberOfLines={1}>{item.product.name}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.itemPrice}>{formatCurrency(item.price)} × {item.quantity}</Text>
+                  {item.size && (
+                    <View style={styles.sizeBadge}>
+                      <Text style={styles.sizeText}>Size: {item.size}</Text>
+                    </View>
+                  )}
+                </View>
               </View>
+              <Text style={styles.itemSubtotal}>{formatCurrency(parseFloat(item.price) * item.quantity)}</Text>
             </View>
           ))}
         </View>
 
-        {order.order_status === 'cancelled' && order.cancellation_reason && (
-          <View style={styles.cancellationReasonBox}>
-            <View style={styles.cancellationReasonHeader}>
-              <Ionicons name="information-circle" size={18} color={colors.error} />
-              <Text style={styles.cancellationReasonLabel}>Cancellation Reason</Text>
-            </View>
-            <Text style={styles.cancellationReasonText}>{order.cancellation_reason}</Text>
-          </View>
-        )}
-
         <View style={styles.actionButtons}>
-          {(order.order_status === 'processing' || order.order_status === 'ready_for_delivery') && (
-            <TouchableOpacity 
-              style={[styles.actionBtn, styles.deliveredBtn]}
-              onPress={() => handleConfirmDelivery(order)}
-            >
-              <Ionicons name="checkmark-circle" size={16} color={colors.card} />
-              <Text style={styles.actionBtnText}>Mark as Delivered</Text>
-            </TouchableOpacity>
+          {['processing', 'ready_for_delivery', 'approved'].includes(order.order_status) && (
+            <>
+              <TouchableOpacity 
+                style={styles.cancelOrderBtn}
+                onPress={() => handleCancelOrder(order)}
+              >
+                <Ionicons name="close-circle" size={14} color={colors.error} />
+                <Text style={styles.cancelOrderBtnText}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={styles.deliveredBtn}
+                onPress={() => handleConfirmDelivery(order)}
+              >
+                <Ionicons name="checkmark-circle" size={14} color={colors.card} />
+                <Text style={styles.actionBtnText}>Mark Delivered</Text>
+              </TouchableOpacity>
+            </>
           )}
           
           {order.order_status === 'completed' && (
             <View style={styles.completedBadge}>
-              <Ionicons name="checkmark-circle" size={16} color={colors.success} />
+              <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
               <Text style={styles.completedText}>Paid</Text>
-            </View>
-          )}
-          
-          {order.order_status === 'cancelled' && (
-            <View style={styles.completedBadge}>
-              <Ionicons name="close-circle" size={16} color={colors.error} />
-              <Text style={[styles.completedText, { color: colors.error }]}>Cancelled</Text>
             </View>
           )}
         </View>
@@ -490,6 +518,11 @@ const SellerOrdersScreen: React.FC = () => {
     );
   }
 
+  const filteredOrders = getFilteredOrders();
+  const newOrdersCount = orders.filter((order: Order) => 
+    ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+  ).length;
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -497,12 +530,12 @@ const SellerOrdersScreen: React.FC = () => {
           <Text style={styles.headerTitle}>My Orders</Text>
           {newOrdersCount > 0 && (
             <View style={styles.newOrdersBadge}>
-              <Text style={styles.newOrdersText}>{newOrdersCount} New</Text>
+              <Text style={styles.newOrdersText}>{newOrdersCount}</Text>
             </View>
           )}
         </View>
         <TouchableOpacity onPress={onRefresh} style={styles.refreshButton}>
-          <Ionicons name="refresh" size={24} color={colors.primary} />
+          <Ionicons name="refresh" size={20} color={colors.primary} />
         </TouchableOpacity>
       </View>
 
@@ -525,37 +558,64 @@ const SellerOrdersScreen: React.FC = () => {
         style={styles.content}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
       >
-        {(() => {
-          const filteredOrders = getFilteredOrders();
-          console.log('🔍 RENDER DEBUG: Total orders:', orders.length);
-          console.log('🔍 RENDER DEBUG: Filtered orders:', filteredOrders.length);
-          console.log('🔍 RENDER DEBUG: Active tab:', activeTab);
-          return filteredOrders.length === 0 ? (
-            <View style={styles.centerContent}>
-              <Ionicons name="receipt-outline" size={64} color={colors.textLight} />
-              <Text style={styles.emptyText}>
-                {activeTab === 'active' ? '🔔 No Active Orders' : 'No Order History'}
-              </Text>
-              <Text style={styles.emptySubText}>
-                {activeTab === 'active' 
-                  ? 'All orders containing your shop products will appear here. This includes orders from any customer who purchased from your shop.'
-                  : 'All completed and cancelled orders from your shop will appear here'
-                }
-              </Text>
-              <Text style={styles.debugText}>
-                Debug: {orders.length} total orders | {filteredOrders.length} {activeTab} | Shop: {user?.profile?.shop_slug || 'None'}
-              </Text>
-              {activeTab === 'active' && (
-                <Text style={styles.autoRefreshText}>
-                  🔄 Auto-checking for new orders...
-                </Text>
-              )}
-            </View>
-          ) : (
-            filteredOrders.map(renderOrderCard)
-          );
-        })()}
+        {filteredOrders.length === 0 ? (
+          <View style={styles.centerContent}>
+            <Ionicons name="receipt-outline" size={48} color={colors.textLight} />
+            <Text style={styles.emptyText}>
+              {activeTab === 'active' ? 'No Active Orders' : 'No Order History'}
+            </Text>
+            <Text style={styles.emptySubText}>
+              {activeTab === 'active' 
+                ? 'Orders from customers will appear here'
+                : 'Completed orders will appear here'
+              }
+            </Text>
+          </View>
+        ) : (
+          filteredOrders.map(renderOrderCard)
+        )}
       </ScrollView>
+
+      <Modal visible={cancelModalVisible} transparent animationType="slide">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Cancel Order</Text>
+              <TouchableOpacity onPress={() => setCancelModalVisible(false)}>
+                <Ionicons name="close" size={20} color={colors.text} />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.modalText}>
+              Please provide a reason for cancelling this order. This will be visible to the customer.
+            </Text>
+
+            <TextInput
+              style={[styles.codeInput, { height: 80, textAlignVertical: 'top' }]}
+              placeholder="Enter cancellation reason"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline
+              numberOfLines={4}
+            />
+
+            <View style={styles.modalButtons}>
+              <TouchableOpacity 
+                style={[styles.modalBtn, styles.cancelBtn]}
+                onPress={() => setCancelModalVisible(false)}
+              >
+                <Text style={styles.cancelBtnText}>Back</Text>
+              </TouchableOpacity>
+              <TouchableOpacity 
+                style={[styles.modalBtn, { backgroundColor: colors.error }]}
+                onPress={executeCancelOrder}
+              >
+                <Text style={styles.confirmBtnText}>Cancel Order</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <Modal visible={modalVisible} transparent animationType="slide">
         <View style={styles.modalOverlay}>
@@ -563,7 +623,7 @@ const SellerOrdersScreen: React.FC = () => {
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Confirm Delivery</Text>
               <TouchableOpacity onPress={() => setModalVisible(false)}>
-                <Ionicons name="close" size={24} color={colors.text} />
+                <Ionicons name="close" size={20} color={colors.text} />
               </TouchableOpacity>
             </View>
 
@@ -591,7 +651,7 @@ const SellerOrdersScreen: React.FC = () => {
                 style={[styles.modalBtn, styles.confirmModalBtn]}
                 onPress={executeAction}
               >
-                <Text style={styles.confirmBtnText}>Confirm & Get Paid</Text>
+                <Text style={styles.confirmBtnText}>Confirm</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -603,86 +663,87 @@ const SellerOrdersScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, backgroundColor: colors.card, elevation: 2 },
+  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.card, elevation: 1 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-  headerTitle: { fontSize: 20, fontWeight: '700', color: colors.text },
-  newOrdersBadge: { backgroundColor: colors.error, paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12, marginLeft: 12 },
-  newOrdersText: { color: colors.card, fontSize: 12, fontWeight: '600' },
-  refreshButton: { padding: 8 },
-  content: { flex: 1, padding: 16 },
-  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 100 },
-  loadingText: { fontSize: 16, color: colors.textLight },
-  emptyText: { fontSize: 18, fontWeight: '600', color: colors.text, marginTop: 16 },
-  emptySubText: { fontSize: 14, color: colors.textLight, textAlign: 'center', marginTop: 8, paddingHorizontal: 32 },
-  autoRefreshText: { fontSize: 12, color: colors.primary, textAlign: 'center', marginTop: 8, fontStyle: 'italic' },
-  debugText: { fontSize: 10, color: colors.textLight, textAlign: 'center', marginTop: 8, fontFamily: 'monospace' },
+  headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
+  newOrdersBadge: { backgroundColor: colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 8 },
+  newOrdersText: { color: colors.card, fontSize: 10, fontWeight: '600' },
+  refreshButton: { padding: 6 },
+  content: { flex: 1, paddingHorizontal: 10, paddingTop: 8 },
+  centerContent: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingTop: 80 },
+  loadingText: { fontSize: 13, color: colors.textLight },
+  emptyText: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 12 },
+  emptySubText: { fontSize: 11, color: colors.textLight, textAlign: 'center', marginTop: 6, paddingHorizontal: 24 },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 12, padding: 16, marginBottom: 12, elevation: 2 },
-  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 },
-  orderId: { fontSize: 16, fontWeight: '700', color: colors.text },
-  customerName: { fontSize: 14, color: colors.textLight, marginTop: 2 },
-  customerPhone: { fontSize: 12, color: colors.primary, marginTop: 1, fontWeight: '500' },
-  orderDate: { fontSize: 12, color: colors.textLight, marginTop: 2 },
-  statusBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 },
-  statusText: { fontSize: 12, fontWeight: '600' },
+  orderCard: { backgroundColor: colors.card, borderRadius: 8, padding: 10, marginBottom: 10, elevation: 1, borderWidth: 1, borderColor: colors.border },
+  orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
+  orderId: { fontSize: 13, fontWeight: '700', color: colors.text },
+  orderDate: { fontSize: 10, color: colors.textLight, marginTop: 2 },
+  statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
+  statusText: { fontSize: 10, fontWeight: '600' },
   
-  deliveryInfo: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 12, paddingHorizontal: 12, paddingVertical: 8, backgroundColor: colors.accent, borderRadius: 8 },
-  deliveryAddress: { fontSize: 13, color: colors.text, marginLeft: 8, flex: 1, lineHeight: 18 },
+  buyerInfoCard: { backgroundColor: '#EFF6FF', borderRadius: 6, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#BFDBFE' },
+  buyerInfoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
+  buyerInfoTitle: { fontSize: 12, fontWeight: '700', color: colors.primary, marginLeft: 6 },
+  infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingVertical: 2 },
+  infoLabel: { fontSize: 11, fontWeight: '600', color: colors.textLight, marginLeft: 6, width: 50 },
+  infoText: { fontSize: 11, color: colors.text, marginLeft: 4, flex: 1, lineHeight: 16, flexShrink: 1 },
+  divider: { height: 1, backgroundColor: '#BFDBFE', marginVertical: 8 },
+  deliveryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  deliveryTitle: { fontSize: 12, fontWeight: '700', color: colors.error, marginLeft: 6 },
+  deliveryAddress: { fontSize: 11, color: colors.text, lineHeight: 16, marginBottom: 8, paddingLeft: 20 },
+  mapButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, marginTop: 4 },
+  mapButtonText: { color: colors.card, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
-  buyerInfoCard: { backgroundColor: '#EFF6FF', borderRadius: 8, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: '#BFDBFE' },
-  buyerInfoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  buyerInfoTitle: { fontSize: 14, fontWeight: '700', color: colors.primary, marginLeft: 6 },
-  buyerInfoRow: { flexDirection: 'row', alignItems: 'flex-start', marginBottom: 6 },
-  buyerInfoText: { fontSize: 13, color: colors.text, marginLeft: 8, flex: 1, lineHeight: 18 },
-  orderSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, paddingHorizontal: 4 },
-  itemsList: { marginBottom: 16 },
-  itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  productImage: { width: 50, height: 50, borderRadius: 8, marginRight: 12 },
+  orderSummary: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8, paddingHorizontal: 2 },
+  itemsList: { marginBottom: 8 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
+  productImage: { width: 40, height: 40, borderRadius: 6, marginRight: 8 },
   itemDetails: { flex: 1 },
-  productName: { fontSize: 15, fontWeight: '600', color: colors.text, marginBottom: 4 },
-  itemPrice: { fontSize: 13, color: colors.textLight, marginBottom: 2 },
-  itemSubtotal: { fontSize: 14, fontWeight: '600', color: colors.primary },
-  itemCount: { fontSize: 14, color: colors.textLight },
-  orderTotal: { fontSize: 18, fontWeight: '700', color: colors.text },
+  productName: { fontSize: 12, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  itemPrice: { fontSize: 10, color: colors.textLight },
+  itemSubtotal: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  itemCount: { fontSize: 11, color: colors.textLight },
+  orderTotal: { fontSize: 14, fontWeight: '700', color: colors.text },
   
-  itemsPreview: { marginBottom: 16 },
-  itemPreview: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  itemImage: { width: 40, height: 40, borderRadius: 8, marginRight: 12 },
-  itemName: { flex: 1, fontSize: 14, color: colors.text },
-  itemQty: { fontSize: 12, color: colors.textLight, fontWeight: '600' },
-  moreItemsText: { fontSize: 12, color: colors.textLight, fontStyle: 'italic', marginTop: 4 },
-  
-  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end' },
-  actionBtn: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 16, paddingVertical: 8, borderRadius: 8 },
-  generateBtn: { backgroundColor: colors.primary },
-  deliveredBtn: { backgroundColor: colors.success },
-  actionBtnText: { color: colors.card, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  actionButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
+  deliveredBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
+  actionBtnText: { color: colors.card, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   completedBadge: { flexDirection: 'row', alignItems: 'center' },
-  completedText: { color: colors.success, fontSize: 14, fontWeight: '600', marginLeft: 6 },
+  completedText: { color: colors.primary, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.card, borderRadius: 16, padding: 24, width: '90%', maxWidth: 400 },
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: colors.text },
-  modalText: { fontSize: 14, color: colors.textLight, lineHeight: 20, marginBottom: 20 },
-  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, fontSize: 16, textAlign: 'center', marginBottom: 20 },
-  modalButtons: { flexDirection: 'row', gap: 12 },
-  modalBtn: { flex: 1, paddingVertical: 12, borderRadius: 8, alignItems: 'center' },
-  cancelBtn: { backgroundColor: colors.accent },
-  cancelBtnText: { color: colors.text, fontWeight: '600' },
+  modalContent: { backgroundColor: colors.card, borderRadius: 12, padding: 16, width: '90%', maxWidth: 400 },
+  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+  modalTitle: { fontSize: 14, fontWeight: '700', color: colors.text },
+  modalText: { fontSize: 11, color: colors.textLight, lineHeight: 16, marginBottom: 12 },
+  codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 6, padding: 10, fontSize: 13, textAlign: 'center', marginBottom: 12 },
+  modalButtons: { flexDirection: 'row', gap: 8 },
+  modalBtn: { flex: 1, paddingVertical: 10, borderRadius: 6, alignItems: 'center' },
+  cancelBtn: { backgroundColor: colors.border },
+  cancelBtnText: { color: colors.text, fontWeight: '600', fontSize: 12 },
   confirmModalBtn: { backgroundColor: colors.primary },
-  confirmBtnText: { color: colors.card, fontWeight: '600' },
+  confirmBtnText: { color: colors.card, fontWeight: '600', fontSize: 12 },
   
-  tabContainer: { flexDirection: 'row', backgroundColor: colors.card, paddingHorizontal: 16, paddingVertical: 8 },
-  tab: { flex: 1, paddingVertical: 12, alignItems: 'center', borderRadius: 8, marginHorizontal: 4 },
+  tabContainer: { flexDirection: 'row', backgroundColor: colors.card, paddingHorizontal: 10, paddingVertical: 6 },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6, marginHorizontal: 2 },
   activeTab: { backgroundColor: colors.primary },
-  tabText: { fontSize: 14, fontWeight: '600', color: colors.textLight },
+  tabText: { fontSize: 12, fontWeight: '600', color: colors.textLight },
   activeTabText: { color: colors.card },
   
-  cancellationReasonBox: { marginBottom: 16, padding: 14, backgroundColor: '#FEE2E2', borderRadius: 8, borderWidth: 1, borderColor: '#FCA5A5' },
-  cancellationReasonHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8 },
-  cancellationReasonLabel: { fontSize: 14, fontWeight: '700', color: colors.error, marginLeft: 6 },
-  cancellationReasonText: { fontSize: 14, color: '#991B1B', lineHeight: 20, fontWeight: '500' },
+  cancellationBox: { marginBottom: 8, padding: 8, backgroundColor: '#FEE2E2', borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' },
+  cancellationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  cancellationLabel: { fontSize: 11, fontWeight: '700', color: colors.error, marginLeft: 4 },
+  cancellationText: { fontSize: 10, color: '#991B1B', lineHeight: 14, fontWeight: '500' },
+  
+  expandButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6, marginBottom: 8, backgroundColor: '#F0F9FF', borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' },
+  expandButtonText: { fontSize: 11, fontWeight: '600', color: colors.primary, marginHorizontal: 6 },
+  
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.error, marginRight: 8 },
+  cancelOrderBtnText: { color: colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  
+  sizeBadge: { backgroundColor: colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  sizeText: { color: colors.card, fontSize: 9, fontWeight: '700' },
 });
 
 export default SellerOrdersScreen;

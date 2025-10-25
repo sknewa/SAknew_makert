@@ -202,8 +202,11 @@ const ShippingScreen: React.FC = () => {
     return;
   }
   
+  const fullAddress = `${street}, ${town}${province ? ', ' + province : ''}${zip ? ', ' + zip : ''}, ${country}`;
+  
   const shippingAddress = {
     full_name: contactName,
+    full_address: fullAddress,
     address_line1: street,
     address_line2: '',
     city: town,

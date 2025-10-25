@@ -15,6 +15,8 @@ import {
   NativeSyntheticEvent,
   NativeScrollEvent,
   RefreshControl,
+  TextInput,
+  Modal,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext.minimal';
@@ -119,7 +121,10 @@ const MyShopScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [newOrdersCount, setNewOrdersCount] = useState(0);
-  const [salesCount, setSalesCount] = useState(0);
+  const [completedOrdersCount, setCompletedOrdersCount] = useState(0);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState<number | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
 
   const groupProductsByCategory = useCallback((allProducts: Product[]) => {
     const grouped: { [categoryId: number]: { categoryId: number; categoryName: string; categorySlug: string; products: Product[] } } = {};
@@ -147,6 +152,7 @@ const MyShopScreen: React.FC = () => {
   }, []);
 
   const fetchShopData = useCallback(async () => {
+    console.log('🔄 [MyShopScreen] fetchShopData called');
     if (!refreshing) setLoading(true);
     setError(null);
     
@@ -192,9 +198,6 @@ const MyShopScreen: React.FC = () => {
           setProducts([]);
         }
         
-        // Fetch new orders count
-        await fetchNewOrdersCount();
-        
       } catch (shopError: any) {
         if (shopError.response?.status === 404) {
           setShop(null);
@@ -217,7 +220,7 @@ const MyShopScreen: React.FC = () => {
   }, [user, isAuthenticated, refreshing]);
   
   const fetchNewOrdersCount = useCallback(async () => {
-    if (!user?.profile?.is_seller || !user?.profile?.shop_slug) {
+    if (!user?.profile?.is_seller) {
       return;
     }
     
@@ -225,37 +228,27 @@ const MyShopScreen: React.FC = () => {
       const response = await apiClient.get('/api/orders/');
       const allOrders = response.data.results || response.data || [];
       
-      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/\s+/g, '-');
-      
-      const activeOrders = allOrders.filter((order: Order) => {
-        if (order.payment_status !== 'paid') return false;
+      const sellerOrders = allOrders.filter((order: Order) => {
+        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
         if (order.user.email === user.email) return false;
-        if (!['pending', 'processing', 'ready_for_delivery'].includes(order.order_status)) return false;
         
-        const hasSellerItems = order.items?.some((item: OrderItem) => {
-          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-          return productShopSlug === user.profile.shop_slug;
-        });
+        const hasSellerItems = order.items?.some((item: OrderItem) => 
+          item.product?.shop?.id === user.profile.shop_id
+        );
         
         return hasSellerItems;
       });
+      
+      const activeOrders = sellerOrders.filter((order: Order) => 
+        ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+      );
+      
+      const completedOrders = sellerOrders.filter((order: Order) => 
+        ['completed', 'cancelled'].includes(order.order_status)
+      );
       
       setNewOrdersCount(activeOrders.length);
-      
-      const completedOrders = allOrders.filter((order: Order) => {
-        if (order.payment_status !== 'paid') return false;
-        if (order.user.email === user.email) return false;
-        if (order.order_status !== 'delivered') return false;
-        
-        const hasSellerItems = order.items?.some((item: OrderItem) => {
-          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-          return productShopSlug === user.profile.shop_slug;
-        });
-        
-        return hasSellerItems;
-      });
-      
-      setSalesCount(completedOrders.length);
+      setCompletedOrdersCount(completedOrders.length);
     } catch (error) {
       console.error('Error fetching orders:', error);
     }
@@ -265,9 +258,11 @@ const MyShopScreen: React.FC = () => {
     useCallback(() => {
       if (!authLoading) {
         fetchShopData();
-        fetchNewOrdersCount();
+        if (user?.profile?.is_seller && user?.profile?.shop_slug) {
+          fetchNewOrdersCount();
+        }
       }
-    }, [authLoading, fetchShopData, fetchNewOrdersCount])
+    }, [authLoading, fetchShopData, fetchNewOrdersCount, user])
   );
 
   const onRefresh = useCallback(() => {
@@ -409,6 +404,21 @@ const MyShopScreen: React.FC = () => {
   }
   const { groupedArray: groupedProducts, ungrouped: ungroupedProducts } = groupProductsByCategory(products ?? []);
 
+  // Filter products based on search and category
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchesCategory = selectedCategory === null || product.category === selectedCategory;
+    return matchesSearch && matchesCategory;
+  });
+
+  const { groupedArray: filteredGroupedProducts, ungrouped: filteredUngroupedProducts } = groupProductsByCategory(filteredProducts);
+
+  // Get unique categories from products
+  const categories = Array.from(new Set(products.map(p => ({ id: p.category, name: p.category_name })).filter(c => c.id && c.name)));
+  const uniqueCategories = categories.filter((cat, index, self) => 
+    index === self.findIndex(c => c.id === cat.id)
+  );
+
   return (
     <SafeAreaView style={styles.safeArea}>
       <ScrollView
@@ -426,34 +436,33 @@ const MyShopScreen: React.FC = () => {
               {isShopOwner && (
                 <View style={styles.shopActions}>
                   <TouchableOpacity 
-                    style={styles.iconButton} 
-                    onPress={handleShareShopLink}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log('📤 [MyShopScreen] Share shop button pressed');
+                      handleShareShopLink();
+                    }}
                   >
                     <Ionicons name="share-social-outline" size={16} color={colors.shareAction} />
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={styles.iconButton} 
-                    onPress={() => navigation.navigate('EditShop', { shopSlug: shop.slug })}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log('✏️ [MyShopScreen] Edit shop button pressed');
+                      navigation.navigate('EditShop', { shopSlug: shop.slug });
+                    }}
                   >
                     <Ionicons name="create-outline" size={16} color={colors.infoAction} />
                   </TouchableOpacity>
                   
                   <TouchableOpacity 
-                    style={styles.iconButton} 
-                    onPress={() => Alert.alert('Delete Shop', 'Are you sure you want to delete your shop? This action cannot be undone.', [
-                      {text: 'Cancel', style: 'cancel'}, 
-                      {text: 'Delete', onPress: async () => {
-                        try {
-                          await shopService.deleteShop(shop.slug);
-                          Alert.alert('Shop Deleted', 'Your shop has been successfully deleted.');
-                          setShop(null);
-                          setProducts([]);
-                          await refreshUserProfile();
-                        } catch (deleteError: any) {
-          Alert.alert('Deletion Failed', 'Could not delete shop. Please try again.');
-                        }
-                      }}
-                    ])}
+                    style={styles.iconButton}
+                    activeOpacity={0.7}
+                    onPress={() => {
+                      console.log('🗑️ [MyShopScreen] Delete shop button pressed');
+                      setShowDeleteModal(true);
+                    }}
                   >
                     <Ionicons name="trash-outline" size={16} color={colors.dangerAction} />
                   </TouchableOpacity>
@@ -518,34 +527,69 @@ const MyShopScreen: React.FC = () => {
                   <Text style={styles.statText}>{newOrdersCount}</Text>
                 </View>
               </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={styles.statItem}
+                onPress={() => navigation.navigate('SellerOrders')}
+              >
+                <Text style={styles.statLabel}>Completed</Text>
+                <View style={styles.statValueRow}>
+                  <Ionicons name="checkmark-done-outline" size={14} color={colors.successText} />
+                  <Text style={styles.statText}>{completedOrdersCount}</Text>
+                </View>
+              </TouchableOpacity>
             </View>
 
-            {/* Sales Chart */}
-            <View style={styles.chartContainer}>
-              <Text style={styles.chartTitle}>Sales Overview</Text>
-              <View style={styles.chartBars}>
-                <View style={styles.barItem}>
-                  <View style={styles.barWrapper}>
-                    <View style={[styles.bar, { height: Math.min((salesCount / Math.max(products.length, salesCount, 1)) * 80, 80), backgroundColor: colors.primary }]} />
-                  </View>
-                  <Text style={styles.barLabel}>Sales</Text>
-                  <Text style={styles.barValue}>{salesCount}</Text>
-                </View>
-                <View style={styles.barItem}>
-                  <View style={styles.barWrapper}>
-                    <View style={[styles.bar, { height: Math.min((products.length / Math.max(products.length, salesCount, 1)) * 80, 80), backgroundColor: colors.infoAction }]} />
-                  </View>
-                  <Text style={styles.barLabel}>Products</Text>
-                  <Text style={styles.barValue}>{products.length}</Text>
-                </View>
-              </View>
-            </View>
+
           </View>
+
+          {/* Search Bar */}
+          <View style={styles.searchContainer}>
+            <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            )}
+          </View>
+
+          {/* Category Navigation */}
+          {uniqueCategories.length > 0 && (
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.categoryNav}
+              contentContainerStyle={styles.categoryNavContent}
+            >
+              <TouchableOpacity
+                style={[styles.categoryChip, selectedCategory === null && styles.categoryChipActive]}
+                onPress={() => setSelectedCategory(null)}
+              >
+                <Text style={[styles.categoryChipText, selectedCategory === null && styles.categoryChipTextActive]}>All</Text>
+              </TouchableOpacity>
+              {uniqueCategories.map(category => (
+                <TouchableOpacity
+                  key={category.id}
+                  style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipActive]}
+                  onPress={() => setSelectedCategory(category.id)}
+                >
+                  <Text style={[styles.categoryChipText, selectedCategory === category.id && styles.categoryChipTextActive]}>{category.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          )}
 
           {/* Product Listing Section */}
           <View style={styles.productListingSection}>
 
-                {products.length === 0 ? (
+                {filteredProducts.length === 0 && searchQuery.length === 0 ? (
               <View style={styles.emptyStateContainer}>
                 <Ionicons name="cube-outline" size={70} color={colors.textSecondary} />
                 <Text style={styles.title}>No Products Yet!</Text>
@@ -560,9 +604,17 @@ const MyShopScreen: React.FC = () => {
                   </TouchableOpacity>
                 )}
               </View>
+            ) : filteredProducts.length === 0 ? (
+              <View style={styles.emptyStateContainer}>
+                <Ionicons name="search-outline" size={70} color={colors.textSecondary} />
+                <Text style={styles.title}>No Results Found</Text>
+                <Text style={styles.messageText}>Try adjusting your search or filter to find what you're looking for.</Text>
+              </View>
             ) : (
               <>
-                {groupedProducts.map((group) => (
+                {filteredGroupedProducts.map((group) => {
+                  const outOfStockCount = group.products.filter(p => p.stock === 0).length;
+                  return (
                   <View key={group.categoryId} style={styles.categorySection}>
                     <TouchableOpacity
                       style={styles.categoryTitleTouchable}
@@ -571,6 +623,7 @@ const MyShopScreen: React.FC = () => {
                     >
                       <Text style={styles.categoryTitle}>
                         {group.categoryName} <Text style={styles.productCountText}>({group.products.length})</Text>
+                        {outOfStockCount > 0 && <Text style={styles.outOfStockText}> ({outOfStockCount})</Text>}
                       </Text>
                     </TouchableOpacity>
                     <View style={styles.carouselWrapper}>
@@ -593,7 +646,10 @@ const MyShopScreen: React.FC = () => {
                                 navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
                               }
                             }}
-                            onProductDeleted={fetchShopData}
+                            onProductDeleted={() => {
+                              console.log('🔄 [MyShopScreen] onProductDeleted callback triggered for product:', product.id);
+                              fetchShopData();
+                            }}
                             shopLatitude={shop.latitude}
                             shopLongitude={shop.longitude}
                           />
@@ -601,9 +657,12 @@ const MyShopScreen: React.FC = () => {
                       </ScrollView>
                     </View>
                   </View>
-                ))}
+                  );
+                })}
 
-                {ungroupedProducts.length > 0 && (
+                {filteredUngroupedProducts.length > 0 && (() => {
+                  const outOfStockCount = filteredUngroupedProducts.filter(p => p.stock === 0).length;
+                  return (
                   <View style={styles.categorySection}>
                     <TouchableOpacity
                       style={styles.categoryTitleTouchable}
@@ -611,7 +670,8 @@ const MyShopScreen: React.FC = () => {
                       activeOpacity={0.7}
                     >
                       <Text style={styles.categoryTitle}>
-                        Other Products <Text style={styles.productCountText}>({ungroupedProducts.length})</Text>
+                        Other Products <Text style={styles.productCountText}>({filteredUngroupedProducts.length})</Text>
+                        {outOfStockCount > 0 && <Text style={styles.outOfStockText}> ({outOfStockCount})</Text>}
                       </Text>
                     </TouchableOpacity>
                     <View style={styles.carouselWrapper}>
@@ -621,7 +681,7 @@ const MyShopScreen: React.FC = () => {
                         contentContainerStyle={styles.productCarousel}
                         scrollEventThrottle={16}
                       >
-                        {ungroupedProducts.map(product => (
+                        {filteredUngroupedProducts.map(product => (
                           <ProductCard
                             key={product.id}
                             product={product}
@@ -634,7 +694,10 @@ const MyShopScreen: React.FC = () => {
                                 navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
                               }
                             }}
-                            onProductDeleted={fetchShopData}
+                            onProductDeleted={() => {
+                              console.log('🔄 [MyShopScreen] onProductDeleted callback triggered for ungrouped product:', product.id);
+                              fetchShopData();
+                            }}
                             shopLatitude={shop.latitude}
                             shopLongitude={shop.longitude}
                           />
@@ -642,12 +705,40 @@ const MyShopScreen: React.FC = () => {
                       </ScrollView>
                     </View>
                   </View>
-                )}
+                  );
+                })()}
               </>
             )}
           </View>
         </View>
       </ScrollView>
+
+      <Modal visible={showDeleteModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Delete Shop</Text>
+            <Text style={styles.modalMessage}>Are you sure you want to delete your shop? This action cannot be undone.</Text>
+            <View style={styles.modalButtons}>
+              <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => setShowDeleteModal(false)}>
+                <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={[styles.modalButton, styles.modalButtonDelete]} onPress={async () => {
+                setShowDeleteModal(false);
+                try {
+                  await shopService.deleteShop(shop.slug);
+                  setShop(null);
+                  setProducts([]);
+                  await refreshUserProfile();
+                } catch (err: any) {
+                  console.error('Delete failed:', err);
+                }
+              }}>
+                <Text style={styles.modalButtonTextDelete}>Delete</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -847,7 +938,7 @@ const styles = StyleSheet.create({
   },
   productListingSection: {
     width: '100%',
-    marginTop: 6,
+    marginTop: 2,
   },
 
   emptyStateContainer: {
@@ -866,7 +957,7 @@ const styles = StyleSheet.create({
     borderColor: colors.border,
   },
   categorySection: {
-    marginBottom: 10,
+    marginBottom: 6,
   },
   categoryTitleTouchable: {
     paddingVertical: 6,
@@ -883,55 +974,68 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     fontWeight: '400',
   },
+  outOfStockText: {
+    fontSize: 13,
+    color: colors.errorText,
+    fontWeight: '600',
+  },
   carouselWrapper: {
     // Add any specific styling for your carousel wrapper if needed
   },
   productCarousel: {
     paddingRight: 10, // Add some padding so the last item isn't cut off
   },
-  chartContainer: {
-    width: '100%',
-    paddingVertical: 10,
-    marginTop: 6,
-  },
-  chartTitle: {
-    fontSize: 12,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 8,
-  },
-  chartBars: {
+  searchContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'flex-end',
-  },
-  barItem: {
     alignItems: 'center',
-    flex: 1,
-  },
-  barWrapper: {
-    height: 80,
-    justifyContent: 'flex-end',
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  bar: {
-    width: 40,
-    borderRadius: 4,
-    minHeight: 10,
-  },
-  barLabel: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    fontWeight: '600',
+    backgroundColor: colors.card,
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    paddingVertical: 10,
     marginTop: 4,
+    marginBottom: 4,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  barValue: {
-    fontSize: 12,
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
     color: colors.textPrimary,
-    fontWeight: '700',
-    marginTop: 2,
   },
+  categoryNav: {
+    marginBottom: 1,
+  },
+  categoryNavContent: {
+    paddingHorizontal: 5,
+    gap: 2,
+  },
+  categoryChip: {
+    backgroundColor: 'rgba(102,126,234,0.15)',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(102,126,234,0.3)',
+    minWidth: 80,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  categoryChipActive: {
+    backgroundColor: '#667eea',
+  },
+  categoryChipText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#667eea',
+  },
+  categoryChipTextActive: {
+    color: colors.white,
+  },
+
   statusCard: {
     marginRight: 10,
     alignItems: 'center',
@@ -953,6 +1057,58 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: colors.textSecondary,
     marginTop: 4,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: colors.white,
+    borderRadius: 12,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 12,
+  },
+  modalMessage: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    lineHeight: 20,
+    marginBottom: 24,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: colors.border,
+  },
+  modalButtonDelete: {
+    backgroundColor: colors.dangerAction,
+  },
+  modalButtonTextCancel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
+  },
+  modalButtonTextDelete: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.white,
   },
 });
 

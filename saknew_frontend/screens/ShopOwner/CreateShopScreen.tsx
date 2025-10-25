@@ -9,12 +9,12 @@ import {
   SafeAreaView,
   ScrollView,
   ActivityIndicator,
-  Alert,
   KeyboardAvoidingView,
   Platform,
   Keyboard,
   LayoutAnimation,
   UIManager,
+  Modal,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import ShopService from '../../services/shopService';
@@ -28,19 +28,22 @@ if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental
   UIManager.setLayoutAnimationEnabledExperimental(true);
 }
 
-// Centralized colors
 const colors = {
-  primary: '#4CAF50', // Green
-  accent: '#FFC107', // Amber
-  backgroundLight: '#F0F2F5',
-  backgroundDark: '#E0E2E5',
+  primary: '#4CAF50',
+  accent: '#FFC107',
+  background: '#F0F2F5',
   card: '#FFFFFF',
   textPrimary: '#333333',
   textSecondary: '#666666',
   error: '#EF5350',
   border: '#E0E0E0',
   iconColor: '#7F8C8D',
-  focusedBorder: '#4CAF50',
+};
+
+const spacing = {
+  xs: 6,
+  sm: 10,
+  md: 12,
 };
 
 const CreateShopScreen: React.FC = () => {
@@ -82,6 +85,27 @@ const CreateShopScreen: React.FC = () => {
   // Input focus states
   const [focusedField, setFocusedField] = useState<string | null>(null);
 
+  // Alert modal state
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertTitle, setAlertTitle] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertCallback, setAlertCallback] = useState<(() => void) | null>(null);
+
+  const showAlert = (title: string, message: string, callback?: () => void): void => {
+    setAlertTitle(title);
+    setAlertMessage(message);
+    setAlertCallback(callback ? () => callback : null);
+    setAlertVisible(true);
+  };
+
+  const hideAlert = () => {
+    setAlertVisible(false);
+    if (alertCallback) {
+      alertCallback();
+      setAlertCallback(null);
+    }
+  };
+
 
   // Check if user already has a shop when component mounts
   React.useEffect(() => {
@@ -89,13 +113,10 @@ const CreateShopScreen: React.FC = () => {
       setCheckingShop(true);
       try {
         if (user?.profile?.shop_slug) {
-          Alert.alert(
+          showAlert(
             'Shop Already Exists',
             'You already have a shop. You can only own one shop.',
-            [{
-              text: 'Go to My Shop',
-              onPress: () => navigation.replace('ShopTab' as never)
-            }]
+            () => navigation.replace('ShopTab' as never)
           );
           return;
         }
@@ -128,13 +149,9 @@ const CreateShopScreen: React.FC = () => {
     try {
       let { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert(
+        showAlert(
           '📍 Location Permission Required',
-          'Please enable location access to automatically fill your shop address.',
-          [
-            { text: 'Cancel', style: 'cancel' },
-            { text: 'Open Settings', onPress: () => Location.requestForegroundPermissionsAsync() }
-          ]
+          'Please enable location access to automatically fill your shop address.'
         );
         setLocationLoading(false);
         return;
@@ -142,9 +159,7 @@ const CreateShopScreen: React.FC = () => {
 
       // Get current position with highest accuracy
       const location = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Highest,
-        timeout: 20000,
-        maximumAge: 0
+        accuracy: Location.Accuracy.Highest
       });
       
       const { latitude, longitude } = location.coords;
@@ -184,10 +199,9 @@ const CreateShopScreen: React.FC = () => {
           setProvince(detectedProvince);
           setTown(detectedTown);
           
-          Alert.alert(
+          showAlert(
             '✅ Location Detected',
-            `${detectedTown}\n${detectedProvince}, ${detectedCountry}\n\nCoordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`,
-            [{ text: 'OK' }]
+            `${detectedTown}\n${detectedProvince}, ${detectedCountry}\n\nCoordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`
           );
         } else {
           throw new Error('Geocoding service unavailable');
@@ -197,19 +211,17 @@ const CreateShopScreen: React.FC = () => {
         setCountry('South Africa');
         setProvince('');
         setTown('');
-        Alert.alert(
+        showAlert(
           '⚠️ Location Saved',
-          `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\nPlease enter address details manually.`,
-          [{ text: 'OK' }]
+          `Coordinates: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}\n\nPlease enter address details manually.`
         );
       }
       
     } catch (error: any) {
       console.error('Location error:', error);
-      Alert.alert(
+      showAlert(
         '❌ Location Error',
-        error.message || 'Unable to retrieve your location. Please enter your shop address manually.',
-        [{ text: 'OK' }]
+        error.message || 'Unable to retrieve your location. Please enter your shop address manually.'
       );
       setError('Location failed. Please enter address manually.');
     } finally {
@@ -227,13 +239,10 @@ const CreateShopScreen: React.FC = () => {
     // Double-check user doesn't already have a shop
     if (user?.profile?.shop_slug) {
       setError('You already have a shop. You can only own one shop.');
-      Alert.alert(
+      showAlert(
         'Shop Already Exists',
         'You can only own one shop.',
-        [{
-          text: 'Go to My Shop',
-          onPress: () => navigation.replace('ShopTab' as never)
-        }]
+        () => navigation.replace('ShopTab' as never)
       );
       return;
     }
@@ -325,14 +334,11 @@ const CreateShopScreen: React.FC = () => {
       // Refresh user profile to update seller status
       await refreshUserProfile();
       
-      Alert.alert('Success!', `Your shop "${newShop.name}" has been created!`, [
-        {
-          text: 'View My Shop',
-          onPress: () => {
-            navigation.replace('ShopTab' as never);
-          },
-        },
-      ]);
+      showAlert(
+        'Success!',
+        `Your shop "${newShop.name}" has been created!`,
+        () => navigation.replace('ShopTab' as never)
+      );
     } catch (err: any) {
       
       let errorMessage = 'Failed to create shop. Please try again.';
@@ -662,6 +668,24 @@ const CreateShopScreen: React.FC = () => {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom Alert Modal */}
+      <Modal
+        visible={alertVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={hideAlert}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertBox}>
+            <Text style={styles.alertTitle}>{alertTitle}</Text>
+            <Text style={styles.alertMessage}>{alertMessage}</Text>
+            <TouchableOpacity style={styles.alertButton} onPress={hideAlert}>
+              <Text style={styles.alertButtonText}>OK</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -669,15 +693,15 @@ const CreateShopScreen: React.FC = () => {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: colors.backgroundLight,
+    backgroundColor: colors.background,
   },
   keyboardAvoidingContainer: {
     flex: 1,
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
+    paddingVertical: spacing.xs,
+    paddingHorizontal: spacing.sm,
   },
   container: {
     flex: 1,
@@ -690,55 +714,55 @@ const styles = StyleSheet.create({
     top: Platform.OS === 'ios' ? 50 : 20,
     left: 0,
     zIndex: 10,
-    padding: 8,
+    padding: spacing.xs,
   },
   header: {
     alignItems: 'center',
-    marginBottom: 24,
+    marginBottom: spacing.md,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
+    marginBottom: spacing.xs,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   title: {
-    fontSize: 26,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 6,
+    marginBottom: 4,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 11,
     color: colors.textSecondary,
     fontWeight: '500',
   },
   formCard: {
     backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 20,
+    borderRadius: spacing.sm,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 1,
   },
   inputGroup: {
-    marginBottom: 16,
+    marginBottom: spacing.sm,
   },
   inputLabel: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: spacing.xs,
     fontWeight: '600',
   },
   required: {
@@ -747,13 +771,13 @@ const styles = StyleSheet.create({
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    height: 50,
-    borderWidth: 1.5,
+    backgroundColor: colors.background,
+    borderRadius: spacing.xs,
+    paddingHorizontal: spacing.sm,
+    height: 36,
+    borderWidth: 1,
     borderColor: colors.border,
-    gap: 10,
+    gap: spacing.xs,
   },
   inputFocused: {
     borderColor: colors.primary,
@@ -761,13 +785,13 @@ const styles = StyleSheet.create({
   },
   input: {
     flex: 1,
-    fontSize: 15,
+    fontSize: 13,
     color: colors.textPrimary,
   },
   textArea: {
-    height: 90,
+    height: 60,
     alignItems: 'flex-start',
-    paddingVertical: 12,
+    paddingVertical: spacing.xs,
   },
   textAreaInput: {
     textAlignVertical: 'top',
@@ -775,18 +799,18 @@ const styles = StyleSheet.create({
   },
   sectionCard: {
     backgroundColor: '#F8F9FA',
-    borderRadius: 12,
-    padding: 16,
-    marginBottom: 16,
+    borderRadius: spacing.xs,
+    padding: spacing.sm,
+    marginBottom: spacing.sm,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    marginBottom: 12,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   sectionTitle: {
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: '700',
     color: colors.textPrimary,
   },
@@ -795,25 +819,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 14,
-    borderRadius: 12,
-    gap: 8,
-    marginBottom: 12,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.xs,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.3,
-    shadowRadius: 5,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 1,
   },
   locationBtnText: {
     color: '#fff',
-    fontSize: 15,
-    fontWeight: '700',
+    fontSize: 12,
+    fontWeight: '600',
   },
   locationFields: {
     flexDirection: 'row',
-    gap: 10,
-    marginBottom: 10,
+    gap: spacing.xs,
+    marginBottom: spacing.xs,
   },
   halfWidth: {
     flex: 1,
@@ -822,40 +846,40 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: colors.backgroundLight,
-    padding: 16,
-    borderRadius: 12,
-    marginBottom: 12,
+    backgroundColor: colors.background,
+    padding: spacing.sm,
+    borderRadius: spacing.xs,
+    marginBottom: spacing.xs,
     borderWidth: 1,
     borderColor: colors.border,
   },
   expandHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: spacing.xs,
   },
   expandTitle: {
-    fontSize: 15,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   expandContent: {
-    marginBottom: 16,
-    gap: 12,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   errorBox: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFEBEE',
-    padding: 12,
-    borderRadius: 10,
-    marginBottom: 16,
-    gap: 10,
+    padding: spacing.sm,
+    borderRadius: spacing.xs,
+    marginBottom: spacing.sm,
+    gap: spacing.xs,
   },
   errorText: {
     flex: 1,
     color: colors.error,
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '500',
   },
   createBtn: {
@@ -863,22 +887,64 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 10,
+    paddingVertical: spacing.md,
+    borderRadius: spacing.xs,
+    gap: spacing.xs,
     shadowColor: colors.primary,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 8,
-    elevation: 5,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
   },
   createBtnDisabled: {
     opacity: 0.7,
   },
   createBtnText: {
     color: '#fff',
-    fontSize: 17,
-    fontWeight: '800',
+    fontSize: 14,
+    fontWeight: '700',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: spacing.md,
+  },
+  alertBox: {
+    backgroundColor: '#fff',
+    borderRadius: spacing.sm,
+    padding: spacing.md,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  alertTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: spacing.xs,
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+    lineHeight: 18,
+  },
+  alertButton: {
+    backgroundColor: colors.primary,
+    paddingVertical: spacing.sm,
+    borderRadius: spacing.xs,
+    alignItems: 'center',
+  },
+  alertButtonText: {
+    color: '#fff',
+    fontSize: 13,
+    fontWeight: '600',
   },
 });
 

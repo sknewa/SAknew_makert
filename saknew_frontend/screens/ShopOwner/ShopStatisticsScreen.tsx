@@ -18,7 +18,6 @@ import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
 import apiClient from '../../services/apiClient';
 
-// Define colors
 const colors = {
   background: '#F8F9FA',
   card: '#FFFFFF',
@@ -34,7 +33,6 @@ const colors = {
   shadowColor: '#000',
 };
 
-// Define screen props
 type ShopStatisticsScreenProps = {
   route?: { params?: { shopSlug?: string } };
 };
@@ -50,10 +48,8 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
-  // Get shop slug from route params or user profile
   const shopSlug = route?.params?.shopSlug || user?.profile?.shop_slug;
 
-  // Fetch shop data
   const fetchShopData = useCallback(async () => {
     if (!authLoading && !refreshing) setLoading(true);
     setError(null);
@@ -71,21 +67,61 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
         return;
       }
 
-      // Get shop details
       const shopData = await shopService.getShopBySlug(shopSlug);
       setShop(shopData);
 
-      // Get shop products
-      const productsData = await shopService.getShopProducts(shopSlug);
+      const productsResponse: any = await shopService.getShopProducts(shopSlug);
+      const productsData = Array.isArray(productsResponse?.results) ? productsResponse.results : 
+                          Array.isArray(productsResponse) ? productsResponse : [];
       setProducts(productsData);
 
-      // Get shop orders
-      try {
-        const ordersResponse = await apiClient.get(`/api/orders/?shop=${shopData.id}&limit=5`);
-        setOrders(ordersResponse.data?.results || []);
-      } catch (orderError) {
-        console.error('Error fetching orders:', orderError);
-      }
+      const ordersResponse = await apiClient.get('/api/orders/');
+      const allOrders = ordersResponse.data?.results || ordersResponse.data || [];
+      
+      console.log('📊 [ShopStatistics] Total orders fetched:', allOrders.length);
+      console.log('📊 [ShopStatistics] Shop slug:', shopSlug);
+      
+      allOrders.forEach((order: any) => {
+        console.log('🔍 Order:', order.id, 'payment_status:', order.payment_status, 'order_status:', order.order_status);
+        console.log('🔍 Order user:', order.user?.email);
+        console.log('🔍 Order items:', order.items?.map((item: any) => ({
+          product_name: item.product?.name,
+          shop_name: item.product?.shop_name
+        })));
+      });
+      
+      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
+      const shopOrders = allOrders.filter((order: any) => {
+        console.log('🔍 Checking order:', order.id);
+        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') {
+          console.log('❌ Filtered by payment_status:', order.payment_status);
+          return false;
+        }
+        if (order.user?.email === user.email) {
+          console.log('❌ Filtered - own order');
+          return false;
+        }
+        const hasShopItems = order.items?.some((item: any) => {
+          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+          console.log('🔍 Comparing:', productShopSlug, '===', shopSlug);
+          const matches = productShopSlug === shopSlug;
+          if (matches) {
+            console.log('✅ [ShopStatistics] Matched order:', order.id, 'shop:', item.product?.shop_name, 'status:', order.order_status);
+          }
+          return matches;
+        });
+        if (!hasShopItems) {
+          console.log('❌ No matching shop items');
+        }
+        return hasShopItems;
+      });
+      
+      console.log('📊 [ShopStatistics] Filtered shop orders:', shopOrders.length);
+      console.log('📊 [ShopStatistics] Active orders:', shopOrders.filter((o: any) => 
+        ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(o.order_status)
+      ).length);
+      
+      setOrders(shopOrders);
 
     } catch (err: any) {
       console.error('Error fetching shop data:', err.response?.data || err.message);
@@ -94,9 +130,8 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
       setLoading(false);
       setRefreshing(false);
     }
-  }, [authLoading, isAuthenticated, refreshing, shopSlug, user?.profile?.is_seller]);
+  }, [authLoading, isAuthenticated, refreshing, shopSlug, user?.profile?.is_seller, user?.email]);
 
-  // Fetch data when component mounts or gains focus
   useFocusEffect(
     useCallback(() => {
       if (!authLoading) {
@@ -105,13 +140,11 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
     }, [authLoading, fetchShopData])
   );
 
-  // Handle pull-to-refresh
   const onRefresh = useCallback(() => {
     setRefreshing(true);
     fetchShopData();
   }, [fetchShopData]);
 
-  // Calculate statistics
   const stats = React.useMemo(() => {
     if (!shop || !products) return null;
 
@@ -119,14 +152,39 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
     const lowStockCount = products.filter((p: any) => p.stock > 0 && p.stock <= 5).length;
     const inStockCount = products.length - outOfStockCount;
     
+    const paidOrders = orders.filter((order: any) => 
+      order.payment_status === 'paid' || order.payment_status === 'Completed'
+    );
+    const nonCanceledOrders = paidOrders.filter((order: any) => order.order_status !== 'canceled');
+    
     const pendingOrders = orders.filter((order: any) => 
-      ['pending', 'processing', 'approved'].includes(order.order_status)).length;
+      ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+    );
     
-    const completedOrders = orders.filter((order: any) => 
-      ['shipped', 'delivered', 'completed'].includes(order.order_status)).length;
+    const completedOrders = nonCanceledOrders.filter((order: any) => 
+      ['shipped', 'delivered', 'completed'].includes(order.order_status));
     
-    const totalSales = orders.reduce((sum: number, order: any) => {
-      return sum + parseFloat(order.total_price || '0');
+    const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
+    
+    const calculateShopRevenue = (ordersList: any[]) => {
+      return ordersList.reduce((sum: number, order: any) => {
+        const shopItems = order.items?.filter((item: any) => {
+          const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+          return productShopSlug === shopSlug;
+        }) || [];
+        const shopTotal = shopItems.reduce((itemSum: number, item: any) => 
+          itemSum + (parseFloat(item.price || '0') * (item.quantity || 0)), 0
+        );
+        return sum + shopTotal;
+      }, 0);
+    };
+
+    const pendingRevenue = calculateShopRevenue(pendingOrders);
+    const completedRevenue = calculateShopRevenue(completedOrders);
+    const totalRevenue = pendingRevenue + completedRevenue;
+
+    const totalInventoryValue = products.reduce((sum: number, product: any) => {
+      return sum + (parseFloat(product.price || '0') * (product.stock || 0));
     }, 0);
 
     const uniqueCategories = new Set(products.map((p: any) => p.category));
@@ -137,14 +195,17 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
       inStockCount,
       outOfStockCount,
       lowStockCount,
-      totalOrders: orders.length,
-      pendingOrders,
-      completedOrders,
-      totalSales: totalSales.toFixed(2),
+      totalOrders: nonCanceledOrders.length,
+      pendingOrders: pendingOrders.length,
+      completedOrders: completedOrders.length,
+      totalRevenue: totalRevenue.toFixed(2),
+      pendingRevenue: pendingRevenue.toFixed(2),
+      completedRevenue: completedRevenue.toFixed(2),
+      totalInventoryValue: totalInventoryValue.toFixed(2),
+      averageOrderValue: nonCanceledOrders.length > 0 ? (totalRevenue / nonCanceledOrders.length).toFixed(2) : '0.00',
     };
   }, [shop, products, orders]);
 
-  // Loading state
   if (loading && !refreshing) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -156,7 +217,6 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
     );
   }
 
-  // Error state
   if (error) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -172,7 +232,6 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
     );
   }
 
-  // No shop or stats
   if (!shop || !stats) {
     return (
       <SafeAreaView style={styles.safeArea}>
@@ -182,9 +241,9 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
           <Text style={styles.errorMessage}>You need to create a shop before viewing statistics.</Text>
           <TouchableOpacity 
             style={styles.retryButton}
-            onPress={() => navigation.navigate('CreateShop')}
+            onPress={() => navigation.goBack()}
           >
-            <Text style={styles.buttonText}>Create Shop</Text>
+            <Text style={styles.buttonText}>Go Back</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -199,72 +258,73 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} />
         }
       >
-        {/* Shop Title */}
         <View style={styles.titleContainer}>
           <Text style={styles.shopName}>{shop.name}</Text>
           <Text style={styles.subtitle}>Shop Statistics</Text>
         </View>
 
-        {/* Revenue Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Revenue</Text>
+            <Text style={styles.cardTitle}>Total Revenue</Text>
             <Ionicons name="cash-outline" size={24} color={colors.primary} />
           </View>
-          <Text style={styles.revenueAmount}>R{stats.totalSales}</Text>
-          <Text style={styles.revenueSubtext}>From {stats.totalOrders} orders</Text>
+          <Text style={styles.revenueAmount}>R{stats.totalRevenue}</Text>
+          <View style={styles.revenueBreakdown}>
+            <View style={styles.revenueItem}>
+              <Text style={styles.revenueLabel}>Completed</Text>
+              <Text style={styles.revenueValue}>R{stats.completedRevenue}</Text>
+            </View>
+            <View style={styles.revenueItem}>
+              <Text style={styles.revenueLabel}>Pending</Text>
+              <Text style={styles.revenueValue}>R{stats.pendingRevenue}</Text>
+            </View>
+          </View>
         </View>
 
-        {/* Stats Grid */}
         <View style={styles.statsGrid}>
-          {/* Products */}
-          <View style={styles.statCard}>
-            <View style={styles.statHeader}>
-              <Ionicons name="cube-outline" size={22} color={colors.primary} />
-              <Text style={styles.statTitle}>Products</Text>
-            </View>
-            <Text style={styles.statValue}>{stats.totalProducts}</Text>
-            <Text style={styles.statSubtext}>{stats.totalCategories} categories</Text>
-          </View>
-
-          {/* Orders */}
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <Ionicons name="receipt-outline" size={22} color={colors.info} />
-              <Text style={styles.statTitle}>Orders</Text>
+              <Text style={styles.statTitle}>Total Orders</Text>
             </View>
             <Text style={styles.statValue}>{stats.totalOrders}</Text>
-            <Text style={styles.statSubtext}>{stats.completedOrders} completed</Text>
+            <Text style={styles.statSubtext}>All paid orders</Text>
           </View>
 
-          {/* Pending */}
+          <View style={styles.statCard}>
+            <View style={styles.statHeader}>
+              <Ionicons name="trending-up-outline" size={22} color={colors.primary} />
+              <Text style={styles.statTitle}>Avg Order</Text>
+            </View>
+            <Text style={styles.statValue}>R{stats.averageOrderValue}</Text>
+            <Text style={styles.statSubtext}>Per order</Text>
+          </View>
+
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
               <Ionicons name="hourglass-outline" size={22} color={colors.warning} />
               <Text style={styles.statTitle}>Pending</Text>
             </View>
             <Text style={styles.statValue}>{stats.pendingOrders}</Text>
-            <Text style={styles.statSubtext}>orders to fulfill</Text>
+            <Text style={styles.statSubtext}>To fulfill</Text>
           </View>
 
-          {/* Stock */}
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <Ionicons name="alert-circle-outline" size={22} color={colors.danger} />
-              <Text style={styles.statTitle}>Out of Stock</Text>
+              <Ionicons name="checkmark-done-outline" size={22} color={colors.primary} />
+              <Text style={styles.statTitle}>Completed</Text>
             </View>
-            <Text style={styles.statValue}>{stats.outOfStockCount}</Text>
-            <Text style={styles.statSubtext}>{stats.lowStockCount} low stock</Text>
+            <Text style={styles.statValue}>{stats.completedOrders}</Text>
+            <Text style={styles.statSubtext}>Delivered</Text>
           </View>
         </View>
 
-        {/* Inventory Section */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Text style={styles.cardTitle}>Inventory Status</Text>
+            <Text style={styles.cardTitle}>Inventory Overview</Text>
             <TouchableOpacity 
               style={styles.viewAllButton}
-              onPress={() => navigation.navigate('MainTabs', { screen: 'ShopTab' })}
+              onPress={() => navigation.goBack()}
             >
               <Text style={styles.viewAllText}>View All</Text>
               <Ionicons name="chevron-forward" size={16} color={colors.primary} />
@@ -296,62 +356,61 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
               <Text style={styles.inventoryLabel}>Out of Stock</Text>
             </View>
           </View>
+
+          <View style={styles.inventoryValueContainer}>
+            <Text style={styles.inventoryValueLabel}>Total Inventory Value</Text>
+            <Text style={styles.inventoryValueAmount}>R{stats.totalInventoryValue}</Text>
+          </View>
         </View>
 
-        {/* Low Stock Products */}
         {stats.lowStockCount > 0 && (
           <View style={styles.card}>
             <View style={styles.cardHeader}>
-              <Text style={styles.cardTitle}>Products Needing Attention</Text>
+              <Text style={styles.cardTitle}>Low Stock Alert</Text>
+              <Ionicons name="warning-outline" size={20} color={colors.warning} />
             </View>
             
             {products
               .filter((p: any) => p.stock > 0 && p.stock <= 5)
-              .slice(0, 3)
+              .slice(0, 5)
               .map((product: any) => (
                 <View key={product.id} style={styles.lowStockItem}>
                   <View style={styles.lowStockInfo}>
                     <Text style={styles.lowStockName} numberOfLines={1}>{product.name}</Text>
                     <Text style={styles.lowStockCount}>
-                      <Text style={{ color: product.stock === 0 ? colors.danger : colors.warning }}>
-                        {product.stock}
-                      </Text> in stock
+                      <Text style={{ color: colors.warning }}>{product.stock}</Text> units left
                     </Text>
                   </View>
                   <TouchableOpacity
                     style={styles.restockButton}
-                    onPress={() => navigation.navigate('EditProduct', { productId: product.id })}
+                    onPress={() => navigation.navigate('ProductManagement', { productId: product.id })}
                   >
                     <Text style={styles.restockText}>Restock</Text>
                   </TouchableOpacity>
                 </View>
               ))}
               
-            {stats.lowStockCount > 3 && (
-              <TouchableOpacity style={styles.viewMoreButton}>
+            {stats.lowStockCount > 5 && (
+              <TouchableOpacity style={styles.viewMoreButton} onPress={() => navigation.goBack()}>
                 <Text style={styles.viewMoreText}>
-                  View {stats.lowStockCount - 3} more items
+                  View {stats.lowStockCount - 5} more items
                 </Text>
               </TouchableOpacity>
             )}
           </View>
         )}
 
-        {/* Recent Orders */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Recent Orders</Text>
-            <TouchableOpacity 
-              style={styles.viewAllButton}
-              onPress={() => navigation.navigate('MainTabs', { screen: 'OrdersTab' })}
-            >
-              <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
-            </TouchableOpacity>
           </View>
 
-          {orders.length > 0 ? (
-            orders.slice(0, 3).map((order: any) => (
+          {orders.filter((order: any) => 
+            ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+          ).length > 0 ? (
+            orders.filter((order: any) => 
+              ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+            ).slice(0, 5).map((order: any) => (
               <View key={order.id} style={styles.orderItem}>
                 <View style={styles.orderInfo}>
                   <Text style={styles.orderNumber}>Order #{order.id.substring(0, 8)}</Text>
@@ -365,18 +424,19 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
                   <View style={[
                     styles.orderStatus,
                     order.order_status === 'pending' ? styles.statusPending :
-                    order.order_status === 'delivered' ? styles.statusDelivered :
-                    styles.statusProcessing
+                    order.order_status === 'processing' ? styles.statusProcessing :
+                    order.order_status === 'approved' ? styles.statusApproved :
+                    styles.statusReady
                   ]}>
                     <Text style={styles.orderStatusText}>
-                      {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1)}
+                      {order.order_status.charAt(0).toUpperCase() + order.order_status.slice(1).replace('_', ' ')}
                     </Text>
                   </View>
                 </View>
               </View>
             ))
           ) : (
-            <Text style={styles.noDataText}>No recent orders for your shop.</Text>
+            <Text style={styles.noDataText}>No pending orders at the moment.</Text>
           )}
         </View>
       </ScrollView>
@@ -385,7 +445,7 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
 };
 
 const { width } = Dimensions.get('window');
-const cardWidth = (width - 40) / 2;
+const cardWidth = (width - 30) / 2;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -393,7 +453,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   scrollContent: {
-    paddingBottom: 30,
+    paddingBottom: 12,
   },
   loadingContainer: {
     flex: 1,
@@ -401,72 +461,70 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loadingText: {
-    marginTop: 10,
-    fontSize: 14,
+    marginTop: 6,
+    fontSize: 12,
     color: colors.textSecondary,
   },
   errorContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    padding: 12,
   },
   errorTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginTop: 10,
-    marginBottom: 10,
+    marginTop: 6,
+    marginBottom: 6,
   },
   errorMessage: {
-    fontSize: 14,
+    fontSize: 12,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 12,
   },
   retryButton: {
     backgroundColor: colors.primary,
-    paddingVertical: 12,
-    paddingHorizontal: 24,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
     alignItems: 'center',
   },
   buttonText: {
     color: colors.buttonText,
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
   },
   
-  // Title Container
   titleContainer: {
-    paddingVertical: 15,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     alignItems: 'center',
-    marginBottom: 15,
+    marginBottom: 8,
   },
   shopName: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 4,
+    marginBottom: 2,
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 11,
     color: colors.textSecondary,
   },
   
-  // Cards
   card: {
     backgroundColor: colors.card,
-    borderRadius: 20,
-    padding: 20,
-    marginHorizontal: 15,
-    marginBottom: 20,
+    borderRadius: 8,
+    padding: 10,
+    marginHorizontal: 10,
+    marginBottom: 10,
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.12,
-    shadowRadius: 12,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(222, 226, 230, 0.3)',
   },
@@ -474,220 +532,249 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 15,
-    paddingBottom: 10,
+    marginBottom: 8,
+    paddingBottom: 6,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(222, 226, 230, 0.3)',
   },
   cardTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.textPrimary,
   },
   
-  // Revenue Card
   revenueAmount: {
-    fontSize: 22,
-    fontWeight: 'bold',
+    fontSize: 24,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: 5,
+    marginBottom: 8,
   },
-  revenueSubtext: {
-    fontSize: 13,
+  revenueBreakdown: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(222, 226, 230, 0.3)',
+  },
+  revenueItem: {
+    alignItems: 'center',
+  },
+  revenueLabel: {
+    fontSize: 10,
     color: colors.textSecondary,
+    marginBottom: 2,
+  },
+  revenueValue: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: colors.textPrimary,
   },
   
-  // Stats Grid
   statsGrid: {
     flexDirection: 'row',
     flexWrap: 'wrap',
     justifyContent: 'space-between',
-    marginHorizontal: 15,
-    marginBottom: 20,
+    marginHorizontal: 10,
+    marginBottom: 10,
   },
   statCard: {
     width: cardWidth,
     backgroundColor: colors.card,
-    borderRadius: 18,
-    padding: 16,
-    marginBottom: 15,
+    borderRadius: 8,
+    padding: 8,
+    marginBottom: 8,
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 4,
+    elevation: 2,
     borderWidth: 1,
     borderColor: 'rgba(222, 226, 230, 0.3)',
   },
   statHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    paddingBottom: 8,
+    marginBottom: 6,
+    paddingBottom: 4,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(222, 226, 230, 0.3)',
   },
   statTitle: {
-    fontSize: 13,
+    fontSize: 11,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginLeft: 8,
+    marginLeft: 6,
   },
   statValue: {
-    fontSize: 20,
-    fontWeight: 'bold',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   statSubtext: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textSecondary,
   },
   
-  // Inventory Stats
   inventoryStats: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    marginTop: 15,
-    paddingTop: 5,
+    marginTop: 8,
+    paddingTop: 4,
+    marginBottom: 12,
   },
   inventoryStat: {
     alignItems: 'center',
-    paddingVertical: 10,
+    paddingVertical: 6,
   },
   inventoryIcon: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.08,
+    shadowRadius: 2,
+    elevation: 1,
   },
   inventoryValue: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '700',
     color: colors.textPrimary,
     marginBottom: 2,
   },
   inventoryLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textSecondary,
   },
+  inventoryValueContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(222, 226, 230, 0.3)',
+  },
+  inventoryValueLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  inventoryValueAmount: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.primary,
+  },
   
-  // Low Stock Items
   lowStockItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingVertical: 15,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(222, 226, 230, 0.3)',
   },
   lowStockInfo: {
     flex: 1,
-    marginRight: 15,
+    marginRight: 8,
   },
   lowStockName: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '500',
     color: colors.textPrimary,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   lowStockCount: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textSecondary,
   },
   restockButton: {
     backgroundColor: colors.primary,
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 10,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 6,
     shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
   restockText: {
     color: colors.buttonText,
-    fontSize: 12,
+    fontSize: 10,
     fontWeight: '600',
   },
   
-  // View All/More Buttons
   viewAllButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: 'rgba(40, 167, 69, 0.08)',
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 15,
+    paddingVertical: 3,
+    paddingHorizontal: 8,
+    borderRadius: 10,
   },
   viewAllText: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.primary,
     fontWeight: '600',
     marginRight: 2,
   },
   viewMoreButton: {
     alignItems: 'center',
-    paddingVertical: 12,
-    marginTop: 10,
+    paddingVertical: 6,
+    marginTop: 6,
     backgroundColor: 'rgba(40, 167, 69, 0.05)',
-    borderRadius: 10,
+    borderRadius: 6,
   },
   viewMoreText: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.primary,
     fontWeight: '600',
   },
   
-  // Orders
   orderItem: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    paddingVertical: 15,
+    paddingVertical: 8,
     borderBottomWidth: 1,
     borderBottomColor: 'rgba(222, 226, 230, 0.3)',
-    marginBottom: 5,
+    marginBottom: 3,
   },
   orderInfo: {
     flex: 1,
-    marginRight: 10,
+    marginRight: 6,
   },
   orderNumber: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   orderCustomer: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textSecondary,
-    marginBottom: 3,
+    marginBottom: 2,
   },
   orderDate: {
-    fontSize: 12,
+    fontSize: 10,
     color: colors.textSecondary,
   },
   orderDetails: {
     alignItems: 'flex-end',
   },
   orderPrice: {
-    fontSize: 15,
-    fontWeight: 'bold',
+    fontSize: 13,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: 5,
+    marginBottom: 3,
   },
   orderStatus: {
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 15,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 10,
   },
   statusPending: {
     backgroundColor: 'rgba(255, 193, 7, 0.15)',
@@ -699,25 +786,30 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(23, 162, 184, 0.3)',
   },
-  statusDelivered: {
+  statusApproved: {
     backgroundColor: 'rgba(40, 167, 69, 0.15)',
     borderWidth: 1,
     borderColor: 'rgba(40, 167, 69, 0.3)',
   },
+  statusReady: {
+    backgroundColor: 'rgba(102, 126, 234, 0.15)',
+    borderWidth: 1,
+    borderColor: 'rgba(102, 126, 234, 0.3)',
+  },
   orderStatusText: {
-    fontSize: 11,
+    fontSize: 9,
     fontWeight: '600',
     color: colors.textPrimary,
   },
   noDataText: {
-    fontSize: 13,
+    fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
-    paddingVertical: 15,
+    paddingVertical: 8,
     fontStyle: 'italic',
     backgroundColor: 'rgba(222, 226, 230, 0.2)',
-    borderRadius: 10,
-    marginTop: 5,
+    borderRadius: 6,
+    marginTop: 3,
   },
 });
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Alert, ScrollView, ActivityIndicator } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Dimensions, Alert, ScrollView, ActivityIndicator, Modal } from 'react-native';
 import { Product } from '../services/shop.types';
 import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { getFullImageUrl } from '../utils/imageHelper';
@@ -37,6 +37,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [addingToCart, setAddingToCart] = useState(false);
   const [distance, setDistance] = useState<string | null>(null);
+  const [showDeleteModal, setShowDeleteModal] = useState(false);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [sizeModalVisible, setSizeModalVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{title: string; message: string; onConfirm?: () => void}>({title: '', message: ''});
+  
+  const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
+                          product?.category_name?.toLowerCase().includes('apparel') ||
+                          product?.category_name?.toLowerCase().includes('clothing') ||
+                          product?.category_name?.toLowerCase().includes('dress') ||
+                          product?.category_name?.toLowerCase().includes('shirt') ||
+                          product?.category_name?.toLowerCase().includes('pants') ||
+                          product?.category_name?.toLowerCase().includes('shoes') ||
+                          product?.category_name?.toLowerCase().includes('jacket') ||
+                          product?.category_name?.toLowerCase().includes('wear');
+  
+  const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+    setAlertConfig({title, message, onConfirm});
+    setAlertVisible(true);
+  };
   
   useEffect(() => {
     const calculateDistance = async () => {
@@ -116,46 +137,49 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
 
 
-  const handleAddToCart = async (e: any) => {
+  const handleAddToCart = async (e: any, skipSizeCheck: boolean = false) => {
     e.stopPropagation();
     if (product.stock <= 0) {
-      Alert.alert('Out of Stock', 'This product is currently out of stock.');
+      showAlert('Out of Stock', 'This product is currently out of stock.');
+      return;
+    }
+    
+    if (!skipSizeCheck && isFashionProduct && !selectedSize) {
+      setSizeModalVisible(true);
       return;
     }
 
     setAddingToCart(true);
     try {
-      await addCartItem(product.id);
-      Alert.alert('Success', `Added "${product.name}" to cart!`);
+      await addCartItem(product.id, 1, selectedSize || undefined);
+      showAlert('Success', `Added "${product.name}" to cart!`);
+      setSelectedSize(null);
       onCartUpdated?.();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to add to cart');
+      showAlert('Error', err?.response?.data?.detail || 'Failed to add to cart');
     } finally {
       setAddingToCart(false);
     }
   };
 
-  const handleDeleteProduct = async () => {
-    Alert.alert(
-      'Delete Product',
-      'Are you sure you want to delete this product?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { 
-          text: 'Delete', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await shopService.deleteProduct(product.id);
-              Alert.alert('Success', 'Product deleted successfully');
-              onProductDeleted?.();
-            } catch (err: any) {
-              Alert.alert('Error', 'Failed to delete product');
-            }
-          }
-        }
-      ]
-    );
+  const handleDeleteProduct = () => {
+    setShowDeleteModal(true);
+  };
+
+  const confirmDelete = async () => {
+    setShowDeleteModal(false);
+    try {
+      console.log('🗑️ Deleting product:', product.id, product.name);
+      await shopService.deleteProduct(product.id);
+      console.log('✅ Product deleted successfully');
+      if (onProductDeleted) {
+        console.log('🔄 Calling onProductDeleted callback');
+        onProductDeleted();
+      }
+    } catch (err: any) {
+      console.error('❌ Failed to delete product:', err);
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete product');
+    }
   };
 
   const handleCardPress = () => {
@@ -171,11 +195,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   return (
-    <TouchableOpacity
-      style={styles.productCard}
-      onPress={handleCardPress}
-      activeOpacity={0.7}
-    >
+    <>
+      <TouchableOpacity
+        style={styles.productCard}
+        onPress={handleCardPress}
+        activeOpacity={0.7}
+      >
       <View style={styles.imageContainer}>
         {allImages.length > 1 ? (
           <ScrollView
@@ -260,27 +285,33 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </View>
       
       <View style={styles.productDetails}>
-        <TouchableOpacity 
-          onPress={(e) => {
-            e.stopPropagation();
-            const shopSlug = product.shop_name.toLowerCase().replace(/\s+/g, '-');
-            navigation?.navigate('PublicShop', { shopSlug });
-          }}
-        >
-          <Text style={styles.shopName} numberOfLines={1}>{product.shop_name}</Text>
-        </TouchableOpacity>
-        <View style={styles.infoRow}>
-          {distance && (
-            <View style={styles.distanceBadge}>
-              <Ionicons name="location-outline" size={10} color={colors.textSecondary} />
-              <Text style={styles.distanceText}>{distance} away</Text>
+        {!isShopOwner && (
+          <TouchableOpacity 
+            onPress={(e) => {
+              e.stopPropagation();
+              const shopSlug = product.shop_name.toLowerCase().replace(/\s+/g, '-');
+              navigation?.navigate('PublicShop', { shopSlug });
+            }}
+          >
+            <Text style={styles.shopName} numberOfLines={1}>{product.shop_name}</Text>
+          </TouchableOpacity>
+        )}
+        {isShopOwner ? (
+          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+        ) : (
+          <View style={styles.infoRow}>
+            {distance && (
+              <View style={styles.distanceBadge}>
+                <Ionicons name="location-outline" size={10} color={colors.textSecondary} />
+                <Text style={styles.distanceText}>{distance} away</Text>
+              </View>
+            )}
+            <View style={styles.ratingBadge}>
+              <Ionicons name="star" size={10} color="#FFD700" />
+              <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
             </View>
-          )}
-          <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={10} color="#FFD700" />
-            <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
           </View>
-        </View>
+        )}
         
         <View style={styles.priceContainer}>
           <Text style={styles.productPrice}>R{product.display_price}</Text>
@@ -318,10 +349,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
             
             <TouchableOpacity
               style={styles.deleteButton}
-              onPress={(e) => {
-                e.stopPropagation();
-                handleDeleteProduct();
-              }}
+              onPress={handleDeleteProduct}
+              onPressIn={(e) => e.stopPropagation()}
+              onPressOut={(e) => e.stopPropagation()}
             >
               <Ionicons name="trash-outline" size={16} color="#FF4444" />
             </TouchableOpacity>
@@ -329,6 +359,137 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
       </View>
     </TouchableOpacity>
+
+    <Modal
+      visible={showDeleteModal}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setShowDeleteModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Delete Product</Text>
+          <Text style={styles.modalMessage}>
+            Are you sure you want to delete "{product.name}"? This action cannot be undone.
+          </Text>
+          <View style={styles.modalButtons}>
+            <TouchableOpacity style={[styles.modalButton, styles.modalButtonCancel]} onPress={() => setShowDeleteModal(false)}>
+              <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+            </TouchableOpacity>
+            <TouchableOpacity style={[styles.modalButton, styles.modalButtonDelete]} onPress={confirmDelete}>
+              <Text style={styles.modalButtonTextDelete}>Delete</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    
+    <Modal
+      visible={sizeModalVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setSizeModalVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.sizeModalContent}>
+          <Text style={styles.modalTitle}>Select Size</Text>
+          <Text style={styles.sizeModalSubtitle}>Please choose your size</Text>
+          
+          <View style={styles.sizeOptions}>
+            {CLOTHING_SIZES.map((size) => (
+              <TouchableOpacity
+                key={size}
+                style={[
+                  styles.sizeButton,
+                  selectedSize === size && styles.sizeButtonSelected
+                ]}
+                onPress={() => setSelectedSize(size)}
+              >
+                <Text style={[
+                  styles.sizeButtonText,
+                  selectedSize === size && styles.sizeButtonTextSelected
+                ]}>
+                  {size}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={[styles.modalButton, styles.modalButtonCancel]}
+              onPress={() => {
+                setSizeModalVisible(false);
+                setSelectedSize(null);
+              }}
+            >
+              <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              style={[
+                styles.modalButton,
+                styles.modalButtonConfirm,
+                !selectedSize && styles.modalButtonDisabled
+              ]}
+              onPress={(e) => {
+                if (selectedSize) {
+                  setSizeModalVisible(false);
+                  handleAddToCart(e, true);
+                }
+              }}
+              disabled={!selectedSize}
+            >
+              <Text style={styles.modalButtonTextConfirm}>Add to Cart</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+    
+    <Modal
+      visible={alertVisible}
+      transparent
+      animationType="fade"
+      onRequestClose={() => setAlertVisible(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.alertModalContent}>
+          <Text style={styles.modalTitle}>{alertConfig.title}</Text>
+          <Text style={styles.modalMessage}>{alertConfig.message}</Text>
+          
+          <View style={styles.alertButtons}>
+            {alertConfig.onConfirm ? (
+              <>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonCancel]}
+                  onPress={() => setAlertVisible(false)}
+                >
+                  <Text style={styles.modalButtonTextCancel}>Cancel</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.modalButton, styles.modalButtonConfirm]}
+                  onPress={() => {
+                    setAlertVisible(false);
+                    alertConfig.onConfirm?.();
+                  }}
+                >
+                  <Text style={styles.modalButtonTextConfirm}>OK</Text>
+                </TouchableOpacity>
+              </>
+            ) : (
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalButtonConfirm, {flex: 1}]}
+                onPress={() => setAlertVisible(false)}
+              >
+                <Text style={styles.modalButtonTextConfirm}>OK</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        </View>
+      </View>
+    </Modal>
+    </>
   );
 };
 
@@ -496,6 +657,139 @@ const styles = StyleSheet.create({
   },
   disabledIcon: {
     opacity: 0.5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 12,
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    width: '100%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  modalTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#222',
+    marginBottom: 8,
+  },
+  modalMessage: {
+    fontSize: 11,
+    color: '#666',
+    lineHeight: 16,
+    marginBottom: 12,
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 8,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  modalButtonCancel: {
+    backgroundColor: '#E5E7EB',
+  },
+  modalButtonDelete: {
+    backgroundColor: '#FF4444',
+  },
+  modalButtonTextCancel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#222',
+  },
+  modalButtonTextDelete: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  sizeModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    width: '85%',
+    maxWidth: 320,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  sizeModalSubtitle: {
+    fontSize: 11,
+    color: '#666',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  sizeOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  sizeButton: {
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: 'rgba(222, 226, 230, 0.5)',
+    backgroundColor: '#fff',
+    minWidth: 42,
+    alignItems: 'center',
+  },
+  sizeButtonSelected: {
+    backgroundColor: '#10B981',
+    borderColor: '#10B981',
+  },
+  sizeButtonText: {
+    fontSize: 12,
+    color: '#222',
+    fontWeight: '600',
+  },
+  sizeButtonTextSelected: {
+    color: '#fff',
+    fontWeight: '700',
+  },
+  modalButtonConfirm: {
+    backgroundColor: '#10B981',
+  },
+  modalButtonTextConfirm: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#fff',
+  },
+  modalButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6,
+  },
+  alertModalContent: {
+    backgroundColor: '#fff',
+    borderRadius: 8,
+    padding: 12,
+    width: '80%',
+    maxWidth: 300,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 8,
   },
 });
 

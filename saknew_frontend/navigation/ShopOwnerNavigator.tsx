@@ -6,6 +6,7 @@ import { View, Text, TouchableOpacity, Image, StyleSheet, SafeAreaView, Platform
 import { useNavigation, RouteProp } from '@react-navigation/native'; // Import RouteProp
 import { useAuth } from '../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
+import apiClient from '../services/apiClient';
 
 // Import Shop Owner Screens
 import MyShopScreen from '../screens/ShopOwner/MyShopScreen';
@@ -70,6 +71,42 @@ const ShopOwnerStack = createNativeStackNavigator<ShopOwnerStackParamList>();
 const ShopOwnerCustomHeader = () => {
   const { user, isAuthenticated } = useAuth();
   const navigation = useNavigation<ShopOwnerNavigationProp>();
+  const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
+
+  React.useEffect(() => {
+    const fetchPendingOrders = async () => {
+      if (user?.profile?.shop_slug) {
+        try {
+          const response = await apiClient.get('/api/orders/');
+          const allOrders = response.data.results || response.data || [];
+          
+          const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
+          
+          const shopOrders = allOrders.filter((order: any) => {
+            if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
+            if (order.user?.email === user.email) return false;
+            
+            const hasShopItems = order.items?.some((item: any) => {
+              const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
+              return productShopSlug === user.profile?.shop_slug;
+            });
+            
+            return hasShopItems;
+          });
+          
+          const activeOrders = shopOrders.filter((order: any) => 
+            ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+          );
+          
+          setPendingOrdersCount(activeOrders.length);
+        } catch (error) {
+          console.error('Error fetching orders:', error);
+          setPendingOrdersCount(0);
+        }
+      }
+    };
+    fetchPendingOrders();
+  }, [user]);
 
   React.useEffect(() => {
     StatusBar.setBarStyle('light-content', true);
@@ -93,14 +130,14 @@ const ShopOwnerCustomHeader = () => {
       <View style={styles.headerContainer}>
         {/* Logo/Home Button - Navigates back to MyShop within this stack */}
         <TouchableOpacity
+          style={styles.navLinkButton}
           onPress={() => navigation.navigate('MyShop')}
           activeOpacity={0.7}
         >
-          <Image
-            source={{ uri: 'https://placehold.co/35x35/4CAF50/FFFFFF?text=SAKNEW' }}
-            style={styles.logoImage}
-            onError={(e) => console.log('Logo load error:', e.nativeEvent.error)}
-          />
+          <View style={styles.navLinkContent}>
+            <Ionicons name="home-outline" size={22} color={colors.navLinkText} />
+            <Text style={styles.navLinkText}>Home</Text>
+          </View>
         </TouchableOpacity>
 
         <View style={styles.navlinks}>
@@ -123,7 +160,7 @@ const ShopOwnerCustomHeader = () => {
                 <>
                   <TouchableOpacity
                     style={styles.navLinkButton}
-                    onPress={() => navigation.navigate('ShopStatistics', { shopSlug: user.profile?.shop_slug || undefined })}
+                    onPress={() => navigation.navigate('ShopStatistics', { shopSlug: user.profile?.shop_slug || '' })}
                     activeOpacity={0.7}
                   >
                     <View style={styles.navLinkContent}>
@@ -139,9 +176,11 @@ const ShopOwnerCustomHeader = () => {
                     <View style={styles.navLinkContent}>
                       <View style={{ position: 'relative' }}>
                         <Ionicons name="receipt-outline" size={22} color={colors.navLinkText} />
-                        <View style={styles.badge}>
-                          <View style={styles.badgeDot} />
-                        </View>
+                        {pendingOrdersCount > 0 && (
+                          <View style={styles.badge}>
+                            <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
+                          </View>
+                        )}
                       </View>
                       <Text style={styles.navLinkText}>Orders</Text>
                     </View>
@@ -244,14 +283,7 @@ const styles = StyleSheet.create({
     shadowRadius: 6,
     elevation: 6,
   },
-  logoImage: {
-    width: 35,
-    height: 35,
-    borderRadius: 17.5,
-    borderWidth: 1,
-    borderColor: 'rgba(255,255,255,0.5)',
-    resizeMode: 'contain',
-  },
+
   navlinks: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -283,14 +315,20 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -2,
-    right: -2,
-  },
-  badgeDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
+    top: -4,
+    right: -6,
     backgroundColor: '#FF4444',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });
 

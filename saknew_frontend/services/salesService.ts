@@ -128,9 +128,13 @@ const getMyCart = async (): Promise<Cart> => {
   }
 };
 
-const addCartItem = async (productId: number, quantity: number = 1): Promise<Cart> => {
+const addCartItem = async (productId: number, quantity: number = 1, size?: string): Promise<Cart> => {
   try {
-    const response = await apiClient.post('/api/carts/add/', { product_id: productId, quantity });
+    const payload: { product_id: number; quantity: number; size?: string } = { product_id: productId, quantity };
+    if (size) {
+      payload.size = size;
+    }
+    const response = await apiClient.post('/api/carts/add/', payload);
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
     SecurityUtils.safeLog('error', 'Error adding item to cart:', error.response?.data || error.message);

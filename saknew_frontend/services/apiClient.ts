@@ -9,6 +9,19 @@ import { handleError } from '../utils/errorManager';
 // Instead of importing AuthContext directly (which can cause circular dependencies),
 // we can use a callback mechanism.
 let onUnauthorizedCallback: (() => void) | null = null;
+let isRefreshing = false;
+let failedQueue: Array<{ resolve: (value?: any) => void; reject: (reason?: any) => void }> = [];
+
+const processQueue = (error: any, token: string | null = null) => {
+  failedQueue.forEach(prom => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve(token);
+    }
+  });
+  failedQueue = [];
+};
 
 /**
  * Sets a callback function to be executed when an unauthorized (401) error
@@ -20,24 +33,28 @@ export const setOnUnauthorizedCallback = (callback: () => void) => {
   onUnauthorizedCallback = callback;
 };
 
-// Create an Axios instance with more reliable configuration
+// Create an Axios instance with secure configuration
 const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 30000, // 30 seconds timeout
-  withCredentials: false, // Don't send cookies
-  maxRedirects: 5, // Allow redirects
-  validateStatus: (status) => status >= 200 && status < 300, // Only accept 2xx status codes
+  timeout: 30000,
+  withCredentials: false,
+  maxRedirects: 0, // Disable redirects for security
+  validateStatus: (status) => status >= 200 && status < 300,
 });
 
 // Force log the actual URL being used
 console.log('ACTUAL API URL BEING USED:', API_BASE_URL);
 
 // Test the main API health check endpoint
-axios.get(`${API_BASE_URL}api/health-check/`, { timeout: 5000 })
+axios.get(`${API_BASE_URL}api/health-check/`, { 
+  timeout: 5000,
+  maxRedirects: 0,
+  validateStatus: (status) => status >= 200 && status < 300,
+})
   .then(response => {
     console.log(`✅ API health check accessible:`, response.status);
   })
@@ -76,55 +93,48 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    // Check if the error has a response and it's a 401 Unauthorized status
-    // Also, prevent infinite loops for 401 errors by checking a custom '_retry' flag
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true; // Mark this request as retried
-      console.warn('API Client: Access token expired or invalid. Attempting to refresh token...');
+      if (isRefreshing) {
+        return new Promise((resolve, reject) => {
+          failedQueue.push({ resolve, reject });
+        }).then(token => {
+          originalRequest.headers.Authorization = `Bearer ${token}`;
+          return apiClient(originalRequest);
+        }).catch(err => Promise.reject(err));
+      }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
 
       try {
         const refreshToken = await AsyncStorage.getItem('refresh_token');
-        if (refreshToken) {
-          // Attempt to refresh the token using a direct axios call (not apiClient).
-          // This is critical to prevent the refresh request itself from getting caught
-          // in this interceptor, which could lead to an infinite loop.
-          const refreshResponse = await axios.post(`${API_BASE_URL}api/auth/jwt/refresh/`, {
-            refresh: refreshToken,
-          });
-
-          // Check if access token exists before storing it
-          let newAccessToken;
-          if (refreshResponse.data && refreshResponse.data.access) {
-            newAccessToken = refreshResponse.data.access;
-            await AsyncStorage.setItem('access_token', newAccessToken); // Update stored access token
-          } else {
-            console.error('API Client: No access token in refresh response');
-            throw new Error('No access token received from server');
-          }
-
-          // Update the original request's header with the new token
-          originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
-
-          // Re-send the original request with the new token
-          console.log('API Client: Token refreshed successfully. Retrying original request...');
-          return apiClient(originalRequest);
-        } else {
-          console.log('API Client: No refresh token available. User needs to log in.');
-          // No refresh token, so the user must re-authenticate.
-          if (onUnauthorizedCallback) {
-            onUnauthorizedCallback(); // Trigger global logout
-          }
-          return Promise.reject(error); // Reject the original request
+        if (!refreshToken) {
+          throw new Error('No refresh token available');
         }
+
+        const refreshResponse = await axios.post(`${API_BASE_URL}api/auth/jwt/refresh/`, {
+          refresh: refreshToken,
+        });
+
+        const newAccessToken = refreshResponse.data?.access;
+        if (!newAccessToken) {
+          throw new Error('No access token received from server');
+        }
+
+        await AsyncStorage.setItem('access_token', newAccessToken);
+        originalRequest.headers.Authorization = `Bearer ${newAccessToken}`;
+        processQueue(null, newAccessToken);
+        isRefreshing = false;
+        return apiClient(originalRequest);
       } catch (refreshError: any) {
-        console.error('API Client: Token refresh failed:', refreshError.response?.data || refreshError.message);
-        // If refresh fails, clear all tokens and force re-authentication (logout)
+        processQueue(refreshError, null);
+        isRefreshing = false;
         await AsyncStorage.removeItem('access_token');
         await AsyncStorage.removeItem('refresh_token');
         if (onUnauthorizedCallback) {
-          onUnauthorizedCallback(); // Trigger global logout
+          onUnauthorizedCallback();
         }
-        return Promise.reject(error); // Reject the original request
+        return Promise.reject(error);
       }
     }
 

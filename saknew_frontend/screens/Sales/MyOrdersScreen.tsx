@@ -398,7 +398,7 @@ const MyOrdersScreen: React.FC = () => {
                       style={styles.quickActionButton}
                       onPress={() => handleRequestCode(order.id)}
                     >
-                      <Ionicons name="code-outline" size={14} color={colors.buttonText} />
+                      <Ionicons name="code-outline" size={14} color={colors.white} />
                       <Text style={styles.quickActionText}>Request Code</Text>
                     </TouchableOpacity>
                   )}
@@ -408,7 +408,7 @@ const MyOrdersScreen: React.FC = () => {
                       style={styles.cancelActionButton}
                       onPress={() => handleCancelOrder(order.id, order.order_date)}
                     >
-                      <Ionicons name="close-circle-outline" size={14} color={colors.buttonText} />
+                      <Ionicons name="close-circle-outline" size={14} color={colors.white} />
                       <Text style={styles.cancelActionText}>Cancel</Text>
                     </TouchableOpacity>
                   )}
@@ -430,7 +430,7 @@ const MyOrdersScreen: React.FC = () => {
                       style={styles.markReceivedButton}
                       onPress={() => handleRequestCode(order.id)}
                     >
-                      <Ionicons name="code-outline" size={16} color={colors.buttonText} />
+                      <Ionicons name="code-outline" size={16} color={colors.white} />
                       <Text style={styles.mainActionText}>Request Delivery Code</Text>
                     </TouchableOpacity>
                   )}
@@ -446,7 +446,7 @@ const MyOrdersScreen: React.FC = () => {
                         style={styles.markReceivedButton}
                         onPress={() => handleMarkAsReceived(order.id)}
                       >
-                        <Ionicons name="checkmark-circle" size={16} color={colors.buttonText} />
+                        <Ionicons name="checkmark-circle" size={16} color={colors.white} />
                         <Text style={styles.mainActionText}>Mark as Received</Text>
                       </TouchableOpacity>
                     </View>
@@ -457,7 +457,7 @@ const MyOrdersScreen: React.FC = () => {
                       style={styles.addReviewButton}
                       onPress={() => openReviewModal(order.items[0].product, order.id)}
                     >
-                      <Ionicons name="star-outline" size={16} color={colors.buttonText} />
+                      <Ionicons name="star-outline" size={16} color={colors.white} />
                       <Text style={styles.mainActionText}>Add Review</Text>
                     </TouchableOpacity>
                   )}
@@ -556,7 +556,7 @@ const MyOrdersScreen: React.FC = () => {
                 disabled={cancelling}
               >
                 {cancelling ? (
-                  <ActivityIndicator size="small" color={colors.buttonText} />
+                  <ActivityIndicator size="small" color={colors.white} />
                 ) : (
                   <Text style={styles.buttonText}>Yes, Cancel</Text>
                 )}
@@ -649,7 +649,7 @@ const styles = StyleSheet.create({
   detailsLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.infoAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
   linkText: { color: colors.infoAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   quickActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  quickActionText: { color: colors.buttonText, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  quickActionText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   reviewLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.warningAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
   reviewLinkText: { color: colors.warningAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
@@ -672,7 +672,7 @@ const styles = StyleSheet.create({
   activeTabText: { color: colors.white },
   
   cancelActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.dangerAction, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  cancelActionText: { color: colors.buttonText, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  cancelActionText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   productNameModal: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },

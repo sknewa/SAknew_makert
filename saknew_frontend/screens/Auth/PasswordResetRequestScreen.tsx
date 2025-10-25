@@ -18,19 +18,18 @@ import AuthService from '../../services/authService';
 import { AuthNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 
-// Centralized colors - RECOMMENDED: Move this to a separate file (e.g., ../constants/colors.ts)
 const colors = {
-  primary: '#4CAF50', // Green
-  accent: '#FFC107', // Amber
-  backgroundLight: '#F0F2F5', // Light grey for general background and input backgrounds
-  backgroundDark: '#E0E2E5', // Slightly darker grey for input active state
+  primary: '#4CAF50',
+  accent: '#FFC107',
+  backgroundLight: '#F0F2F5',
+  backgroundDark: '#E0E2E5',
   card: '#FFFFFF',
   textPrimary: '#333333',
   textSecondary: '#666666',
   error: '#EF5350',
   border: '#E0E0E0',
   iconColor: '#7F8C8D',
-  focusedBorder: '#4CAF50', // Primary color for focused border
+  focusedBorder: '#4CAF50',
 };
 
 const PasswordResetRequestScreen: React.FC = () => {
@@ -39,7 +38,7 @@ const PasswordResetRequestScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEmailFocused, setIsEmailFocused] = useState<boolean>(false); // For input focus styling
+  const [isEmailFocused, setIsEmailFocused] = useState<boolean>(false);
 
   const handlePasswordResetRequest = useCallback(async () => {
     setError(null);
@@ -63,7 +62,7 @@ const PasswordResetRequestScreen: React.FC = () => {
         'Password Reset Email Sent',
         'If an account with that email exists, you will receive a password reset link shortly. Please check your inbox (and spam folder).',
         [
-          { text: 'OK', onPress: () => navigation.navigate('Login') }, // Navigate back to login
+          { text: 'OK', onPress: () => navigation.navigate('Login') },
         ]
       );
     } catch (err: any) {
@@ -99,19 +98,17 @@ const PasswordResetRequestScreen: React.FC = () => {
         style={styles.keyboardAvoidingContainer}
       >
         <View style={styles.container}>
-          {/* Back Button */}
           <TouchableOpacity
             style={styles.backButton}
             onPress={() => navigation.goBack()}
             disabled={loading}
             activeOpacity={0.7}
           >
-            <Ionicons name="arrow-back-outline" size={28} color={colors.textPrimary} />
+            <Ionicons name="arrow-back-outline" size={24} color={colors.textPrimary} />
           </TouchableOpacity>
 
-          {/* Header Section */}
           <View style={styles.header}>
-            <Ionicons name="key-outline" size={60} color={colors.primary} style={styles.headerIcon} />
+            <Ionicons name="key-outline" size={48} color={colors.primary} style={styles.headerIcon} />
             <Text style={styles.logoText}>Saknew Market</Text>
             <Text style={styles.welcomeTitle}>Forgot Your Password?</Text>
             <Text style={styles.welcomeSubtitle}>
@@ -119,11 +116,10 @@ const PasswordResetRequestScreen: React.FC = () => {
             </Text>
           </View>
 
-          {/* Input Card */}
           <View style={styles.card}>
             <Text style={styles.inputLabel}>Email Address</Text>
             <View style={[styles.inputContainer, isEmailFocused && styles.inputFocused]}>
-              <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+              <Ionicons name="mail-outline" size={18} color={colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
@@ -156,7 +152,6 @@ const PasswordResetRequestScreen: React.FC = () => {
             </TouchableOpacity>
           </View>
 
-          {/* Login Link */}
           <View style={styles.loginContainer}>
             <Text style={styles.loginText}>Remembered your password?</Text>
             <TouchableOpacity onPress={() => navigation.navigate('Login')} disabled={loading} activeOpacity={0.7}>
@@ -191,59 +186,59 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   header: {
-    marginBottom: 40,
+    marginBottom: 16,
     alignItems: 'center',
   },
   headerIcon: {
-    marginBottom: 10,
+    marginBottom: 6,
   },
   logoText: {
-    fontSize: 38,
-    fontWeight: '800',
+    fontSize: 16,
+    fontWeight: '700',
     color: colors.primary,
-    marginBottom: 10,
+    marginBottom: 4,
   },
   welcomeTitle: {
-    fontSize: 28,
+    fontSize: 18,
     fontWeight: '700',
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 4,
     textAlign: 'center',
   },
   welcomeSubtitle: {
-    fontSize: 16,
+    fontSize: 11,
     color: colors.textSecondary,
     textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 10,
+    lineHeight: 16,
+    marginBottom: 6,
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: 25,
+    borderRadius: 8,
+    padding: 12,
     width: '100%',
     maxWidth: 400,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
-    marginBottom: 30,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+    marginBottom: 16,
   },
   inputLabel: {
-    fontSize: 16,
+    fontSize: 12,
     color: colors.textPrimary,
-    marginBottom: 8,
+    marginBottom: 6,
     fontWeight: '600',
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.backgroundLight,
-    height: 55,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
+    height: 40,
+    borderRadius: 6,
+    paddingHorizontal: 10,
+    marginBottom: 10,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -252,46 +247,46 @@ const styles = StyleSheet.create({
     backgroundColor: colors.backgroundDark,
   },
   inputIcon: {
-    marginRight: 10,
+    marginRight: 8,
   },
   inputField: {
     flex: 1,
-    fontSize: 16,
+    fontSize: 13,
     color: colors.textPrimary,
   },
   errorMessage: {
     color: colors.error,
-    fontSize: 14,
+    fontSize: 11,
     textAlign: 'center',
-    marginTop: -10,
-    marginBottom: 15,
+    marginTop: -6,
+    marginBottom: 10,
   },
   requestButton: {
     backgroundColor: colors.primary,
-    height: 55,
-    borderRadius: 10,
+    height: 40,
+    borderRadius: 6,
     justifyContent: 'center',
     alignItems: 'center',
-    marginTop: 10,
+    marginTop: 6,
   },
   requestButtonText: {
     color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
   },
   loginContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 20,
+    marginTop: 10,
   },
   loginText: {
-    fontSize: 16,
+    fontSize: 12,
     color: colors.textSecondary,
   },
   loginButtonText: {
-    fontSize: 16,
+    fontSize: 13,
     color: colors.primary,
-    fontWeight: 'bold',
+    fontWeight: '600',
   },
 });
 

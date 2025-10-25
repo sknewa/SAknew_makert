@@ -14,6 +14,7 @@ import {
   Image,
   Alert,
   Dimensions,
+  Modal,
 } from 'react-native';
 import { getFullImageUrl } from '../../utils/imageHelper';
 import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -51,6 +52,30 @@ const ProductDetailScreen = () => {
   const [reviewsLoading, setReviewsLoading] = useState<boolean>(false);
   const [distance, setDistance] = useState<string | null>(null);
   const [shopData, setShopData] = useState<any>(null);
+  const [selectedSize, setSelectedSize] = useState<string | null>(null);
+  const [sizeModalVisible, setSizeModalVisible] = useState(false);
+  const [alertVisible, setAlertVisible] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{title: string; message: string; onConfirm?: () => void}>({title: '', message: ''});
+  
+  const showAlert = (title: string, message: string, onConfirm?: () => void) => {
+    setAlertConfig({title, message, onConfirm});
+    setAlertVisible(true);
+  };
+  
+  const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
+  
+  console.log('Category Name:', product?.category_name);
+  console.log('Category Name (lowercase):', product?.category_name?.toLowerCase());
+  
+  const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
+                          product?.category_name?.toLowerCase().includes('apparel') ||
+                          product?.category_name?.toLowerCase().includes('clothing') ||
+                          product?.category_name?.toLowerCase().includes('dress') ||
+                          product?.category_name?.toLowerCase().includes('shirt') ||
+                          product?.category_name?.toLowerCase().includes('pants') ||
+                          product?.category_name?.toLowerCase().includes('shoes') ||
+                          product?.category_name?.toLowerCase().includes('jacket') ||
+                          product?.category_name?.toLowerCase().includes('wear');
 
   // Determine if the logged-in user is the owner of this product
   const isOwner = isAuthenticated && product?.user?.id === user?.id;
@@ -132,29 +157,59 @@ const ProductDetailScreen = () => {
   }, [shopData]);
 
   // Handle add to cart
-  const handleAddToCart = async () => {
+  const handleAddToCart = async (skipSizeCheck: boolean = false) => {
+    console.log('=== ADD TO CART DEBUG START ===');
+    console.log('Product:', product);
+    console.log('Product ID:', product?.id);
+    console.log('Product Category:', product?.category_name);
+    console.log('Is Owner:', isOwner);
+    console.log('Is Fashion Product:', isFashionProduct);
+    console.log('Selected Size:', selectedSize);
+    console.log('Skip Size Check:', skipSizeCheck);
+    
     if (product) {
       // Check if user is the owner of the product
       if (isOwner) {
-        Alert.alert('Cannot Add to Cart', 'Sellers cannot buy their own product.');
+        console.log('User is owner - cannot add to cart');
+        showAlert('Cannot Add to Cart', 'Sellers cannot buy their own product.');
+        return;
+      }
+      
+      // Show size modal for fashion products (only if not skipping check)
+      if (!skipSizeCheck && isFashionProduct && !selectedSize) {
+        console.log('Fashion product - showing size modal');
+        setSizeModalVisible(true);
         return;
       }
       
       try {
         // Show loading indicator
+        console.log('Setting addingToCart to true');
         setAddingToCart(true);
         
         // Call API to add item to cart
-        await addCartItem(product.id);
+        console.log('Calling addCartItem API with product ID:', product.id, 'Size:', selectedSize);
+        const response = await addCartItem(product.id, 1, selectedSize || undefined);
+        console.log('API Response:', response);
         
         // Show success message
-        Alert.alert('Success', `Added "${product.name}" to your cart!`);
+        console.log('Item added successfully');
+        showAlert('Success', `Added "${product.name}" to your cart!`);
+        setSelectedSize(null); // Reset size selection
       } catch (err: any) {
         // Show error message
-        Alert.alert('Error', err.response?.data?.detail || 'Failed to add item to cart. Please try again.');
+        console.error('Error adding to cart:', err);
+        console.error('Error response:', err.response);
+        console.error('Error response data:', err.response?.data);
+        console.error('Error message:', err.message);
+        showAlert('Error', err.response?.data?.detail || 'Failed to add item to cart. Please try again.');
       } finally {
+        console.log('Setting addingToCart to false');
         setAddingToCart(false);
+        console.log('=== ADD TO CART DEBUG END ===');
       }
+    } else {
+      console.log('No product available');
     }
   };
 
@@ -168,30 +223,22 @@ const ProductDetailScreen = () => {
   // Handle delete product
   const handleDeleteProduct = async () => {
     if (product) {
-      Alert.alert(
-        'Delete Product',
-        `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
-        [
-          { text: 'Cancel', style: 'cancel' },
-          { 
-            text: 'Delete', 
-            style: 'destructive', 
-            onPress: async () => {
-              try {
-                setLoading(true);
-                await shopService.deleteProduct(product.id);
-                Alert.alert('Success', 'Product deleted successfully!', [
-                  { text: 'OK', onPress: () => navigation.goBack() }
-                ]);
-              } catch (err: any) {
-                Alert.alert('Error', err.response?.data?.detail || 'Failed to delete product.');
-              } finally {
-                setLoading(false);
-              }
-            }
+      setAlertConfig({
+        title: 'Delete Product',
+        message: `Are you sure you want to delete "${product.name}"? This action cannot be undone.`,
+        onConfirm: async () => {
+          try {
+            setLoading(true);
+            await shopService.deleteProduct(product.id);
+            showAlert('Success', 'Product deleted successfully!', () => navigation.goBack());
+          } catch (err: any) {
+            showAlert('Error', err.response?.data?.detail || 'Failed to delete product.');
+          } finally {
+            setLoading(false);
           }
-        ]
-      );
+        }
+      });
+      setAlertVisible(true);
     }
   };
 
@@ -389,7 +436,7 @@ const ProductDetailScreen = () => {
           ) : (
             <TouchableOpacity 
               style={[styles.addToCartButton, (!product || product.stock <= 0 || addingToCart) && styles.disabledButton]} 
-              onPress={handleAddToCart}
+              onPress={() => handleAddToCart(false)}
               disabled={!product || product.stock <= 0 || addingToCart}
               accessibilityLabel={product?.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
             >
@@ -452,6 +499,114 @@ const ProductDetailScreen = () => {
           )}
         </View>
       </ScrollView>
+      
+      {/* Size Selection Modal */}
+      <Modal
+        visible={sizeModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setSizeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Size</Text>
+            <Text style={styles.modalSubtitle}>Please choose your size</Text>
+            
+            <View style={styles.modalSizeOptions}>
+              {CLOTHING_SIZES.map((size) => (
+                <TouchableOpacity
+                  key={size}
+                  style={[
+                    styles.modalSizeButton,
+                    selectedSize === size && styles.modalSizeButtonSelected
+                  ]}
+                  onPress={() => setSelectedSize(size)}
+                >
+                  <Text style={[
+                    styles.modalSizeButtonText,
+                    selectedSize === size && styles.modalSizeButtonTextSelected
+                  ]}>
+                    {size}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            
+            <View style={styles.modalButtons}>
+              <TouchableOpacity
+                style={[styles.modalButton, styles.modalCancelButton]}
+                onPress={() => {
+                  setSizeModalVisible(false);
+                  setSelectedSize(null);
+                }}
+              >
+                <Text style={styles.modalCancelButtonText}>Cancel</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity
+                style={[
+                  styles.modalButton,
+                  styles.modalConfirmButton,
+                  !selectedSize && styles.modalButtonDisabled
+                ]}
+                onPress={() => {
+                  if (selectedSize) {
+                    setSizeModalVisible(false);
+                    handleAddToCart(true);
+                  }
+                }}
+                disabled={!selectedSize}
+              >
+                <Text style={styles.modalConfirmButtonText}>Add to Cart</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+      
+      {/* Custom Alert Modal */}
+      <Modal
+        visible={alertVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAlertVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.alertModalContent}>
+            <Text style={styles.alertTitle}>{alertConfig.title}</Text>
+            <Text style={styles.alertMessage}>{alertConfig.message}</Text>
+            
+            <View style={styles.alertButtons}>
+              {alertConfig.onConfirm ? (
+                <>
+                  <TouchableOpacity
+                    style={[styles.alertButton, styles.alertCancelButton]}
+                    onPress={() => setAlertVisible(false)}
+                  >
+                    <Text style={styles.alertCancelButtonText}>Cancel</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={[styles.alertButton, styles.alertConfirmButton]}
+                    onPress={() => {
+                      setAlertVisible(false);
+                      alertConfig.onConfirm?.();
+                    }}
+                  >
+                    <Text style={styles.alertConfirmButtonText}>OK</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <TouchableOpacity
+                  style={[styles.alertButton, styles.alertConfirmButton, {flex: 1}]}
+                  onPress={() => setAlertVisible(false)}
+                >
+                  <Text style={styles.alertConfirmButtonText}>OK</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -920,6 +1075,162 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeS,
     color: colors.textSecondary,
     marginTop: 8,
+    fontFamily: typography.fontFamily,
+  },
+  
+  // Size Selection Modal
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 15,
+    padding: 20,
+    width: '85%',
+    maxWidth: 400,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  modalTitle: {
+    fontSize: typography.fontSizeXL,
+    fontWeight: 'bold' as 'bold',
+    color: colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+    fontFamily: typography.fontFamily,
+  },
+  modalSubtitle: {
+    fontSize: typography.fontSizeM,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    textAlign: 'center',
+    fontFamily: typography.fontFamily,
+  },
+  modalSizeOptions: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'center',
+    gap: 10,
+    marginBottom: 20,
+  },
+  modalSizeButton: {
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    borderWidth: 2,
+    borderColor: colors.border,
+    backgroundColor: colors.card,
+    minWidth: 60,
+    alignItems: 'center',
+  },
+  modalSizeButtonSelected: {
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
+  },
+  modalSizeButtonText: {
+    fontSize: typography.fontSizeL,
+    color: colors.textPrimary,
+    fontWeight: '600' as '600',
+    fontFamily: typography.fontFamily,
+  },
+  modalSizeButtonTextSelected: {
+    color: colors.buttonText,
+    fontWeight: 'bold' as 'bold',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalButton: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  modalCancelButton: {
+    backgroundColor: '#E0E0E0',
+  },
+  modalCancelButtonText: {
+    fontSize: typography.fontSizeM,
+    color: colors.textPrimary,
+    fontWeight: '600' as '600',
+    fontFamily: typography.fontFamily,
+  },
+  modalConfirmButton: {
+    backgroundColor: colors.primary,
+  },
+  modalConfirmButtonText: {
+    fontSize: typography.fontSizeM,
+    color: colors.buttonText,
+    fontWeight: 'bold' as 'bold',
+    fontFamily: typography.fontFamily,
+  },
+  modalButtonDisabled: {
+    backgroundColor: '#CCCCCC',
+    opacity: 0.6,
+  },
+  
+  // Custom Alert Modal
+  alertModalContent: {
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    padding: 20,
+    width: '80%',
+    maxWidth: 350,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 10,
+  },
+  alertTitle: {
+    fontSize: typography.fontSizeL,
+    fontWeight: 'bold' as 'bold',
+    color: colors.textPrimary,
+    marginBottom: 12,
+    textAlign: 'center',
+    fontFamily: typography.fontFamily,
+  },
+  alertMessage: {
+    fontSize: typography.fontSizeM,
+    color: colors.textSecondary,
+    marginBottom: 20,
+    textAlign: 'center',
+    lineHeight: 20,
+    fontFamily: typography.fontFamily,
+  },
+  alertButtons: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  alertButton: {
+    flex: 1,
+    paddingVertical: 10,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  alertCancelButton: {
+    backgroundColor: '#E0E0E0',
+  },
+  alertCancelButtonText: {
+    fontSize: typography.fontSizeM,
+    color: colors.textPrimary,
+    fontWeight: '600' as '600',
+    fontFamily: typography.fontFamily,
+  },
+  alertConfirmButton: {
+    backgroundColor: colors.primary,
+  },
+  alertConfirmButtonText: {
+    fontSize: typography.fontSizeM,
+    color: colors.buttonText,
+    fontWeight: 'bold' as 'bold',
     fontFamily: typography.fontFamily,
   },
 });
