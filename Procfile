@@ -1,2 +1,2 @@
-web: gunicorn --chdir saknew_backend core_api.wsgi
-release: python saknew_backend/manage.py migrate
+web: cd saknew_backend && gunicorn core_api.wsgi
+release: cd saknew_backend && python manage.py migrate
