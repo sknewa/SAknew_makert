@@ -3,6 +3,8 @@
 import os
 import sys
 
+# Add saknew_backend to path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'saknew_backend'))
 
 def main():
     """Run administrative tasks."""
