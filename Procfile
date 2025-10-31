@@ -1,2 +1,2 @@
-web: cd saknew_backend && gunicorn core_api.wsgi
-release: cd saknew_backend && python manage.py migrate
+web: gunicorn --pythonpath saknew_backend core_api.wsgi
+release: python manage.py migrate --settings=core_api.settings --pythonpath=saknew_backend
