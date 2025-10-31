@@ -7,6 +7,8 @@ export interface UserProfile {
   email_verified: boolean;
   is_seller: boolean;
   shop_slug: string | null;
+  shop_id?: number;
+  profile_picture?: string;
 }
 
 /**
@@ -159,7 +161,7 @@ export interface Order {
   shipping_address: string;
   payment_method: string;
   items: OrderItem[]; // Array of order items
-  payment_status?: PaymentStatus; // Payment status
+  payment_status?: PaymentStatus | 'paid'; // Payment status
   delivery_verified?: boolean; // Whether delivery has been verified
   delivery_verification_code?: string; // Code for delivery verification
 }

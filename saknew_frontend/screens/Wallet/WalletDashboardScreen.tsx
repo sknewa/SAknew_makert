@@ -1,4 +1,4 @@
-console.log('🚀 WalletDashboardScreen v2.0 - Enhanced transactions loaded');
+safeLog('🚀 WalletDashboardScreen v2.0 - Enhanced transactions loaded');
 import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
@@ -18,26 +18,8 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { useBadges } from '../../context/BadgeContext';
 import { getMyWallet, getMyTransactions, Wallet, Transaction } from '../../services/walletService';
 
-// Define common colors - Consistent with other screens
-const colors = {
-  background: '#F0F2F5', // Lighter, modern background
-  textPrimary: '#2C3E50', // Darker, more professional text
-  textSecondary: '#7F8C8D', // Softer secondary text
-  card: '#FFFFFF', // Pure white cards
-  border: '#E0E6EB', // Lighter, subtle border
-  primary: '#27AE60', // A more vibrant green
-  primaryLight: '#2ECC71', // Lighter primary for accents
-  buttonBg: '#27AE60', // Matches primary
-  buttonText: '#FFFFFF',
-  errorText: '#E74C3C', // Clearer red for errors
-  successText: '#27AE60', // Matches primary for success
-  shadowColor: 'rgba(0, 0, 0, 0.1)', // Softer, more diffused shadow
-  infoAction: '#3498DB', // Blue for info actions
-  dangerAction: '#E74C3C', // Red for danger actions
-  warningAction: '#F39C12', // Orange for warnings
-  white: '#FFFFFF',
-  accent: '#F1C40F', // Golden yellow for ratings/accents
-};
+import { colors } from '../../styles/globalStyles';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 
 
@@ -124,7 +106,7 @@ const getTransactionColor = (type: string) => {
     case 'DEPOSIT': return colors.successText;
     case 'REFUND': return colors.infoAction;
     case 'WITHDRAWAL': return colors.dangerAction;
-    case 'PAYMENT': return colors.textPrimary;
+    case 'PAYMENT': return colors.dangerAction;
     case 'ESCROW_RELEASE': return colors.accent;
     default: return colors.textSecondary;
   }
@@ -141,54 +123,54 @@ const WalletDashboardScreen: React.FC = () => {
   const [refreshing, setRefreshing] = useState<boolean>(false);
 
   const fetchWalletData = useCallback(async () => {
-    console.log('🔍 DEBUG: === FETCH WALLET DATA START ===');
-    console.log('🔍 DEBUG: refreshing:', refreshing);
-    console.log('🔍 DEBUG: user:', user);
-    console.log('🔍 DEBUG: user.id:', user?.id);
+    safeLog('🔍 DEBUG: === FETCH WALLET DATA START ===');
+    safeLog('🔍 DEBUG: refreshing:', refreshing);
+    safeLog('🔍 DEBUG: user:', user);
+    safeLog('🔍 DEBUG: user.id:', user?.id);
     
     if (!refreshing) setLoading(true);
     setError(null);
     try {
       if (!user?.id) {
-        console.log('🔍 DEBUG: No user ID, setting error');
+        safeLog('🔍 DEBUG: No user ID, setting error');
         setError("User not authenticated. Cannot fetch wallet data.");
         setLoading(false);
         return;
       }
-      console.log('🔍 DEBUG: Fetching wallet data for user:', user.id);
+      safeLog('🔍 DEBUG: Fetching wallet data for user:', user.id);
       
       // Refresh badges (including wallet balance) and get transactions
-      console.log('🔍 DEBUG: Calling refreshBadges()');
+      safeLog('🔍 DEBUG: Calling refreshBadges()');
       await refreshBadges();
-      console.log('🔍 DEBUG: refreshBadges() completed');
+      safeLog('🔍 DEBUG: refreshBadges() completed');
       
-      console.log('🔍 DEBUG: Calling getMyTransactions()');
+      safeLog('🔍 DEBUG: Calling getMyTransactions()');
       const txnsResponse = await getMyTransactions();
-      console.log('🔍 DEBUG: Transactions response:', txnsResponse);
+      safeLog('🔍 DEBUG: Transactions response:', txnsResponse);
       
       // Sort transactions by date (newest first)
-      console.log('🔍 DEBUG: Sorting transactions');
+      safeLog('🔍 DEBUG: Sorting transactions');
       const sortedTxns = txnsResponse.sort((a: Transaction, b: Transaction) => {
         const dateA = new Date(b.created_at).getTime();
         const dateB = new Date(a.created_at).getTime();
-        console.log('🔍 DEBUG: Comparing dates:', { dateA, dateB, diff: dateA - dateB });
+        safeLog('🔍 DEBUG: Comparing dates:', { dateA, dateB, diff: dateA - dateB });
         return dateA - dateB;
       });
-      console.log('🔍 DEBUG: Sorted transactions count:', sortedTxns.length);
+      safeLog('🔍 DEBUG: Sorted transactions count:', sortedTxns.length);
       setTransactions(sortedTxns);
-      console.log('🔍 DEBUG: === FETCH WALLET DATA SUCCESS ===');
+      safeLog('🔍 DEBUG: === FETCH WALLET DATA SUCCESS ===');
     } catch (err: any) {
-      console.error('🔍 DEBUG: === FETCH WALLET DATA ERROR ===');
-      console.error('🔍 DEBUG: Error:', err);
-      console.error('🔍 DEBUG: Error message:', err?.message);
-      console.error('🔍 DEBUG: Error response:', err?.response);
-      console.error('🔍 DEBUG: Error response data:', err?.response?.data);
+      safeError('🔍 DEBUG: === FETCH WALLET DATA ERROR ===');
+      safeError('🔍 DEBUG: Error:', err);
+      safeError('🔍 DEBUG: Error message:', err?.message);
+      safeError('🔍 DEBUG: Error response:', err?.response);
+      safeError('🔍 DEBUG: Error response data:', err?.response?.data);
       setError("Failed to load wallet data. Please try again.");
     } finally {
-      console.log('🔍 DEBUG: Setting loading and refreshing to false');
+      safeLog('🔍 DEBUG: Setting loading and refreshing to false');
       setLoading(false);
       setRefreshing(false);
-      console.log('🔍 DEBUG: === FETCH WALLET DATA END ===');
+      safeLog('🔍 DEBUG: === FETCH WALLET DATA END ===');
     }
   }, [user, refreshBadges, refreshing]);
 
@@ -207,7 +189,7 @@ const WalletDashboardScreen: React.FC = () => {
   useFocusEffect(
     useCallback(() => {
       if (isAuthenticated && !authLoading) {
-        console.log('Screen focused, refreshing wallet data');
+        safeLog('Screen focused, refreshing wallet data');
         fetchWalletData();
       }
     }, [isAuthenticated, authLoading, fetchWalletData])
@@ -294,7 +276,7 @@ const WalletDashboardScreen: React.FC = () => {
             <TouchableOpacity 
               style={styles.refreshButton} 
               onPress={() => {
-                console.log('Manual refresh triggered');
+                safeLog('Manual refresh triggered');
                 fetchWalletData();
               }}
               disabled={loading}
@@ -335,10 +317,11 @@ const WalletDashboardScreen: React.FC = () => {
             ) : (
               <View style={styles.transactionsList}>
                 {Array.isArray(transactions) ? transactions.map((txn) => {
-                  console.log('🔍 DEBUG: Rendering transaction:', txn.id);
+                  safeLog('🔍 DEBUG: Rendering transaction:', txn.id);
                   const amt = parseFloat(txn.amount);
                   const { title, subtitle } = formatTransactionDescription(txn);
                   const isEarning = txn.transaction_type.toUpperCase() === 'ESCROW_RELEASE';
+                  const isPurchase = txn.transaction_type.toUpperCase() === 'PAYMENT';
                   
                   return (
                     <View key={txn.id} style={[
@@ -374,7 +357,7 @@ const WalletDashboardScreen: React.FC = () => {
                       <View style={styles.transactionAmountContainer}>
                         <Text style={[
                           styles.transactionAmount,
-                          amt > 0 ? styles.amountPositive : styles.amountNegative,
+                          isPurchase ? styles.amountNegative : (amt > 0 ? styles.amountPositive : styles.amountNegative),
                           isEarning && styles.amountEarning
                         ]}>
                           {amt > 0 ? '+' : ''}{formatCurrency(txn.amount)}
@@ -400,295 +383,54 @@ const WalletDashboardScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    paddingBottom: 30,
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-  },
-  infoContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 30,
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
-    margin: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 12,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    marginBottom: 25,
-    textAlign: 'center',
-    lineHeight: 24,
-  },
-  messageText: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 25,
-    paddingHorizontal: 15,
-    lineHeight: 24,
-  },
-  errorTextSmall: {
-    fontSize: 14,
-    color: colors.errorText,
-    marginTop: 15,
-    textAlign: 'center',
-    paddingHorizontal: 20,
-    fontWeight: '500',
-  },
-  button: {
-    backgroundColor: colors.buttonBg,
-    paddingVertical: 14,
-    paddingHorizontal: 30,
-    borderRadius: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 8,
-    elevation: 7,
-    marginTop: 15,
-    marginHorizontal: 8,
-  },
-  buttonText: {
-    color: colors.buttonText,
-    fontSize: 16,
-    fontWeight: '700',
-    marginLeft: 10,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  scrollViewContent: { flexGrow: 1, padding: 16, paddingBottom: 30 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  infoContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, textAlign: 'center' },
+  messageText: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 20 },
+  errorTextSmall: { fontSize: 13, color: colors.error, marginTop: 10, textAlign: 'center' },
+  button: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
+  buttonText: { color: colors.white, fontSize: 14, fontWeight: '600' },
   buttonPrimary: { backgroundColor: colors.primary },
 
-  container: {
-    flex: 1,
-    paddingHorizontal: 15,
-    paddingTop: 20,
-    backgroundColor: colors.background,
-  },
-  headerContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 25,
-  },
-  pageTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    flex: 1,
-    textAlign: 'center',
-  },
-  refreshButton: {
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: colors.background,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
+  container: { flex: 1 },
+  headerContainer: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
+  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, flex: 1, textAlign: 'center' },
+  refreshButton: { padding: 8 },
 
   // Wallet Balance Card
-  balanceCard: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: 25,
-    marginBottom: 25,
-    alignItems: 'center',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.2,
-    shadowRadius: 20,
-    elevation: 10,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  balanceLabel: {
-    fontSize: 18,
-    color: colors.textSecondary,
-    marginBottom: 10,
-    fontWeight: '500',
-  },
-  balanceValue: {
-    fontSize: 42,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 20,
-  },
-  balanceActions: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    width: '100%',
-    marginTop: 10,
-  },
-  actionButton: {
-    flexDirection: 'column',
-    alignItems: 'center',
-    padding: 10,
-    borderRadius: 10,
-    backgroundColor: colors.background,
-    width: '45%', // Distribute space
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 5,
-    elevation: 3,
-    borderWidth: 0.5,
-    borderColor: colors.border,
-  },
-  actionButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginTop: 5,
-  },
+  balanceCard: { backgroundColor: colors.card, borderRadius: 4, padding: 16, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
+  balanceLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 8, fontWeight: '600' },
+  balanceValue: { fontSize: 32, fontWeight: '700', color: colors.primary, marginBottom: 16 },
+  balanceActions: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 8 },
+  actionButton: { flexDirection: 'column', alignItems: 'center', padding: 10, borderRadius: 4, backgroundColor: colors.background, width: '45%', borderWidth: 1, borderColor: colors.border },
+  actionButtonText: { fontSize: 12, fontWeight: '600', color: colors.textPrimary, marginTop: 4 },
 
   // Transactions Section
-  transactionsSection: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: 20,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 6 },
-    shadowOpacity: 0.15,
-    shadowRadius: 15,
-    elevation: 8,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: 15,
-    paddingBottom: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-  },
-  noTransactionsContainer: {
-    alignItems: 'center',
-    paddingVertical: 30,
-  },
-  noTransactionsMessage: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: colors.textSecondary,
-    marginTop: 15,
-    marginBottom: 5,
-  },
-  noTransactionsSubMessage: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    fontStyle: 'italic',
-  },
-  transactionsList: {
-    // No specific styling needed for the list container itself, items will be styled
-  },
-  transactionItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: colors.white,
-    borderRadius: 8,
-    marginBottom: 8,
-  },
-  transactionItemEarning: {
-    backgroundColor: '#FFF9E6',
-    borderLeftWidth: 4,
-    borderLeftColor: colors.accent,
-  },
-  transactionIconContainer: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: colors.background,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 12,
-  },
-  transactionIconContainerEarning: {
-    backgroundColor: '#FFF3CD',
-  },
-  transactionDetails: {
-    flex: 1,
-    marginRight: 10,
-  },
-  transactionTitle: {
-    fontSize: 15,
-    color: colors.textPrimary,
-    fontWeight: '600',
-    marginBottom: 3,
-  },
-  transactionTitleEarning: {
-    fontSize: 16,
-    fontWeight: '700',
-  },
-  transactionSubtitle: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    marginBottom: 2,
-  },
-  transactionDate: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  transactionAmountContainer: {
-    alignItems: 'flex-end',
-  },
-  transactionAmount: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 4,
-  },
-  amountPositive: {
-    color: colors.successText,
-  },
-  amountNegative: {
-    color: colors.dangerAction,
-  },
-  amountEarning: {
-    fontSize: 18,
-    color: colors.accent,
-  },
-  earningBadge: {
-    backgroundColor: colors.accent,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 10,
-  },
-  earningBadgeText: {
-    fontSize: 10,
-    color: colors.white,
-    fontWeight: '700',
-    textTransform: 'uppercase',
-  },
+  transactionsSection: { backgroundColor: colors.card, borderRadius: 4, padding: 12, borderWidth: 1, borderColor: colors.border },
+  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 12 },
+  noTransactionsContainer: { alignItems: 'center', paddingVertical: 20 },
+  noTransactionsMessage: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginTop: 12, marginBottom: 4 },
+  noTransactionsSubMessage: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
+  transactionsList: {},
+  transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 8 },
+  transactionItemEarning: { backgroundColor: '#FFF9E6', borderLeftWidth: 3, borderLeftColor: colors.accent },
+  transactionIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  transactionIconContainerEarning: { backgroundColor: '#FFF3CD' },
+  transactionDetails: { flex: 1, marginRight: 8 },
+  transactionTitle: { fontSize: 13, color: colors.textPrimary, fontWeight: '600', marginBottom: 2 },
+  transactionTitleEarning: { fontSize: 14, fontWeight: '700' },
+  transactionSubtitle: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
+  transactionDate: { fontSize: 10, color: colors.textSecondary },
+  transactionAmountContainer: { alignItems: 'flex-end' },
+  transactionAmount: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
+  amountPositive: { color: colors.successText },
+  amountNegative: { color: colors.dangerAction },
+  amountEarning: { fontSize: 16, color: colors.accent },
+  earningBadge: { backgroundColor: colors.accent, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  earningBadgeText: { fontSize: 9, color: colors.white, fontWeight: '700', textTransform: 'uppercase' },
 });
 
 export default WalletDashboardScreen;

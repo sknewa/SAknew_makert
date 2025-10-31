@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Image, View, StyleSheet, ActivityIndicator, Text } from 'react-native';
 import { getCachedImageUri } from '../utils/imageCache';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 interface ProductImageProps {
   imageUrl: string | null;
@@ -28,7 +29,7 @@ const ProductImage: React.FC<ProductImageProps> = ({
           setImageUri(uri);
         }
       } catch (err) {
-        console.error('Failed to load cached image:', err);
+        safeError('Failed to load cached image:', err);
         if (isMounted) {
           setError(true);
           setLoading(false);
@@ -63,7 +64,7 @@ const ProductImage: React.FC<ProductImageProps> = ({
         onLoadStart={() => setLoading(true)}
         onLoadEnd={() => setLoading(false)}
         onError={() => {
-          console.log('Image failed to load:', imageUrl);
+          safeLog('Image failed to load:', imageUrl);
           setError(true);
           setLoading(false);
         }}

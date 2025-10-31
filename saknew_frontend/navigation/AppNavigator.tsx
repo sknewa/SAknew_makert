@@ -30,6 +30,9 @@ import PurchaseDetailScreen from '../screens/Sales/PurchaseDetailScreen';
 import StatusViewerScreen from '../screens/Status/StatusViewerScreen';
 import CreateStatusScreen from '../screens/Status/CreateStatusScreen';
 import StatusListScreen from '../screens/Status/StatusListScreen';
+import PublicShopScreen from '../screens/Shop/PublicShopScreen';
+import CategoryProductsScreen from '../screens/CategoryProductsScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -70,6 +73,9 @@ const AppNavigator = () => {
             <Stack.Screen name="StatusViewer" component={StatusViewerScreen} />
             <Stack.Screen name="CreateStatus" component={CreateStatusScreen} />
             <Stack.Screen name="StatusList" component={StatusListScreen} />
+            <Stack.Screen name="PublicShop" component={PublicShopScreen} />
+            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
           </Stack.Group>
         ) : (
           // Authentication screens (User is NOT logged in)
@@ -81,6 +87,7 @@ const AppNavigator = () => {
             <Stack.Screen name="PasswordResetRequest" component={PasswordResetRequestScreen} />
             <Stack.Screen name="PasswordResetConfirm" component={PasswordResetConfirmScreen} />
             <Stack.Screen name="ActivateAccount" component={ActivateAccountScreen} />
+            <Stack.Screen name="PublicShop" component={PublicShopScreen} />
           </Stack.Group>
         )}
         </Stack.Navigator>

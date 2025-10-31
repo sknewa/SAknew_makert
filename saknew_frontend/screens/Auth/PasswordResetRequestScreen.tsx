@@ -17,6 +17,7 @@ import { useNavigation } from '@react-navigation/native';
 import AuthService from '../../services/authService';
 import { AuthNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const colors = {
   primary: '#4CAF50',
@@ -66,7 +67,7 @@ const PasswordResetRequestScreen: React.FC = () => {
         ]
       );
     } catch (err: any) {
-      console.error('Password reset request error:', err?.response?.data || err?.message || err);
+      safeError('Password reset request error:', err?.response?.data || err?.message || err);
       let errorMessage = 'An unexpected error occurred. Please try again.';
 
       if (err?.response?.data) {

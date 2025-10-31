@@ -1,5 +1,5 @@
 // saknew_frontend/screens/ShopOwner/MyShopScreen.tsx
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -10,10 +10,7 @@ import {
   ActivityIndicator,
   Alert,
   Share,
-  Platform,
   Dimensions,
-  NativeSyntheticEvent,
-  NativeScrollEvent,
   RefreshControl,
   TextInput,
   Modal,
@@ -24,17 +21,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShopOwnerStackParamList } from '../../navigation/ShopOwnerNavigator';
 import ProductCard from '../../components/ProductCard';
-import StatusSection from '../../components/StatusSection';
-import statusService from '../../services/statusService';
+import statusService from '../../services/statusService'; // Keeping for potential future use or if other services rely on it
+// Removed: import StatusSection from '../../components/StatusSection'; 
+// Removed: import { UserStatus } from '../../services/status.types'; 
 
 // Import types from shop.types.ts instead of types.ts
 import { Shop, Product } from '../../services/shop.types';
 import { Order, OrderItem } from '../../types';
-import { UserStatus } from '../../services/status.types';
 
 // Import shopService directly
 import shopService from '../../services/shopService';
 import apiClient from '../../services/apiClient';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const colors = {
   background: '#F5F5F5',
@@ -57,63 +55,11 @@ const colors = {
 const screenWidth = Dimensions.get('window').width;
 const productCardWidth = (screenWidth - (20 * 2) - (10 * 2)) / 2;
 
-// Status Cards Component
-const StatusCards: React.FC<{ userId: number; onStatusPress: (userStatus: UserStatus) => void }> = ({ userId, onStatusPress }) => {
-  const [statuses, setStatuses] = useState<UserStatus[]>([]);
-  
-  useEffect(() => {
-    const fetchStatuses = async () => {
-      try {
-        const userStatuses = await statusService.getUserStatuses();
-        const myStatuses = userStatuses.filter(s => s.user.id === userId);
-        setStatuses(myStatuses);
-      } catch (error) {
-        // Error fetching statuses
-      }
-    };
-    fetchStatuses();
-  }, [userId]);
-  
-  return (
-    <>
-      {statuses.map((userStatus) => (
-        <TouchableOpacity 
-          key={userStatus.user.id} 
-          style={styles.statusCard} 
-          onPress={() => onStatusPress(userStatus)}
-        >
-          <View style={[styles.statusPreview, { backgroundColor: userStatus.latest_status?.background_color || '#25D366' }]}>
-            <Text style={styles.statusContent} numberOfLines={3}>
-              {userStatus.latest_status?.content || userStatus.statuses[0]?.content}
-            </Text>
-          </View>
-          <Text style={styles.statusTime}>
-            {userStatus.latest_status ? 
-              formatStatusTime(userStatus.latest_status.created_at) : 
-              userStatus.statuses[0] ? formatStatusTime(userStatus.statuses[0].created_at) : ''}
-          </Text>
-        </TouchableOpacity>
-      ))}
-    </>
-  );
-};
-
-const formatStatusTime = (dateString: string): string => {
-  const date = new Date(dateString);
-  const now = new Date();
-  const diffMs = now.getTime() - date.getTime();
-  const diffMins = Math.floor(diffMs / 60000);
-  const diffHours = Math.floor(diffMins / 60);
-  
-  if (diffMins < 1) return 'now';
-  if (diffMins < 60) return `${diffMins}m`;
-  if (diffHours < 24) return `${diffHours}h`;
-  return date.toLocaleDateString();
-};
+// Removed StatusCards component and related formatStatusTime function
 
 const MyShopScreen: React.FC = () => {
   const navigation = useNavigation<NativeStackNavigationProp<ShopOwnerStackParamList>>();
-  const { user, isAuthenticated, loading: authLoading, refreshUserProfile } = useAuth(); // Get refreshUserProfile
+  const { user, isAuthenticated, loading: authLoading, refreshUserProfile } = useAuth();
 
   const [shop, setShop] = useState<Shop | null>(null);
   const [products, setProducts] = useState<Product[]>([]);
@@ -152,7 +98,7 @@ const MyShopScreen: React.FC = () => {
   }, []);
 
   const fetchShopData = useCallback(async () => {
-    console.log('🔄 [MyShopScreen] fetchShopData called');
+    safeLog('🔄 [MyShopScreen] fetchShopData called');
     if (!refreshing) setLoading(true);
     setError(null);
     
@@ -185,18 +131,18 @@ const MyShopScreen: React.FC = () => {
         if (fetchedShop.slug) {
           const productResponse: any = await shopService.getShopProducts(fetchedShop.slug);
         
-        // FIX: Handle paginated response from the API
-        if (productResponse && Array.isArray(productResponse.results)) {
-          setProducts(productResponse.results);
-        } else if (Array.isArray(productResponse)) {
-          // Handle cases where the API might just return an array directly.
-          setProducts(productResponse);
+          // FIX: Handle paginated response from the API
+          if (productResponse && Array.isArray(productResponse.results)) {
+            setProducts(productResponse.results);
+          } else if (Array.isArray(productResponse)) {
+            // Handle cases where the API might just return an array directly.
+            setProducts(productResponse);
+            } else {
+              setProducts([]);
+            }
           } else {
             setProducts([]);
           }
-        } else {
-          setProducts([]);
-        }
         
       } catch (shopError: any) {
         if (shopError.response?.status === 404) {
@@ -229,12 +175,15 @@ const MyShopScreen: React.FC = () => {
       const allOrders = response.data.results || response.data || [];
       
       const sellerOrders = allOrders.filter((order: Order) => {
-        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
+        if (order.payment_status !== 'paid') return false;
         if (order.user.email === user.email) return false;
         
-        const hasSellerItems = order.items?.some((item: OrderItem) => 
-          item.product?.shop?.id === user.profile.shop_id
-        );
+        // Find the shopId for the current order item (this logic is slightly complex and relies on item.product?.shop)
+        // I will simplify the shopId determination for this filter logic to use the logged-in user's shop_id
+        const hasSellerItems = order.items?.some((item: OrderItem) => {
+          const itemShopId = typeof item.product?.shop === 'number' ? item.product.shop : item.product?.shop?.id;
+          return itemShopId === user.profile?.shop_id;
+        });
         
         return hasSellerItems;
       });
@@ -250,7 +199,7 @@ const MyShopScreen: React.FC = () => {
       setNewOrdersCount(activeOrders.length);
       setCompletedOrdersCount(completedOrders.length);
     } catch (error) {
-      console.error('Error fetching orders:', error);
+      safeError('Error fetching orders:', error);
     }
   }, [user]);
 
@@ -258,6 +207,7 @@ const MyShopScreen: React.FC = () => {
     useCallback(() => {
       if (!authLoading) {
         fetchShopData();
+        // Check for seller status and shop slug before fetching orders
         if (user?.profile?.is_seller && user?.profile?.shop_slug) {
           fetchNewOrdersCount();
         }
@@ -280,26 +230,26 @@ const MyShopScreen: React.FC = () => {
   }, [fetchShopData, refreshUserProfile, isAuthenticated]);
 
   const handleShareShopLink = async () => {
-    console.log('🔍 Share button pressed');
-    console.log('Shop data:', { slug: shop?.slug, name: shop?.name });
+    safeLog('🔍 Share button pressed');
+    safeLog('Shop data:', { slug: shop?.slug, name: shop?.name });
     
     if (shop?.slug) {
       const webUrl = `https://saknew-makert-e7ac1361decc.herokuapp.com/shop/${shop.slug}`;
       const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
       
-      console.log('Share message:', shareMessage);
+      safeLog('Share message:', shareMessage);
       
       try {
         await Share.share({
           message: shareMessage,
         });
-        console.log('✅ Share completed');
+        safeLog('✅ Share completed');
       } catch (shareError: any) {
-        console.error('Share error:', shareError);
+        safeError('Share error:', shareError);
         Alert.alert('Error Sharing', `Could not share the shop link: ${shareError.message}`);
       }
     } else {
-      console.warn('⚠️ No shop slug available');
+      safeWarn('⚠️ No shop slug available');
       Alert.alert('No Shop Link', 'Cannot share link as your shop details are not available.');
     }
   };
@@ -307,23 +257,19 @@ const MyShopScreen: React.FC = () => {
   const handleCategoryTitlePress = (categorySlug: string, categoryName: string) => {
     navigation.navigate('CategoryProductsScreen', {
       categorySlug,
-      categoryName
-    });
+      categoryName,
+      products: []
+    } as any);
   };
 
-  const handleStatusPress = (userStatus: UserStatus) => {
-    navigation.getParent()?.navigate('StatusViewer', { userStatus });
-  };
-
-  const handleCreateStatus = () => {
-    navigation.getParent()?.navigate('CreateStatus');
-  };
+  // Removed: handleStatusPress
+  // Removed: handleCreateStatus
 
   // Check if the current user is the shop owner
   const isShopOwner = isAuthenticated && 
-                     user?.profile?.is_seller && 
-                     shop?.user?.id === user?.id && 
-                     shop?.slug === user?.profile?.shop_slug;
+                      user?.profile?.is_seller && 
+                      shop?.user?.id === user?.id && 
+                      shop?.slug === user?.profile?.shop_slug;
 
   if (authLoading || loading) {
     return (
@@ -438,7 +384,7 @@ const MyShopScreen: React.FC = () => {
                     style={styles.iconButton}
                     activeOpacity={0.7}
                     onPress={() => {
-                      console.log('📤 [MyShopScreen] Share shop button pressed');
+                      safeLog('📤 [MyShopScreen] Share shop button pressed');
                       handleShareShopLink();
                     }}
                   >
@@ -448,7 +394,7 @@ const MyShopScreen: React.FC = () => {
                     style={styles.iconButton}
                     activeOpacity={0.7}
                     onPress={() => {
-                      console.log('✏️ [MyShopScreen] Edit shop button pressed');
+                      safeLog('✏️ [MyShopScreen] Edit shop button pressed');
                       navigation.navigate('EditShop', { shopSlug: shop.slug });
                     }}
                   >
@@ -459,7 +405,7 @@ const MyShopScreen: React.FC = () => {
                     style={styles.iconButton}
                     activeOpacity={0.7}
                     onPress={() => {
-                      console.log('🗑️ [MyShopScreen] Delete shop button pressed');
+                      safeLog('🗑️ [MyShopScreen] Delete shop button pressed');
                       setShowDeleteModal(true);
                     }}
                   >
@@ -485,7 +431,7 @@ const MyShopScreen: React.FC = () => {
             <View style={styles.statsRow}>
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products' })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products', products: [] } as any)}
               >
                 <Text style={styles.statLabel}>Total</Text>
                 <View style={styles.statValueRow}>
@@ -496,7 +442,7 @@ const MyShopScreen: React.FC = () => {
               
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock' })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock', products: [] } as any)}
               >
                 <Text style={styles.statLabel}>In Stock</Text>
                 <View style={styles.statValueRow}>
@@ -507,7 +453,7 @@ const MyShopScreen: React.FC = () => {
               
               <TouchableOpacity 
                 style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock' })}
+                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock', products: [] } as any)}
               >
                 <Text style={styles.statLabel}>Out</Text>
                 <View style={styles.statValueRow}>
@@ -560,6 +506,7 @@ const MyShopScreen: React.FC = () => {
           </View>
 
           {/* Category Navigation */}
+          {/* This section now follows directly after the Search Bar, eliminating the empty space */}
           {uniqueCategories.length > 0 && (
             <ScrollView
               horizontal
@@ -573,22 +520,25 @@ const MyShopScreen: React.FC = () => {
               >
                 <Text style={[styles.categoryChipText, selectedCategory === null && styles.categoryChipTextActive]}>All</Text>
               </TouchableOpacity>
-              {uniqueCategories.map(category => (
+              {uniqueCategories.map(category => {
+                const catId = typeof category.id === 'number' ? category.id : (category.id as any)?.id;
+                return (
                 <TouchableOpacity
-                  key={category.id}
-                  style={[styles.categoryChip, selectedCategory === category.id && styles.categoryChipActive]}
-                  onPress={() => setSelectedCategory(category.id)}
+                  key={catId}
+                  style={[styles.categoryChip, selectedCategory === catId && styles.categoryChipActive]}
+                  onPress={() => setSelectedCategory(catId)}
                 >
-                  <Text style={[styles.categoryChipText, selectedCategory === category.id && styles.categoryChipTextActive]}>{category.name}</Text>
+                  <Text style={[styles.categoryChipText, selectedCategory === catId && styles.categoryChipTextActive]}>{category.name}</Text>
                 </TouchableOpacity>
-              ))}
+              );
+              })}
             </ScrollView>
           )}
 
           {/* Product Listing Section */}
           <View style={styles.productListingSection}>
 
-                {filteredProducts.length === 0 && searchQuery.length === 0 ? (
+              {filteredProducts.length === 0 && searchQuery.length === 0 ? (
               <View style={styles.emptyStateContainer}>
                 <Ionicons name="cube-outline" size={70} color={colors.textSecondary} />
                 <Text style={styles.title}>No Products Yet!</Text>
@@ -646,7 +596,7 @@ const MyShopScreen: React.FC = () => {
                               }
                             }}
                             onProductDeleted={() => {
-                              console.log('🔄 [MyShopScreen] onProductDeleted callback triggered for product:', product.id);
+                              safeLog('🔄 [MyShopScreen] onProductDeleted callback triggered for product:', product.id);
                               fetchShopData();
                             }}
                             shopLatitude={shop.latitude}
@@ -694,7 +644,7 @@ const MyShopScreen: React.FC = () => {
                               }
                             }}
                             onProductDeleted={() => {
-                              console.log('🔄 [MyShopScreen] onProductDeleted callback triggered for ungrouped product:', product.id);
+                              safeLog('🔄 [MyShopScreen] onProductDeleted callback triggered for ungrouped product:', product.id);
                               fetchShopData();
                             }}
                             shopLatitude={shop.latitude}
@@ -724,12 +674,16 @@ const MyShopScreen: React.FC = () => {
               <TouchableOpacity style={[styles.modalButton, styles.modalButtonDelete]} onPress={async () => {
                 setShowDeleteModal(false);
                 try {
-                  await shopService.deleteShop(shop.slug);
-                  setShop(null);
-                  setProducts([]);
-                  await refreshUserProfile();
+                  if (shop?.slug) {
+                    await shopService.deleteShop(shop.slug);
+                    setShop(null);
+                    setProducts([]);
+                    // Ensure user profile is refreshed to remove shop_slug
+                    await refreshUserProfile();
+                  }
                 } catch (err: any) {
-                  console.error('Delete failed:', err);
+                  safeError('Delete failed:', err);
+                  Alert.alert('Delete Failed', 'Could not delete shop. Please try again.');
                 }
               }}>
                 <Text style={styles.modalButtonTextDelete}>Delete</Text>
@@ -750,7 +704,7 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     justifyContent: 'flex-start',
-    paddingBottom: 12,
+    paddingBottom: 8,
   },
   container: {
     flex: 1,
@@ -809,305 +763,275 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
-    marginHorizontal: 5,
+  },
+  buttonPrimary: {
+    backgroundColor: colors.primary,
+    marginTop: 10,
   },
   buttonText: {
     color: colors.buttonText,
     fontSize: 14,
     fontWeight: '600',
-    marginLeft: 6,
+    marginLeft: 8,
   },
-  buttonPrimary: { backgroundColor: colors.primary },
-  buttonInfo: { backgroundColor: colors.infoAction },
-  buttonDanger: { backgroundColor: colors.dangerAction },
-
   shopHeader: {
-    backgroundColor: colors.card,
-    paddingVertical: 8,
+    paddingVertical: 15,
     paddingHorizontal: 10,
-    marginTop: 8,
-    marginBottom: 8,
-    borderRadius: 4,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  shopName: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    textTransform: 'capitalize',
-    flex: 1,
-  },
-  shopDescription: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    lineHeight: 16,
-    marginBottom: 8,
-    paddingHorizontal: 8,
-  },
-  ownerTag: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.primary + '20',
-    borderRadius: 4,
-    paddingVertical: 3,
-    paddingHorizontal: 6,
-    marginBottom: 6,
-    alignSelf: 'center',
-  },
-  ownerTagText: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '700',
-    marginLeft: 3,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    marginTop: 10,
+    marginBottom: 10,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
   },
   shopNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    width: '100%',
-    marginBottom: 5,
+  },
+  shopName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    flexShrink: 1,
+    marginRight: 10,
   },
   shopActions: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   iconButton: {
-    padding: 4,
-    marginLeft: 4,
-  },
-  // --- NEW STYLES FOR HEADER LAYOUT ---
-  statsRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    width: '100%',
-    paddingVertical: 6,
-    marginTop: 4,
-  },
-  descriptionContainer: {
-    width: '100%',
-    backgroundColor: colors.card,
-    borderRadius: 10,
-    padding: 15,
-    marginBottom: 15,
+    padding: 8,
+    borderRadius: 5,
+    marginLeft: 5,
+    backgroundColor: colors.background,
     borderWidth: 1,
     borderColor: colors.border,
   },
-  descriptionTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
+  shopDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    marginTop: 4,
     marginBottom: 8,
+    lineHeight: 18,
   },
-  // --- END NEW STYLES FOR HEADER LAYOUT ---
-
-  statsContainer: {
+  ownerTag: {
     flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    alignItems: 'flex-start',
-    width: '100%',
-    marginTop: 0,
-    marginBottom: 0,
+    alignItems: 'center',
+    backgroundColor: colors.warningAction + '1A', // Light background
+    borderRadius: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    marginTop: 8,
+    marginBottom: 10,
+  },
+  ownerTagText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.warningAction,
+    marginLeft: 4,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 10,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
   },
   statItem: {
     alignItems: 'center',
-    paddingHorizontal: 6,
-    paddingVertical: 4,
+    flex: 1,
+    marginHorizontal: 4,
   },
   statLabel: {
     fontSize: 10,
     color: colors.textSecondary,
+    marginBottom: 4,
     fontWeight: '600',
-    marginBottom: 2,
+    textAlign: 'center',
   },
   statValueRow: {
     flexDirection: 'row',
     alignItems: 'center',
   },
   statText: {
-    fontSize: 13,
-    color: colors.textPrimary,
-    fontWeight: '700',
-    marginLeft: 3,
-  },
-  productListingSection: {
-    width: '100%',
-    marginTop: 2,
-  },
-
-  emptyStateContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: 20,
-    marginTop: 30,
-    backgroundColor: colors.card,
-    borderRadius: 12,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 12,
-    elevation: 5,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  categorySection: {
-    marginBottom: 6,
-  },
-  categoryTitleTouchable: {
-    paddingVertical: 6,
-    paddingHorizontal: 4,
-    marginBottom: 4,
-  },
-  categoryTitle: {
     fontSize: 16,
     fontWeight: '700',
     color: colors.textPrimary,
+    marginLeft: 4,
   },
-  productCountText: {
-    fontSize: 13,
-    color: colors.textSecondary,
-    fontWeight: '400',
-  },
-  outOfStockText: {
-    fontSize: 13,
-    color: colors.errorText,
-    fontWeight: '600',
-  },
-  carouselWrapper: {
-    // Add any specific styling for your carousel wrapper if needed
-  },
-  productCarousel: {
-    paddingRight: 10, // Add some padding so the last item isn't cut off
-  },
+  // Search Styles
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: 25,
-    paddingHorizontal: 15,
-    paddingVertical: 10,
-    marginTop: 4,
-    marginBottom: 4,
+    borderRadius: 10,
+    paddingHorizontal: 10,
+    marginHorizontal: 10,
+    marginVertical: 10,
     borderWidth: 1,
     borderColor: colors.border,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
   },
   searchIcon: {
     marginRight: 8,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    height: 40,
+    fontSize: 15,
     color: colors.textPrimary,
   },
+  // Category Nav Styles
   categoryNav: {
-    marginBottom: 1,
+    maxHeight: 40,
+    marginBottom: 10,
+    marginTop: 5,
+    marginHorizontal: 10,
   },
   categoryNavContent: {
-    paddingHorizontal: 5,
-    gap: 2,
+    alignItems: 'center',
+    paddingRight: 20,
   },
   categoryChip: {
-    backgroundColor: 'rgba(102,126,234,0.15)',
-    paddingHorizontal: 16,
+    paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 20,
+    backgroundColor: colors.card,
+    marginRight: 8,
     borderWidth: 1,
-    borderColor: 'rgba(102,126,234,0.3)',
-    minWidth: 80,
-    height: 36,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderColor: colors.border,
   },
   categoryChipActive: {
-    backgroundColor: '#667eea',
+    backgroundColor: colors.primary,
+    borderColor: colors.primary,
   },
   categoryChipText: {
+    color: colors.textPrimary,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#667eea',
+    fontWeight: '500',
   },
   categoryChipTextActive: {
     color: colors.white,
+    fontWeight: '600',
   },
-
-  statusCard: {
-    marginRight: 10,
-    alignItems: 'center',
+  // Product Listing Styles
+  productListingSection: {
+    flex: 1,
+    paddingHorizontal: 10,
+    paddingTop: 5,
   },
-  statusPreview: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 5,
+  categorySection: {
+    marginBottom: 20,
   },
-  statusContent: {
-    color: colors.white,
-    fontSize: 10,
-    textAlign: 'center',
+  categoryTitleTouchable: {
+    paddingVertical: 10,
   },
-  statusTime: {
-    fontSize: 10,
+  categoryTitle: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: colors.textPrimary,
+    marginBottom: 5,
+  },
+  productCountText: {
+    fontSize: 15,
+    fontWeight: '500',
     color: colors.textSecondary,
-    marginTop: 4,
   },
+  outOfStockText: {
+    color: colors.errorText,
+    fontSize: 12,
+  },
+  carouselWrapper: {
+    marginHorizontal: -10, // Pull scrollview content to edges
+  },
+  productCarousel: {
+    paddingHorizontal: 10,
+    paddingBottom: 10,
+  },
+  emptyStateContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 30,
+    marginTop: 40,
+    backgroundColor: colors.card,
+    borderRadius: 12,
+    marginHorizontal: 10,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 5,
+    elevation: 3,
+  },
+  // Modal Styles
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 20,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
   },
   modalContent: {
     backgroundColor: colors.white,
     borderRadius: 12,
-    padding: 24,
-    width: '100%',
-    maxWidth: 400,
+    padding: 25,
+    width: '85%',
+    alignItems: 'center',
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 10,
+    elevation: 10,
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 18,
     fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 12,
+    color: colors.dangerAction,
+    marginBottom: 10,
   },
   modalMessage: {
     fontSize: 14,
-    color: colors.textSecondary,
+    color: colors.textPrimary,
+    textAlign: 'center',
+    marginBottom: 20,
     lineHeight: 20,
-    marginBottom: 24,
   },
   modalButtons: {
     flexDirection: 'row',
-    gap: 12,
+    justifyContent: 'space-between',
+    width: '100%',
   },
   modalButton: {
     flex: 1,
-    paddingVertical: 12,
-    borderRadius: 8,
+    paddingVertical: 10,
+    borderRadius: 6,
+    marginHorizontal: 5,
     alignItems: 'center',
+    justifyContent: 'center',
   },
   modalButtonCancel: {
-    backgroundColor: colors.border,
+    backgroundColor: colors.background,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
   modalButtonDelete: {
     backgroundColor: colors.dangerAction,
   },
   modalButtonTextCancel: {
-    fontSize: 14,
-    fontWeight: '600',
     color: colors.textPrimary,
+    fontWeight: '600',
   },
   modalButtonTextDelete: {
-    fontSize: 14,
-    fontWeight: '600',
     color: colors.white,
+    fontWeight: '600',
   },
 });
 

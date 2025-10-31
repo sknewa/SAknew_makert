@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Saknew Market - Admin Dashboard</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="dashboard">
+        <aside class="sidebar">
+            <div class="logo">
+                <h2>🛍️ Saknew Admin</h2>
+            </div>
+            <nav class="nav">
+                <a href="#overview" class="nav-item active" onclick="showSection('overview')">📊 Overview</a>
+                <a href="#users" class="nav-item" onclick="showSection('users')">👥 Users</a>
+                <a href="#shops" class="nav-item" onclick="showSection('shops')">🏪 Shops</a>
+                <a href="#transactions" class="nav-item" onclick="showSection('transactions')">💳 Transactions</a>
+                <a href="#feedback" class="nav-item" onclick="showSection('feedback')">💬 Feedback</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <h1 id="page-title">Dashboard Overview</h1>
+                <button class="refresh-btn" id="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
+            </header>
+
+            <section id="overview-section" class="section active">
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-icon">👥</div>
+                        <div class="stat-info">
+                            <h3 id="total-users">0</h3>
+                            <p>Total Users</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏪</div>
+                        <div class="stat-info">
+                            <h3 id="total-shops">0</h3>
+                            <p>Active Shops</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💳</div>
+                        <div class="stat-info">
+                            <h3 id="total-transactions">0</h3>
+                            <p>Transactions</p>
+                        </div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">💰</div>
+                        <div class="stat-info">
+                            <h3 id="total-revenue">R 0</h3>
+                            <p>Total Revenue</p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="users-section" class="section">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Email</th>
+                                <th>Name</th>
+                                <th>Type</th>
+                                <th>Joined</th>
+                            </tr>
+                        </thead>
+                        <tbody id="users-table-body">
+                            <tr><td colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="shops-section" class="section">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>ID</th>
+                                <th>Shop Name</th>
+                                <th>Owner</th>
+                                <th>Products</th>
+                                <th>Created</th>
+                            </tr>
+                        </thead>
+                        <tbody id="shops-table-body">
+                            <tr><td colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="transactions-section" class="section">
+                <div class="table-container">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Order ID</th>
+                                <th>User</th>
+                                <th>Amount</th>
+                                <th>Status</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody id="transactions-table-body">
+                            <tr><td colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <section id="feedback-section" class="section">
+                <div class="feedback-grid" id="feedback-container">
+                    <p>Loading feedback...</p>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>

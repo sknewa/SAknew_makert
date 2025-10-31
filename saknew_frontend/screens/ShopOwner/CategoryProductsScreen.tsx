@@ -17,6 +17,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import shopService from '../../services/shopService';
 import { Product } from '../../types';
 import { Ionicons } from '@expo/vector-icons';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Define common colors (copy from MyShopScreen for consistency)
 const colors = {
@@ -81,7 +82,7 @@ const CategoryProductsScreen = () => {
         setProducts(allShopProducts);
       }
     } catch (err: any) {
-      console.error(`Error fetching products for category ${categoryName}:`, err.response?.data || err.message);
+      safeError(`Error fetching products for category ${categoryName}:`, err.response?.data || err.message);
       setError(`Failed to load products for ${categoryName}. Please try again.`);
       setProducts([]);
     } finally {
@@ -151,7 +152,7 @@ const CategoryProductsScreen = () => {
                   <Image
                     source={{ uri: product.main_image_url || 'https://via.placeholder.co/200/DEE2E6/6C757D?text=No+Image' }}
                     style={styles.productImage}
-                    onError={(e) => console.log(`Image Load Error for ${product.name} (ID: ${product.id}):`, e.nativeEvent.error)}
+                    onError={(e) => safeLog(`Image Load Error for ${product.name} (ID: ${product.id}):`, e.nativeEvent.error)}
                   />
                   <View style={styles.productDetails}>
                     <Text style={styles.productName} numberOfLines={1}>{product.name}</Text>

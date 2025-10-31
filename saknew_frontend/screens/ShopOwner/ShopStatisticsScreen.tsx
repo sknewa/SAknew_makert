@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
 import apiClient from '../../services/apiClient';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const colors = {
   background: '#F8F9FA',
@@ -78,13 +79,13 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
       const ordersResponse = await apiClient.get('/api/orders/');
       const allOrders = ordersResponse.data?.results || ordersResponse.data || [];
       
-      console.log('📊 [ShopStatistics] Total orders fetched:', allOrders.length);
-      console.log('📊 [ShopStatistics] Shop slug:', shopSlug);
+      safeLog('📊 [ShopStatistics] Total orders fetched:', allOrders.length);
+      safeLog('📊 [ShopStatistics] Shop slug:', shopSlug);
       
       allOrders.forEach((order: any) => {
-        console.log('🔍 Order:', order.id, 'payment_status:', order.payment_status, 'order_status:', order.order_status);
-        console.log('🔍 Order user:', order.user?.email);
-        console.log('🔍 Order items:', order.items?.map((item: any) => ({
+        safeLog('🔍 Order:', order.id, 'payment_status:', order.payment_status, 'order_status:', order.order_status);
+        safeLog('🔍 Order user:', order.user?.email);
+        safeLog('🔍 Order items:', order.items?.map((item: any) => ({
           product_name: item.product?.name,
           shop_name: item.product?.shop_name
         })));
@@ -92,39 +93,39 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
       
       const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
       const shopOrders = allOrders.filter((order: any) => {
-        console.log('🔍 Checking order:', order.id);
+        safeLog('🔍 Checking order:', order.id);
         if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') {
-          console.log('❌ Filtered by payment_status:', order.payment_status);
+          safeLog('❌ Filtered by payment_status:', order.payment_status);
           return false;
         }
         if (order.user?.email === user.email) {
-          console.log('❌ Filtered - own order');
+          safeLog('❌ Filtered - own order');
           return false;
         }
         const hasShopItems = order.items?.some((item: any) => {
           const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-          console.log('🔍 Comparing:', productShopSlug, '===', shopSlug);
+          safeLog('🔍 Comparing:', productShopSlug, '===', shopSlug);
           const matches = productShopSlug === shopSlug;
           if (matches) {
-            console.log('✅ [ShopStatistics] Matched order:', order.id, 'shop:', item.product?.shop_name, 'status:', order.order_status);
+            safeLog('✅ [ShopStatistics] Matched order:', order.id, 'shop:', item.product?.shop_name, 'status:', order.order_status);
           }
           return matches;
         });
         if (!hasShopItems) {
-          console.log('❌ No matching shop items');
+          safeLog('❌ No matching shop items');
         }
         return hasShopItems;
       });
       
-      console.log('📊 [ShopStatistics] Filtered shop orders:', shopOrders.length);
-      console.log('📊 [ShopStatistics] Active orders:', shopOrders.filter((o: any) => 
+      safeLog('📊 [ShopStatistics] Filtered shop orders:', shopOrders.length);
+      safeLog('📊 [ShopStatistics] Active orders:', shopOrders.filter((o: any) => 
         ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(o.order_status)
       ).length);
       
       setOrders(shopOrders);
 
     } catch (err: any) {
-      console.error('Error fetching shop data:', err.response?.data || err.message);
+      safeError('Error fetching shop data:', err.response?.data || err.message);
       setError('Failed to load shop statistics. Please try again.');
     } finally {
       setLoading(false);

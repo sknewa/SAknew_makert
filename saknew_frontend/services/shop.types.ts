@@ -20,6 +20,8 @@ export interface UserProfile {
   email_verified: boolean;
   is_seller: boolean;
   shop_slug: string | null;
+  shop_id?: number;
+  profile_picture?: string;
 }
 
 export interface Category {
@@ -37,6 +39,8 @@ export interface Category {
 export interface Shop {
   id: number;
   user: User;
+  owner?: number;
+  user_id?: number;
   name: string;
   slug: string;
   description: string | null;
@@ -78,12 +82,12 @@ export interface Promotion {
 
 export interface Product {
   id: number;
-  shop: number; // Shop ID
+  shop: number | { id: number }; // Shop ID or object
   shop_name: string; // From SerializerMethodField
   name: string;
   description: string;
   price: string; // DecimalField often comes as string
-  category: number | null; // Category ID
+  category: number | { id: number } | null; // Category ID or object
   category_name: string | null; // From SerializerMethodField
   category_slug: string | null; // From SerializerMethodField
   stock: number;
@@ -94,6 +98,7 @@ export interface Product {
   view_count: number;
   images: ProductImage[]; // Nested ProductImage objects
   main_image_url: string | null; // From SerializerMethodField
+  main_image_id?: number;
   promotion: Promotion | null; // Nested Promotion object, or null if no active promotion
   display_price: string; // From SerializerMethodField (formatted price string)
   discount_percentage_value: number | null; // From SerializerMethodField

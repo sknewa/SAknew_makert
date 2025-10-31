@@ -6,6 +6,7 @@ import { addFunds } from '../../services/walletService';
 import { useBadges } from '../../context/BadgeContext';
 import BackButton from '../../components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const AddFundsScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -21,13 +22,13 @@ const AddFundsScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      console.log('Adding funds:', amt);
+      safeLog('Adding funds:', amt);
       const result = await addFunds(amt);
-      console.log('Funds added successfully:', result);
+      safeLog('Funds added successfully:', result);
       
       // Refresh wallet balance in context
       await refreshBadges();
-      console.log('Badges refreshed after adding funds');
+      safeLog('Badges refreshed after adding funds');
       
       setAmount('');
       setLoading(false);
@@ -42,7 +43,7 @@ const AddFundsScreen: React.FC = () => {
         (navigation as any).navigate('WalletDashboard');
       }, 100);
     } catch (err: any) {
-      console.error('Error adding funds:', err);
+      safeError('Error adding funds:', err);
       
       // Handle different error types
       let errorMessage = 'Could not add funds. Please try again.';
@@ -63,7 +64,7 @@ const AddFundsScreen: React.FC = () => {
       try {
         Alert.alert('Error Adding Funds', errorMessage, [{ text: 'OK' }]);
       } catch (alertError) {
-        console.error('Failed to show alert:', alertError);
+        safeError('Failed to show alert:', alertError);
       }
     } finally {
       setLoading(false);

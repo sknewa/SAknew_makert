@@ -17,6 +17,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import AuthService from '../../services/authService'; // Import AuthService
 import { AuthStackParamList, AuthNavigationProp } from '../../navigation/types';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Define the route prop type for ActivateAccountScreen
 type ActivateAccountScreenRouteProp = RouteProp<AuthStackParamList, 'ActivateAccount'>;
@@ -102,7 +103,7 @@ const ActivateAccountScreen: React.FC = () => {
 
       navigation.replace('Login');
     } catch (err: any) {
-      console.error('Account activation error:', err.response?.data || err.message);
+      safeError('Account activation error:', err.response?.data || err.message);
       let errorMessage = 'An unexpected error occurred during activation. Please try again.';
 
       if (err.response && err.response.data) {
@@ -145,7 +146,7 @@ const ActivateAccountScreen: React.FC = () => {
       Alert.alert('Success!', 'A new verification code has been sent to your email.', [{ text: 'OK' }]);
       setResendTimer(RESEND_COOLDOWN_SECONDS);
     } catch (err: any) {
-      console.error('Resend code error:', err.response?.data || err.message);
+      safeError('Resend code error:', err.response?.data || err.message);
       let errorMessage = 'Failed to resend verification code.';
       if (err.response && err.response.data) {
         if (err.response.data.detail) {

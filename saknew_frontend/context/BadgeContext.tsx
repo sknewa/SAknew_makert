@@ -3,6 +3,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMyCart, getMyOrders } from '../services/salesService';
 import { getMyWallet, refreshWallet } from '../services/walletService';
 import { useAuth } from './AuthContext.minimal';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 interface BadgeContextType {
   cartCount: number;
@@ -41,7 +42,7 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
     }
 
     try {
-      console.log('Refreshing badges for user:', user.id);
+      safeLog('Refreshing badges for user:', user.id);
       
       // Fetch cart and orders first. These might also fail, but the wallet is the one logging errors.
       const [cart, orders] = await Promise.all([
@@ -52,20 +53,20 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
       // Now, fetch the wallet data, which is causing the token error
       let wallet = { balance: '0.00' };
       try {
-        console.log('Fetching wallet data...');
+        safeLog('Fetching wallet data...');
         wallet = await refreshWallet();
-        console.log('Wallet data received:', wallet);
+        safeLog('Wallet data received:', wallet);
       } catch (error: any) {
-        console.error('Wallet service error:', error);
+        safeError('Wallet service error:', error);
 
         // Check if the error is a 401 Unauthorized from an expired token
         const isTokenError = error?.response?.data?.code === 'token_not_valid';
 
         if (isTokenError && !isRetry) {
-          console.log('Access token expired. Attempting to refresh...');
+          safeLog('Access token expired. Attempting to refresh...');
           const refreshedSuccessfully = await handleUnauthorized();
           if (refreshedSuccessfully) {
-            console.log('Token refresh successful. Retrying badge fetch.');
+            safeLog('Token refresh successful. Retrying badge fetch.');
             return refreshBadges(true); // Retry the entire function
           }
           // If refresh fails, the user is logged out by handleUnauthorized, and this function will exit.
@@ -74,7 +75,7 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
       }
 
       const count = cart?.items?.length || 0;
-      console.log('Cart count updated:', count);
+      safeLog('Cart count updated:', count);
       setCartCount(count);
       
       if (user?.profile?.is_seller) {
@@ -83,7 +84,7 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
           order.items.some(item => item.product.shop?.user?.id === user.id) &&
           order.user.id !== user.id // Exclude orders where seller is also the buyer
         );
-        console.log('Seller unshipped orders count:', unshippedOrders.length);
+        safeLog('Seller unshipped orders count:', unshippedOrders.length);
         setOrderCount(unshippedOrders.length);
       } else {
         setOrderCount(0);
@@ -91,11 +92,11 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
       
       const balance = wallet?.balance ? parseFloat(wallet.balance).toFixed(2) : '0.00';
       if (balance !== walletBalance) {
-        console.log('Wallet balance updated from', walletBalance, 'to', balance);
+        safeLog('Wallet balance updated from', walletBalance, 'to', balance);
         setWalletBalance(balance);
       }
     } catch (error) {
-      console.error('Error refreshing badges:', error);
+      safeError('Error refreshing badges:', error);
     }
   };
 

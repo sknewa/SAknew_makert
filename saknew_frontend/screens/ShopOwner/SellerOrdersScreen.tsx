@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import apiClient from '../../services/apiClient';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 interface ShippingAddress {
   contact_name?: string;
@@ -91,20 +92,33 @@ const SellerOrdersScreen: React.FC = () => {
       const response = await apiClient.get('/api/orders/');
       const allOrders: Order[] = response.data.results || response.data || [];
       
+        safeLog('=== FETCH ORDERS DEBUG ===');
+        safeLog('User shop_slug:', user.profile?.shop_slug);
+        safeLog('Total orders:', allOrders.length);
+        
         const sellerOrders = allOrders.filter((order: Order) => {
         if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
         if (order.user.email === user.email) return false;
         
-        const hasSellerItems = order.items?.some((item: OrderItem) => 
-          item.product?.shop?.id === user.profile.shop_id
-        );
+        const hasSellerItems = order.items?.some((item: OrderItem) => {
+          const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+          const userShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+          return itemShopName === userShopSlug;
+        });
         
         return hasSellerItems;
       }).sort((a: Order, b: Order) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
       
+      sellerOrders.forEach(order => {
+        safeLog(`Order ${order.id.slice(-8)}: status=${order.order_status}, payment=${order.payment_status}`);
+      });
+      
+      safeLog('Filtered seller orders:', sellerOrders.length);
+      safeLog('=== END FETCH ORDERS DEBUG ===');
+      
       setOrders(sellerOrders);
     } catch (error: any) {
-      console.error('Error fetching orders:', error);
+      safeError('Error fetching orders:', error);
       setOrders([]);
     } finally {
       setLoading(false);
@@ -124,9 +138,15 @@ const SellerOrdersScreen: React.FC = () => {
   }, [fetchOrders]);
 
   const handleConfirmDelivery = (order: Order) => {
+    safeLog('=== MARK AS DELIVERED BUTTON CLICKED ===');
+    safeLog('Order:', order);
+    safeLog('Order ID:', order.id);
+    safeLog('Order Status:', order.order_status);
+    safeLog('Order Items:', order.items);
     setSelectedOrder(order);
     setDeliveryCode('');
     setModalVisible(true);
+    safeLog('Modal opened');
   };
 
   const handleCancelOrder = (order: Order) => {
@@ -158,25 +178,25 @@ const SellerOrdersScreen: React.FC = () => {
   };
 
   const executeAction = async () => {
-    console.log('=== MARK AS DELIVERED DEBUG START ===');
+    safeLog('=== MARK AS DELIVERED DEBUG START ===');
     if (!selectedOrder) {
-      console.log('No selected order');
+      safeLog('No selected order');
       return;
     }
 
-    console.log('Selected Order ID:', selectedOrder.id);
-    console.log('Delivery Code Entered:', deliveryCode);
-    console.log('Delivery Code (trimmed):', deliveryCode.trim());
+    safeLog('Selected Order ID:', selectedOrder.id);
+    safeLog('Delivery Code Entered:', deliveryCode);
+    safeLog('Delivery Code (trimmed):', deliveryCode.trim());
 
     try {
       if (!deliveryCode.trim()) {
-        console.log('Delivery code is empty');
+        safeLog('Delivery code is empty');
         Alert.alert('Error', 'Please enter the delivery code');
         return;
       }
       
-      console.log('Making API request to:', `/api/orders/${selectedOrder.id}/`);
-      console.log('Request payload:', {
+      safeLog('Making API request to:', `/api/orders/${selectedOrder.id}/`);
+      safeLog('Request payload:', {
         action_type: 'confirm_delivery',
         verification_code: deliveryCode.trim()
       });
@@ -186,24 +206,28 @@ const SellerOrdersScreen: React.FC = () => {
         verification_code: deliveryCode.trim()
       });
       
-      console.log('API Response:', response);
-      console.log('Response data:', response?.data);
+      safeLog('API Response:', response);
+      safeLog('Response data:', response?.data);
+      safeLog('Response order_status:', response?.data?.order_status);
+      safeLog('Response delivery_verified:', response?.data?.delivery_verified);
       
       if (!response || !response.data) {
-        console.log('Invalid response received');
+        safeLog('Invalid response received');
         Alert.alert('Error', 'Invalid delivery code. Please check the code and try again.');
         return;
       }
       
-      const shopItems = selectedOrder.items.filter((item: OrderItem) => 
-        item.product?.shop?.id === user?.profile?.shop_id
-      );
-      console.log('Shop items count:', shopItems.length);
+      const userShopSlug = user?.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+      const shopItems = selectedOrder.items.filter((item: OrderItem) => {
+        const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+        return itemShopName === userShopSlug;
+      });
+      safeLog('Shop items count:', shopItems.length);
       
       const earnings = shopItems.reduce((sum, item: OrderItem) => 
         sum + (parseFloat(item.price) * item.quantity), 0
       );
-      console.log('Calculated earnings:', earnings);
+      safeLog('Calculated earnings:', earnings);
       
       setModalVisible(false);
       Alert.alert(
@@ -211,25 +235,25 @@ const SellerOrdersScreen: React.FC = () => {
         `Order completed successfully.\n\nEarnings: ${formatCurrency(earnings)}\nPayment added to your wallet.`,
         [{ text: 'View Wallet', onPress: () => navigation.navigate('Wallet' as any) }]
       );
-      console.log('Fetching updated orders...');
+      safeLog('Fetching updated orders...');
       fetchOrders();
-      console.log('=== MARK AS DELIVERED DEBUG END ===');
+      safeLog('=== MARK AS DELIVERED DEBUG END ===');
     } catch (error: any) {
-      console.error('=== MARK AS DELIVERED ERROR ===');
-      console.error('Error object:', error);
-      console.error('Error response:', error.response);
-      console.error('Error response status:', error.response?.status);
-      console.error('Error response data:', error.response?.data);
-      console.error('Error message:', error.message);
+      safeError('=== MARK AS DELIVERED ERROR ===');
+      safeError('Error object:', error);
+      safeError('Error response:', error.response);
+      safeError('Error response status:', error.response?.status);
+      safeError('Error response data:', error.response?.data);
+      safeError('Error message:', error.message);
       
       if (error.response?.status === 400 || error.response?.data?.detail?.includes('code')) {
-        console.log('Invalid code error');
+        safeLog('Invalid code error');
         Alert.alert('Invalid Code', 'The delivery code you entered is incorrect. Please ask the buyer to show you their code again.');
       } else {
-        console.log('General error');
+        safeLog('General error');
         Alert.alert('Error', error.response?.data?.detail || 'Failed to confirm delivery');
       }
-      console.log('=== MARK AS DELIVERED ERROR END ===');
+      safeLog('=== MARK AS DELIVERED ERROR END ===');
     }
   };
 
@@ -263,12 +287,12 @@ const SellerOrdersScreen: React.FC = () => {
     });
     
     if (activeTab === 'completed') {
-      console.log('=== HISTORY TAB ORDERS ===');
-      console.log('Total history orders:', filtered.length);
+      safeLog('=== HISTORY TAB ORDERS ===');
+      safeLog('Total history orders:', filtered.length);
       const cancelledOrders = filtered.filter(o => o.order_status === 'cancelled');
-      console.log('Cancelled orders count:', cancelledOrders.length);
+      safeLog('Cancelled orders count:', cancelledOrders.length);
       if (cancelledOrders.length > 0) {
-        console.log('First cancelled order:', JSON.stringify(cancelledOrders[0], null, 2));
+        safeLog('First cancelled order:', JSON.stringify(cancelledOrders[0], null, 2));
       }
     }
     
@@ -276,16 +300,18 @@ const SellerOrdersScreen: React.FC = () => {
   };
 
   const renderOrderCard = (order: Order) => {
-    const shopItems = order.items.filter((item: OrderItem) => 
-      item.product?.shop?.id === user?.profile?.shop_id
-    );
+    const userShopSlug = user?.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+    const shopItems = order.items.filter((item: OrderItem) => {
+      const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+      return itemShopName === userShopSlug;
+    });
     
-    console.log('=== ORDER ITEMS DEBUG ===');
-    console.log('Order ID:', order.id);
-    console.log('Order Status:', order.order_status);
-    console.log('Shop Items Count:', shopItems.length);
+    safeLog('=== ORDER ITEMS DEBUG ===');
+    safeLog('Order ID:', order.id);
+    safeLog('Order Status:', order.order_status);
+    safeLog('Shop Items Count:', shopItems.length);
     shopItems.forEach((item, index) => {
-      console.log(`Item ${index + 1}:`, {
+      safeLog(`Item ${index + 1}:`, {
         name: item.product.name,
         quantity: item.quantity,
         price: item.price,
@@ -293,7 +319,7 @@ const SellerOrdersScreen: React.FC = () => {
         hasSize: !!item.size
       });
     });
-    console.log('=== END ORDER ITEMS DEBUG ===');
+    safeLog('=== END ORDER ITEMS DEBUG ===');
     
     const orderTotal = shopItems.reduce((sum, item: OrderItem) => 
       sum + (parseFloat(item.price) * item.quantity), 0
@@ -340,7 +366,7 @@ const SellerOrdersScreen: React.FC = () => {
 
         {order.order_status === 'cancelled' && (
           <>
-            {console.log('Rendering cancelled order:', order.id, 'Reason:', order.cancellation_reason)}
+            {safeLog('Rendering cancelled order:', order.id, 'Reason:', order.cancellation_reason)}
             {order.cancellation_reason ? (
               <View style={styles.cancellationBox}>
                 <View style={styles.cancellationHeader}>

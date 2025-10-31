@@ -115,3 +115,19 @@ export const getValidationErrorMessage = (
       return `Invalid ${fieldName}`;
   }
 };
+
+// InputValidator class for backward compatibility
+export class InputValidator {
+  static validatePassword(password: string): boolean {
+    return isValidPassword(password);
+  }
+  
+  static validateEmail(email: string): boolean {
+    return isValidEmail(email);
+  }
+  
+  static sanitizeString(input: string): string {
+    if (!input || typeof input !== 'string') return '';
+    return input.replace(/[<>\"'&]/g, '').trim().substring(0, 1000);
+  }
+}

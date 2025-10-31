@@ -4,6 +4,7 @@ import { useAuth } from '../context/AuthContext.minimal';
 import statusService from '../services/statusService';
 import { UserStatus } from '../services/status.types';
 import StatusItem from './StatusItem';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 interface StatusSectionProps {
   onStatusPress: (userStatus: UserStatus) => void;
@@ -32,13 +33,13 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
 
   const fetchStatuses = async () => {
     try {
-      console.log('DEBUG: Starting to fetch statuses...');
+      console.log('DEBUG StatusSection: Starting to fetch statuses...');
       const statuses = await statusService.getUserStatuses();
-      console.log('DEBUG: Received statuses:', statuses);
+      console.log('DEBUG StatusSection: Received statuses:', JSON.stringify(statuses, null, 2));
       
       // Ensure statuses is an array before using array methods
       if (!Array.isArray(statuses)) {
-        console.warn('DEBUG: Expected array but got:', typeof statuses, statuses);
+        safeWarn('DEBUG: Expected array but got:', typeof statuses, statuses);
         setMyStatus(null);
         setUserStatuses([]);
         return;
@@ -46,20 +47,22 @@ const StatusSection: React.FC<StatusSectionProps> = ({ onStatusPress, onCreateSt
       
       const myStatusData = statuses.find(s => s.user.id === user?.id);
       const otherStatuses = statuses.filter(s => s.user.id !== user?.id);
-      console.log('DEBUG: User ID:', user?.id);
-      console.log('DEBUG: Status user IDs:', statuses.map(s => s.user.id));
-      console.log('DEBUG: My status found:', !!myStatusData);
-      console.log('DEBUG: My status data:', myStatusData);
-      console.log('DEBUG: Other statuses:', otherStatuses.length);
+      console.log('DEBUG StatusSection: User ID:', user?.id);
+      console.log('DEBUG StatusSection: Status user IDs:', statuses.map(s => s.user.id));
+      console.log('DEBUG StatusSection: My status found:', !!myStatusData);
+      if (myStatusData) {
+        console.log('DEBUG StatusSection: My status latest_status:', myStatusData.latest_status);
+      }
+      console.log('DEBUG StatusSection: Other statuses:', otherStatuses.length);
       
       setMyStatus(myStatusData || null);
       setUserStatuses(otherStatuses);
     } catch (error: any) {
-      console.log('DEBUG: Status fetch error:', error);
+      safeLog('DEBUG: Status fetch error:', error);
       setMyStatus(null);
       setUserStatuses([]);
       // Don't show alert for now, just log the error
-      console.warn('Failed to load statuses:', error?.message || 'Unknown error');
+      safeWarn('Failed to load statuses:', error?.message || 'Unknown error');
     } finally {
       setLoading(false);
     }

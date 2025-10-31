@@ -23,6 +23,7 @@ import * as ImagePicker from 'expo-image-picker';
 import { useNavigation, CommonActions } from '@react-navigation/native'; // Import CommonActions
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // No need for AddProductImageData or Product from shop.types here as we are creating, not specifically handling existing product types for images
 
@@ -255,15 +256,15 @@ const AddProductScreen: React.FC = () => {
 
   // Helper to create image data for upload
   const createImageData = useCallback(async (uri: string, isMain: boolean) => {
-    console.log('🖼️ Creating image data for upload:', { uri, isMain });
+    safeLog('🖼️ Creating image data for upload:', { uri, isMain });
     const filename = `image_${Date.now()}.jpg`;
     const type = 'image/jpeg';
     
     // Fetch the actual blob data from the URI
-    console.log('🖼️ Fetching blob from URI...');
+    safeLog('🖼️ Fetching blob from URI...');
     const response = await fetch(uri);
     const blob = await response.blob();
-    console.log('🖼️ Blob fetched:', { size: blob.size, type: blob.type });
+    safeLog('🖼️ Blob fetched:', { size: blob.size, type: blob.type });
     
     return {
       image: {
@@ -278,9 +279,9 @@ const AddProductScreen: React.FC = () => {
 
   // Product Submission Logic
   const handleAddProduct = useCallback(async () => {
-    console.log('🚀 ADD PRODUCT - Function called!');
-    console.log('🚀 Product Name:', productName);
-    console.log('🚀 Selected Images:', selectedImages.length);
+    safeLog('🚀 ADD PRODUCT - Function called!');
+    safeLog('🚀 Product Name:', productName);
+    safeLog('🚀 Selected Images:', selectedImages.length);
     
     setErrorMessage('');
     setSuccessMessage('');
@@ -361,22 +362,22 @@ const AddProductScreen: React.FC = () => {
 
     // Step 2: Upload images if product was created successfully
     if (productId) {
-      console.log('📤 Starting image upload for product:', productId);
-      console.log('📤 Total images to upload:', selectedImages.length);
+      safeLog('📤 Starting image upload for product:', productId);
+      safeLog('📤 Total images to upload:', selectedImages.length);
       let allImagesUploadedSuccessfully = true;
       for (let i = 0; i < selectedImages.length; i++) {
         const img = selectedImages[i];
-        console.log(`📤 Uploading image ${i + 1}/${selectedImages.length}:`, { uri: img.uri, isMain: img.isMain });
+        safeLog(`📤 Uploading image ${i + 1}/${selectedImages.length}:`, { uri: img.uri, isMain: img.isMain });
         
         try {
           const imageData = await createImageData(img.uri, img.isMain);
-          console.log('📤 Image data created, calling addProductImage...');
+          safeLog('📤 Image data created, calling addProductImage...');
           const uploadResult = await shopService.addProductImage(productId, imageData);
-          console.log(`✅ Image ${i + 1} uploaded successfully:`, uploadResult);
+          safeLog(`✅ Image ${i + 1} uploaded successfully:`, uploadResult);
         } catch (imageUploadError: any) {
-          console.error(`❌ Image ${i + 1} upload failed:`, imageUploadError);
-          console.error('❌ Error response:', imageUploadError.response?.data);
-          console.error('❌ Error status:', imageUploadError.response?.status);
+          safeError(`❌ Image ${i + 1} upload failed:`, imageUploadError);
+          safeError('❌ Error response:', imageUploadError.response?.data);
+          safeError('❌ Error status:', imageUploadError.response?.status);
           allImagesUploadedSuccessfully = false;
           
           // Get specific error message
@@ -394,12 +395,12 @@ const AddProductScreen: React.FC = () => {
           } else if (imageUploadError.message) {
             errorMsg = imageUploadError.message;
           }
-          console.error('❌ Parsed error message:', errorMsg);
+          safeError('❌ Parsed error message:', errorMsg);
           
           setErrorMessage(prev => prev + `\nImage ${i + 1} upload failed: ${errorMsg}`);
         }
       }
-      console.log('📤 Image upload complete. All successful:', allImagesUploadedSuccessfully);
+      safeLog('📤 Image upload complete. All successful:', allImagesUploadedSuccessfully);
 
       setImageUploadLoading(false); // End image upload loading
       setLoading(false); // Ensure overall loading is false

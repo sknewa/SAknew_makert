@@ -8,6 +8,7 @@ import { colors } from '../../styles/globalStyles';
 import { createOrderFromCart } from '../../services/salesService';
 import BackButton from '../../components/BackButton';
 import { MainNavigationProp } from '../../navigation/types';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const ShippingScreen: React.FC = () => {
   const navigation = useNavigation<MainNavigationProp>();
@@ -46,7 +47,7 @@ const ShippingScreen: React.FC = () => {
         setCountry(address.country || 'South Africa');
       }
     } catch (error) {
-      console.log('Error loading saved address:', error);
+      safeLog('Error loading saved address:', error);
     }
   };
 
@@ -55,7 +56,7 @@ const ShippingScreen: React.FC = () => {
       const address = { street, contactName, contactPhone, town, province, zip, country };
       await AsyncStorage.setItem('shippingAddress', JSON.stringify(address));
     } catch (error) {
-      console.log('Error saving address:', error);
+      safeLog('Error saving address:', error);
     }
   };
 
@@ -64,7 +65,7 @@ const ShippingScreen: React.FC = () => {
       const { status } = await Location.getForegroundPermissionsAsync();
       setHasLocationPermission(status === 'granted');
     } catch (error) {
-      console.log('Error checking location permission:', error);
+      safeLog('Error checking location permission:', error);
       setHasLocationPermission(false);
     }
   };
@@ -80,22 +81,22 @@ const ShippingScreen: React.FC = () => {
     try {
       await AsyncStorage.removeItem('shippingAddress');
     } catch (error) {
-      console.log('Error clearing saved address:', error);
+      safeLog('Error clearing saved address:', error);
     }
   };
 
   const handleUseLocation = async () => {
-    console.log('🔵 Location button clicked');
+    safeLog('🔵 Location button clicked');
     setLocationLoading(true);
     
     try {
-      console.log('🔵 Step 1: Requesting location permission...');
+      safeLog('🔵 Step 1: Requesting location permission...');
       // Request permission first
       const { status } = await Location.requestForegroundPermissionsAsync();
-      console.log('🔵 Permission status:', status);
+      safeLog('🔵 Permission status:', status);
       
       if (status !== 'granted') {
-        console.log('🔴 Permission denied');
+        safeLog('🔴 Permission denied');
         Alert.alert(
           'Permission Required',
           'Location permission is needed to automatically fill your address.',
@@ -107,20 +108,20 @@ const ShippingScreen: React.FC = () => {
       }
 
       setHasLocationPermission(true);
-      console.log('🔵 Step 2: Getting current position...');
+      safeLog('🔵 Step 2: Getting current position...');
 
       // Get current position
       const location = await Location.getCurrentPositionAsync({
         accuracy: Location.Accuracy.Balanced,
       });
       
-      console.log('🔵 Location obtained:', {
+      safeLog('🔵 Location obtained:', {
         lat: location.coords.latitude,
         lon: location.coords.longitude
       });
       
       // Reverse geocode using OpenStreetMap Nominatim (free alternative)
-      console.log('🔵 Step 3: Reverse geocoding with Nominatim...');
+      safeLog('🔵 Step 3: Reverse geocoding with Nominatim...');
       try {
         const nominatimUrl = `https://nominatim.openstreetmap.org/reverse?format=json&lat=${location.coords.latitude}&lon=${location.coords.longitude}&addressdetails=1`;
         
@@ -131,7 +132,7 @@ const ShippingScreen: React.FC = () => {
         });
         
         const data = await response.json();
-        console.log('🔵 Nominatim result:', data);
+        safeLog('🔵 Nominatim result:', data);
         
         if (data && data.address) {
           const addr = data.address;
@@ -142,12 +143,12 @@ const ShippingScreen: React.FC = () => {
           if (addr.road) streetParts.push(addr.road);
           const streetAddress = streetParts.join(' ') || addr.display_name?.split(',')[0] || '';
           
-          console.log('🔵 Step 4: Filling form fields...');
-          console.log('Street:', streetAddress);
-          console.log('City:', addr.city || addr.town || addr.village);
-          console.log('Province:', addr.state);
-          console.log('Country:', addr.country);
-          console.log('Zip:', addr.postcode);
+          safeLog('🔵 Step 4: Filling form fields...');
+          safeLog('Street:', streetAddress);
+          safeLog('City:', addr.city || addr.town || addr.village);
+          safeLog('Province:', addr.state);
+          safeLog('Country:', addr.country);
+          safeLog('Zip:', addr.postcode);
           
           // Fill form fields immediately so user can see them
           setStreet(streetAddress || '');
@@ -156,10 +157,10 @@ const ShippingScreen: React.FC = () => {
           setCountry(addr.country || 'South Africa');
           setZip(addr.postcode || '');
           
-          console.log('✅ Form fields updated successfully');
+          safeLog('✅ Form fields updated successfully');
           Alert.alert('Success', 'Address filled from your location!', [{ text: 'OK' }]);
         } else {
-          console.log('🔴 No address data in response');
+          safeLog('🔴 No address data in response');
           Alert.alert(
             'Address Not Found',
             'Could not determine address from your location. Please enter manually.',
@@ -167,7 +168,7 @@ const ShippingScreen: React.FC = () => {
           );
         }
       } catch (geocodeError) {
-        console.log('🔴 Geocoding failed:', geocodeError);
+        safeLog('🔴 Geocoding failed:', geocodeError);
         Alert.alert(
           'Location Found',
           'Got your location but could not determine address. Please enter manually.',
@@ -175,9 +176,9 @@ const ShippingScreen: React.FC = () => {
         );
       }
     } catch (error: any) {
-      console.log('🔴 Location error:', error);
-      console.log('Error code:', error.code);
-      console.log('Error message:', error.message);
+      safeLog('🔴 Location error:', error);
+      safeLog('Error code:', error.code);
+      safeLog('Error message:', error.message);
       
       let errorMessage = 'Could not get your location. Please enter address manually.';
       
@@ -191,7 +192,7 @@ const ShippingScreen: React.FC = () => {
       
       Alert.alert('Location Error', errorMessage, [{ text: 'OK' }]);
     } finally {
-      console.log('🔵 Location loading finished');
+      safeLog('🔵 Location loading finished');
       setLocationLoading(false);
     }
   };
@@ -216,19 +217,19 @@ const ShippingScreen: React.FC = () => {
     phone_number: contactPhone,
   };
   
-  console.log('📦 Shipping address being sent:', shippingAddress);
-  console.log('📦 Contact Name:', contactName);
-  console.log('📦 Contact Phone:', contactPhone);
-  console.log('📦 Street:', street);
+  safeLog('📦 Shipping address being sent:', shippingAddress);
+  safeLog('📦 Contact Name:', contactName);
+  safeLog('📦 Contact Phone:', contactPhone);
+  safeLog('📦 Street:', street);
   
   try {
     setLoading(true);
     const order = await createOrderFromCart(shippingAddress);
-    console.log('Order created successfully:', order);
+    safeLog('Order created successfully:', order);
     setLoading(false);
     navigation.navigate('Payment', { orderId: order.id });
   } catch (err: any) {
-    console.log('Order creation error:', err?.response?.data || err.message);
+    safeLog('Order creation error:', err?.response?.data || err.message);
     setLoading(false);
     Alert.alert('Order Error', err?.response?.data?.detail || 'Could not create order.');
   }

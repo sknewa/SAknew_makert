@@ -3,6 +3,7 @@ import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 import { handleError } from '../utils/errorManager';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 
 // We'll need a way to trigger a logout from here.
@@ -47,7 +48,7 @@ const apiClient = axios.create({
 });
 
 // Force log the actual URL being used
-console.log('ACTUAL API URL BEING USED:', API_BASE_URL);
+safeLog('ACTUAL API URL BEING USED:', API_BASE_URL);
 
 // Test the main API health check endpoint
 axios.get(`${API_BASE_URL}api/health-check/`, { 
@@ -56,14 +57,14 @@ axios.get(`${API_BASE_URL}api/health-check/`, {
   validateStatus: (status) => status >= 200 && status < 300,
 })
   .then(response => {
-    console.log(`✅ API health check accessible:`, response.status);
+    safeLog(`✅ API health check accessible:`, response.status);
   })
   .catch(error => {
-    console.log(`❌ API health check NOT accessible:`, error.message);
+    safeLog(`❌ API health check NOT accessible:`, error.message);
   });
 
 // --- CONFIRMATION LOG: Log the base URL when the client is initialized ---
-console.log('API Client: Initializing with baseURL:', API_BASE_URL);
+safeLog('API Client: Initializing with baseURL:', API_BASE_URL);
 
 // Request interceptor to add the JWT token to headers
 apiClient.interceptors.request.use(
@@ -74,15 +75,15 @@ apiClient.interceptors.request.use(
         config.headers.Authorization = `Bearer ${accessToken}`;
       }
       // Log the request details for debugging (optional, can be verbose)
-      // console.log(`API Client: Sending ${config.method?.toUpperCase()} request to ${config.url}`);
+      // safeLog(`API Client: Sending ${config.method?.toUpperCase()} request to ${config.url}`);
     } catch (error) {
-      console.error('API Client: Error getting access token from storage:', error);
+      safeError('API Client: Error getting access token from storage:', error);
       // Don't block the request if token retrieval fails, let the response interceptor handle 401.
     }
     return config;
   },
   (error) => {
-    console.error('API Client: Request Interceptor Error:', error);
+    safeError('API Client: Request Interceptor Error:', error);
     return Promise.reject(error);
   }
 );

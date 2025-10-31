@@ -25,6 +25,7 @@ import { Product } from '../../types';
 import { useAuth } from '../../context/AuthContext.minimal';
 import { getReviewsByProduct, Review, addCartItem } from '../../services/salesService';
 import BackButton from '../../components/BackButton';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -64,8 +65,8 @@ const ProductDetailScreen = () => {
   
   const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
   
-  console.log('Category Name:', product?.category_name);
-  console.log('Category Name (lowercase):', product?.category_name?.toLowerCase());
+  safeLog('Category Name:', product?.category_name);
+  safeLog('Category Name (lowercase):', product?.category_name?.toLowerCase());
   
   const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
                           product?.category_name?.toLowerCase().includes('apparel') ||
@@ -98,7 +99,7 @@ const ProductDetailScreen = () => {
         const shop = await shopService.getShopBySlug(fetchedProduct.shop_name.toLowerCase().replace(/\s+/g, '-'));
         setShopData(shop);
       } catch (err) {
-        console.log('Could not fetch shop data');
+        safeLog('Could not fetch shop data');
       }
       
       // Fetch reviews for this product
@@ -107,13 +108,13 @@ const ProductDetailScreen = () => {
         const productReviews = await getReviewsByProduct(productId);
         setReviews(productReviews);
       } catch (reviewErr: any) {
-        console.error(`Error fetching reviews for product ${productId}:`, reviewErr.response?.data || reviewErr.message);
+        safeError(`Error fetching reviews for product ${productId}:`, reviewErr.response?.data || reviewErr.message);
         // Don't set error state for reviews - we'll just show empty state
       } finally {
         setReviewsLoading(false);
       }
     } catch (err: any) {
-      console.error(`Error fetching product details for ID ${productId}:`, err.response?.data || err.message);
+      safeError(`Error fetching product details for ID ${productId}:`, err.response?.data || err.message);
       setError('Failed to load product details. Please try again.');
     } finally {
       setLoading(false);
@@ -149,7 +150,7 @@ const ProductDetailScreen = () => {
         
         setDistance(d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`);
       } catch (error) {
-        console.log('Distance calculation error:', error);
+        safeLog('Distance calculation error:', error);
       }
     };
     
@@ -158,58 +159,58 @@ const ProductDetailScreen = () => {
 
   // Handle add to cart
   const handleAddToCart = async (skipSizeCheck: boolean = false) => {
-    console.log('=== ADD TO CART DEBUG START ===');
-    console.log('Product:', product);
-    console.log('Product ID:', product?.id);
-    console.log('Product Category:', product?.category_name);
-    console.log('Is Owner:', isOwner);
-    console.log('Is Fashion Product:', isFashionProduct);
-    console.log('Selected Size:', selectedSize);
-    console.log('Skip Size Check:', skipSizeCheck);
+    safeLog('=== ADD TO CART DEBUG START ===');
+    safeLog('Product:', product);
+    safeLog('Product ID:', product?.id);
+    safeLog('Product Category:', product?.category_name);
+    safeLog('Is Owner:', isOwner);
+    safeLog('Is Fashion Product:', isFashionProduct);
+    safeLog('Selected Size:', selectedSize);
+    safeLog('Skip Size Check:', skipSizeCheck);
     
     if (product) {
       // Check if user is the owner of the product
       if (isOwner) {
-        console.log('User is owner - cannot add to cart');
+        safeLog('User is owner - cannot add to cart');
         showAlert('Cannot Add to Cart', 'Sellers cannot buy their own product.');
         return;
       }
       
       // Show size modal for fashion products (only if not skipping check)
       if (!skipSizeCheck && isFashionProduct && !selectedSize) {
-        console.log('Fashion product - showing size modal');
+        safeLog('Fashion product - showing size modal');
         setSizeModalVisible(true);
         return;
       }
       
       try {
         // Show loading indicator
-        console.log('Setting addingToCart to true');
+        safeLog('Setting addingToCart to true');
         setAddingToCart(true);
         
         // Call API to add item to cart
-        console.log('Calling addCartItem API with product ID:', product.id, 'Size:', selectedSize);
+        safeLog('Calling addCartItem API with product ID:', product.id, 'Size:', selectedSize);
         const response = await addCartItem(product.id, 1, selectedSize || undefined);
-        console.log('API Response:', response);
+        safeLog('API Response:', response);
         
         // Show success message
-        console.log('Item added successfully');
+        safeLog('Item added successfully');
         showAlert('Success', `Added "${product.name}" to your cart!`);
         setSelectedSize(null); // Reset size selection
       } catch (err: any) {
         // Show error message
-        console.error('Error adding to cart:', err);
-        console.error('Error response:', err.response);
-        console.error('Error response data:', err.response?.data);
-        console.error('Error message:', err.message);
+        safeError('Error adding to cart:', err);
+        safeError('Error response:', err.response);
+        safeError('Error response data:', err.response?.data);
+        safeError('Error message:', err.message);
         showAlert('Error', err.response?.data?.detail || 'Failed to add item to cart. Please try again.');
       } finally {
-        console.log('Setting addingToCart to false');
+        safeLog('Setting addingToCart to false');
         setAddingToCart(false);
-        console.log('=== ADD TO CART DEBUG END ===');
+        safeLog('=== ADD TO CART DEBUG END ===');
       }
     } else {
-      console.log('No product available');
+      safeLog('No product available');
     }
   };
 
@@ -334,7 +335,7 @@ const ProductDetailScreen = () => {
                 key={`product-${product.id}-gallery-${index}`}
                 source={getFullImageUrl(image.image) ? { uri: getFullImageUrl(image.image) as string } : undefined}
                 style={styles.productImage}
-                onError={() => console.log(`Additional image ${index} failed to load`)}
+                onError={() => safeLog(`Additional image ${index} failed to load`)}
                 accessibilityLabel={product?.name ? `${product.name} image ${index+1}` : `Product image ${index+1}`}
               />
             ))}

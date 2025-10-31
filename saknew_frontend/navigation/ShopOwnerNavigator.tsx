@@ -80,15 +80,14 @@ const ShopOwnerCustomHeader = () => {
           const response = await apiClient.get('/api/orders/');
           const allOrders = response.data.results || response.data || [];
           
-          const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
-          
           const shopOrders = allOrders.filter((order: any) => {
             if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
             if (order.user?.email === user.email) return false;
             
             const hasShopItems = order.items?.some((item: any) => {
-              const productShopSlug = item.product?.shop_name ? shopNameToSlug(item.product.shop_name) : null;
-              return productShopSlug === user.profile?.shop_slug;
+              const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+              const userShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+              return itemShopName === userShopSlug;
             });
             
             return hasShopItems;
@@ -105,7 +104,10 @@ const ShopOwnerCustomHeader = () => {
         }
       }
     };
+    
     fetchPendingOrders();
+    const interval = setInterval(fetchPendingOrders, 30000);
+    return () => clearInterval(interval);
   }, [user]);
 
   React.useEffect(() => {
@@ -135,7 +137,7 @@ const ShopOwnerCustomHeader = () => {
           activeOpacity={0.7}
         >
           <View style={styles.navLinkContent}>
-            <Ionicons name="home-outline" size={22} color={colors.navLinkText} />
+            <Ionicons name="home-outline" size={18} color={colors.navLinkText} />
             <Text style={styles.navLinkText}>Home</Text>
           </View>
         </TouchableOpacity>
@@ -149,7 +151,7 @@ const ShopOwnerCustomHeader = () => {
                 activeOpacity={0.7}
               >
                 <View style={styles.navLinkContent}>
-                  <Ionicons name="add-circle-outline" size={22} color={colors.navLinkText} />
+                  <Ionicons name="add-circle-outline" size={18} color={colors.navLinkText} />
                   <Text style={styles.navLinkText}>Add</Text>
                 </View>
               </TouchableOpacity>
@@ -164,7 +166,7 @@ const ShopOwnerCustomHeader = () => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.navLinkContent}>
-                      <Ionicons name="stats-chart-outline" size={22} color={colors.navLinkText} />
+                      <Ionicons name="stats-chart-outline" size={18} color={colors.navLinkText} />
                       <Text style={styles.navLinkText}>Stats</Text>
                     </View>
                   </TouchableOpacity>
@@ -175,7 +177,7 @@ const ShopOwnerCustomHeader = () => {
                   >
                     <View style={styles.navLinkContent}>
                       <View style={{ position: 'relative' }}>
-                        <Ionicons name="receipt-outline" size={22} color={colors.navLinkText} />
+                        <Ionicons name="receipt-outline" size={18} color={colors.navLinkText} />
                         {pendingOrdersCount > 0 && (
                           <View style={styles.badge}>
                             <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
@@ -272,16 +274,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 10,
-    paddingTop: 20,
-    paddingBottom: 10,
+    paddingHorizontal: 8,
+    paddingTop: 12,
+    paddingBottom: 8,
     backgroundColor: colors.topNavBg,
     borderBottomWidth: 0,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.25,
-    shadowRadius: 6,
-    elevation: 6,
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 4,
+    elevation: 4,
   },
 
   navlinks: {
@@ -292,20 +294,21 @@ const styles = StyleSheet.create({
     marginLeft: 5,
   },
   navLinkButton: {
-    paddingHorizontal: 3,
-    paddingVertical: 3,
+    paddingHorizontal: 2,
+    paddingVertical: 2,
     marginHorizontal: 1,
-    borderRadius: 8,
+    borderRadius: 6,
     backgroundColor: 'transparent',
   },
   navLinkContent: {
     flexDirection: 'column',
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 32,
   },
   navLinkText: {
     color: colors.navLinkText,
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '600',
     textTransform: 'uppercase',
     fontFamily: Platform.OS === 'ios' ? 'Arial' : 'sans-serif',
@@ -315,19 +318,19 @@ const styles = StyleSheet.create({
   },
   badge: {
     position: 'absolute',
-    top: -4,
-    right: -6,
+    top: -3,
+    right: -5,
     backgroundColor: '#FF4444',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    paddingHorizontal: 3,
   },
   badgeText: {
     color: '#FFFFFF',
-    fontSize: 10,
+    fontSize: 9,
     fontWeight: '700',
   },
 });

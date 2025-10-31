@@ -1,5 +1,6 @@
 import { Alert } from 'react-native';
 import axios from 'axios';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 // Error categories
 export enum ErrorCategory {
@@ -93,7 +94,7 @@ export const displayError = (error: any, title = 'Error') => {
   );
   
   // Log error for debugging
-  console.error(`[${appError.category.toUpperCase()}] ${appError.message}`, appError.originalError);
+  safeError(`[${appError.category.toUpperCase()}] ${appError.message}`, appError.originalError);
   
   return appError;
 };
@@ -123,7 +124,7 @@ export const handleError = (
   } = options;
   
   // Log error
-  console.error(`[${appError.category.toUpperCase()}] ${appError.message}`, appError.originalError);
+  safeError(`[${appError.category.toUpperCase()}] ${appError.message}`, appError.originalError);
   
   // Show alert if enabled
   if (showAlert) {

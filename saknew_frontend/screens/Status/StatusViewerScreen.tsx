@@ -1,11 +1,14 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, SafeAreaView, TextInput, Animated, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Video } from 'expo-av';
 import { useRoute, useNavigation } from '@react-navigation/native';
 import { UserStatus, Status } from '../../services/status.types';
 import statusService from '../../services/statusService';
 import { IMAGE_BASE_URL } from '../../config';
 import { useAuth } from '../../context/AuthContext.minimal';
+import shopService from '../../services/shopService';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const { width, height } = Dimensions.get('window');
 
@@ -21,6 +24,7 @@ const StatusViewerScreen: React.FC = () => {
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [showFullImage, setShowFullImage] = useState(false);
+  const [shopName, setShopName] = useState<string>('');
   const replyInputRef = useRef<TextInput>(null);
   
   const isMyStatus = userStatus.user.id === user?.id;
@@ -29,9 +33,32 @@ const StatusViewerScreen: React.FC = () => {
 
   useEffect(() => {
     if (currentStatus) {
+      console.log('DEBUG StatusViewer - Current Status:', {
+        id: currentStatus.id,
+        mediaType: currentStatus.media_type,
+        mediaUrl: currentStatus.media_url,
+        content: currentStatus.content,
+        hasMediaUrl: !!currentStatus.media_url
+      });
       statusService.viewStatus(currentStatus.id);
     }
   }, [currentIndex]);
+
+  useEffect(() => {
+    const fetchShopName = async () => {
+      if (userStatus.user.profile?.shop_slug) {
+        try {
+          const shop = await shopService.getShopBySlug(userStatus.user.profile.shop_slug);
+          setShopName(shop.name);
+        } catch (error) {
+          setShopName(userStatus.user.username);
+        }
+      } else {
+        setShopName(userStatus.user.username);
+      }
+    };
+    fetchShopName();
+  }, [userStatus.user.profile?.shop_slug, userStatus.user.username]);
 
   useEffect(() => {
     if (isPaused) return;
@@ -107,29 +134,19 @@ const StatusViewerScreen: React.FC = () => {
   };
 
   const handleDelete = async () => {
-    Alert.alert(
-      'Delete Status',
-      'Are you sure you want to delete this status?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Delete',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('Deleting status:', currentStatus.id);
-              await statusService.deleteStatus(currentStatus.id);
-              console.log('Status deleted successfully');
-              Alert.alert('Success', 'Status deleted successfully');
-              navigation.goBack();
-            } catch (error) {
-              console.log('Delete error:', error);
-              Alert.alert('Error', 'Failed to delete status');
-            }
-          }
-        }
-      ]
-    );
+    const confirmed = confirm('Are you sure you want to delete this status?');
+    if (!confirmed) return;
+    
+    try {
+      safeLog('Deleting status:', currentStatus.id);
+      await statusService.deleteStatus(currentStatus.id);
+      safeLog('Status deleted successfully');
+      alert('Status deleted successfully');
+      navigation.goBack();
+    } catch (error) {
+      safeLog('Delete error:', error);
+      alert('Failed to delete status');
+    }
   };
 
   if (!currentStatus) return null;
@@ -164,7 +181,7 @@ const StatusViewerScreen: React.FC = () => {
             </View>
           )}
           <View style={styles.userDetails}>
-            <Text style={styles.username} numberOfLines={1}>{userStatus.user.username}</Text>
+            <Text style={styles.username} numberOfLines={1}>{shopName}</Text>
             <Text style={styles.timeText}>{formatTime(currentStatus.created_at)}</Text>
           </View>
         </View>
@@ -201,6 +218,16 @@ const StatusViewerScreen: React.FC = () => {
               style={styles.mediaImage}
             />
           </TouchableOpacity>
+        ) : currentStatus.media_type === 'video' && currentStatus.media_url ? (
+          <Video
+            source={{ uri: currentStatus.media_url }}
+            style={styles.mediaImage}
+            resizeMode="contain"
+            shouldPlay={!isPaused}
+            isLooping
+            isMuted={false}
+            useNativeControls={false}
+          />
         ) : (
           <View style={[styles.textStatus, { backgroundColor: currentStatus.background_color || '#25D366' }]}>
             <Text style={styles.statusText} numberOfLines={8}>{currentStatus.content}</Text>
@@ -224,7 +251,10 @@ const StatusViewerScreen: React.FC = () => {
           )}
           
           {isMyStatus && (
-            <TouchableOpacity style={styles.deleteIconButton} onPress={handleDelete}>
+            <TouchableOpacity 
+              style={styles.deleteIconButton} 
+              onPress={handleDelete}
+            >
               <Ionicons name="trash-outline" size={20} color="#fff" />
             </TouchableOpacity>
           )}

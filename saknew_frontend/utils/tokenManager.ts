@@ -2,6 +2,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { jwtDecode } from 'jwt-decode';
 import axios from 'axios';
 import { API_BASE_URL } from '../config';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 // Token structure
 interface DecodedToken {
@@ -31,7 +32,7 @@ export const isTokenExpiringSoon = async (): Promise<boolean> => {
     // Token is considered expiring if it will expire within the buffer time
     return expiryTime - currentTime < EXPIRATION_BUFFER_MS;
   } catch (error) {
-    console.error('Error checking token expiration:', error);
+    safeError('Error checking token expiration:', error);
     return true; // Assume token is expiring if we can't check
   }
 };
@@ -42,11 +43,11 @@ export const refreshTokenIfNeeded = async (): Promise<boolean> => {
     const isExpiring = await isTokenExpiringSoon();
     
     if (isExpiring) {
-      console.log('Token is expiring soon, refreshing...');
+      safeLog('Token is expiring soon, refreshing...');
       const refreshToken = await AsyncStorage.getItem('refresh_token');
       
       if (!refreshToken) {
-        console.log('No refresh token available');
+        safeLog('No refresh token available');
         return false;
       }
       
@@ -56,17 +57,17 @@ export const refreshTokenIfNeeded = async (): Promise<boolean> => {
       
       if (response.data && response.data.access) {
         await AsyncStorage.setItem('access_token', response.data.access);
-        console.log('Token refreshed successfully');
+        safeLog('Token refreshed successfully');
         return true;
       } else {
-        console.error('No access token in refresh response');
+        safeError('No access token in refresh response');
         return false;
       }
     }
     
     return true; // Token is still valid
   } catch (error) {
-    console.error('Error refreshing token:', error);
+    safeError('Error refreshing token:', error);
     return false;
   }
 };
@@ -86,7 +87,7 @@ export const getTokenRemainingTime = async (): Promise<number> => {
     
     return Math.max(0, Math.floor((expiryTime - currentTime) / 1000));
   } catch (error) {
-    console.error('Error getting token remaining time:', error);
+    safeError('Error getting token remaining time:', error);
     return 0;
   }
 };

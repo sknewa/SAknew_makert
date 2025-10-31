@@ -18,6 +18,7 @@ import { processPayment, verifyPayment, getOrderById } from '../../services/sale
 import { useBadges } from '../../context/BadgeContext';
 import BackButton from '../../components/BackButton';
 import { MainNavigationProp } from '../../navigation/types';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const colors = {
   background: '#F5F5F5',
@@ -57,18 +58,18 @@ const PaymentScreen: React.FC = () => {
 
   useEffect(() => {
     const fetchData = async () => {
-      console.log('Fetching payment data for order:', orderId);
+      safeLog('Fetching payment data for order:', orderId);
       try {
         const [walletData, orderData] = await Promise.all([
           getMyWallet(),
           getOrderById(orderId)
         ]);
-        console.log('Wallet data:', walletData);
-        console.log('Order data:', orderData);
+        safeLog('Wallet data:', walletData);
+        safeLog('Order data:', orderData);
         setWallet(walletData);
         setOrder(orderData);
       } catch (err: any) {
-        console.log('Payment data fetch error:', err);
+        safeLog('Payment data fetch error:', err);
         Alert.alert('Error', 'Could not fetch payment information.');
       } finally {
         setLoading(false);
@@ -78,61 +79,61 @@ const PaymentScreen: React.FC = () => {
     if (orderId) {
       fetchData();
     } else {
-      console.log('No orderId provided');
+      safeLog('No orderId provided');
       setLoading(false);
     }
   }, [orderId]);
 
   const handleWalletPayment = async () => {
-    console.log('=== PAY WITH WALLET BUTTON PRESSED ===');
-    console.log('Wallet:', wallet);
-    console.log('Order:', order);
+    safeLog('=== PAY WITH WALLET BUTTON PRESSED ===');
+    safeLog('Wallet:', wallet);
+    safeLog('Order:', order);
     
     if (!wallet || !order) {
-      console.log('Missing wallet or order data');
+      safeLog('Missing wallet or order data');
       return;
     }
 
     const walletBalance = parseFloat(wallet.balance);
     const orderTotal = parseFloat(order.total_price);
-    console.log('Wallet Balance:', walletBalance);
-    console.log('Order Total:', orderTotal);
-    console.log('Has Enough Funds:', walletBalance >= orderTotal);
+    safeLog('Wallet Balance:', walletBalance);
+    safeLog('Order Total:', orderTotal);
+    safeLog('Has Enough Funds:', walletBalance >= orderTotal);
 
     if (walletBalance < orderTotal) {
-      console.log('Insufficient funds - showing modal');
+      safeLog('Insufficient funds - showing modal');
       setShowInsufficientFundsModal(true);
       return;
     }
 
-    console.log('Showing payment confirmation modal');
+    safeLog('Showing payment confirmation modal');
     setShowConfirmModal(true);
   };
 
   const processWalletPayment = async () => {
-    console.log('=== PROCESSING WALLET PAYMENT ===');
-    console.log('Order ID:', orderId);
+    safeLog('=== PROCESSING WALLET PAYMENT ===');
+    safeLog('Order ID:', orderId);
     setShowConfirmModal(false);
     setPaying(true);
     try {
-      console.log('Calling processPayment API...');
+      safeLog('Calling processPayment API...');
       const result = await processPayment(orderId, 'wallet');
-      console.log('Payment result:', result);
+      safeLog('Payment result:', result);
       
-      console.log('Refreshing badges...');
+      safeLog('Refreshing badges...');
       await refreshBadges();
-      console.log('Badges refreshed');
+      safeLog('Badges refreshed');
       
-      console.log('Payment successful - showing success modal');
+      safeLog('Payment successful - showing success modal');
       setShowSuccessModal(true);
     } catch (err: any) {
-      console.log('Payment error:', err);
-      console.log('Error response:', err?.response?.data);
+      safeLog('Payment error:', err);
+      safeLog('Error response:', err?.response?.data);
       const errorMessage = err?.response?.data?.detail || 'Payment failed. Please try again.';
       Alert.alert('Payment Failed', errorMessage);
     } finally {
       setPaying(false);
-      console.log('Payment process completed');
+      safeLog('Payment process completed');
     }
   };
 
@@ -265,13 +266,13 @@ const PaymentScreen: React.FC = () => {
             <TouchableOpacity 
               style={styles.addFundsButton}
               onPress={() => {
-                console.log('💵 [PaymentScreen] Add Funds to Wallet button clicked');
-                console.log('💵 [PaymentScreen] Current wallet balance:', walletBalance);
-                console.log('💵 [PaymentScreen] Order total:', orderTotal);
-                console.log('💵 [PaymentScreen] Amount needed:', orderTotal - walletBalance);
-                console.log('💵 [PaymentScreen] Navigating to AddFundsScreen');
+                safeLog('💵 [PaymentScreen] Add Funds to Wallet button clicked');
+                safeLog('💵 [PaymentScreen] Current wallet balance:', walletBalance);
+                safeLog('💵 [PaymentScreen] Order total:', orderTotal);
+                safeLog('💵 [PaymentScreen] Amount needed:', orderTotal - walletBalance);
+                safeLog('💵 [PaymentScreen] Navigating to AddFundsScreen');
                 navigation.navigate('AddFundsScreen');
-                console.log('💵 [PaymentScreen] Navigation command sent');
+                safeLog('💵 [PaymentScreen] Navigation command sent');
               }}
               activeOpacity={0.8}
             >
@@ -344,12 +345,12 @@ const PaymentScreen: React.FC = () => {
               <TouchableOpacity 
                 style={styles.modalConfirmButton}
                 onPress={() => {
-                  console.log('💰 [PaymentScreen] Add Funds button clicked');
-                  console.log('💰 [PaymentScreen] Closing insufficient funds modal');
+                  safeLog('💰 [PaymentScreen] Add Funds button clicked');
+                  safeLog('💰 [PaymentScreen] Closing insufficient funds modal');
                   setShowInsufficientFundsModal(false);
-                  console.log('💰 [PaymentScreen] Navigating to AddFundsScreen');
+                  safeLog('💰 [PaymentScreen] Navigating to AddFundsScreen');
                   navigation.navigate('AddFundsScreen');
-                  console.log('💰 [PaymentScreen] Navigation command sent');
+                  safeLog('💰 [PaymentScreen] Navigation command sent');
                 }}
               >
                 <Text style={styles.modalConfirmText}>Add Funds</Text>
@@ -379,7 +380,7 @@ const PaymentScreen: React.FC = () => {
             <TouchableOpacity 
               style={[styles.modalConfirmButton, { width: '100%' }]}
               onPress={() => {
-                console.log('🎯 [PaymentScreen] View My Orders button clicked');
+                safeLog('🎯 [PaymentScreen] View My Orders button clicked');
                 setShowSuccessModal(false);
                 navigation.navigate('MainTabs', { screen: 'OrdersTab' });
               }}

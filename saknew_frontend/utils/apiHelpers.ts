@@ -1,6 +1,7 @@
 import { networkAwareRequest } from './networkAwareRequest';
 import apiClient from '../services/apiClient';
 import { Alert } from 'react-native';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 /**
  * Example of a network-aware API function
@@ -14,7 +15,7 @@ export const fetchDataSafely = async<T>(url: string): Promise<T | null> => {
     
     return response.data;
   } catch (error: any) {
-    console.error(`Error fetching data from ${url}:`, error);
+    safeError(`Error fetching data from ${url}:`, error);
     
     // Show user-friendly error message
     Alert.alert(
@@ -47,7 +48,7 @@ export const submitDataSafely = async<T>(
     
     return true;
   } catch (error: any) {
-    console.error(`Error submitting data to ${url}:`, error);
+    safeError(`Error submitting data to ${url}:`, error);
     
     if (onError) {
       onError(error);

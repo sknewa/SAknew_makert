@@ -21,6 +21,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Centralized colors
 const colors = {
@@ -117,7 +118,7 @@ const EditShopScreen: React.FC = () => {
           setSocialLinks(links);
         }
       } catch (error: any) {
-        console.error('Error fetching shop:', error.response?.data || error.message);
+        safeError('Error fetching shop:', error.response?.data || error.message);
         setError('Failed to load shop data. Please try again.');
       } finally {
         setShopLoading(false);
@@ -161,7 +162,7 @@ const EditShopScreen: React.FC = () => {
             throw new Error('Location services are not enabled');
           }
         } catch (err) {
-          console.log('Location services check failed:', err);
+          safeLog('Location services check failed:', err);
           // Continue anyway - we'll try to get location and handle errors there
         }
       }
@@ -188,10 +189,10 @@ const EditShopScreen: React.FC = () => {
           mayShowUserSettingsDialog: true
         });
       } catch (error: any) {
-        console.error('Location error details:', error);
+        safeError('Location error details:', error);
         // Try with mock location for development/testing
         if (__DEV__) {
-          console.log('Using mock location in development mode');
+          safeLog('Using mock location in development mode');
           location = {
             coords: {
               latitude: -25.7461,  // Default to Pretoria, South Africa
@@ -224,11 +225,11 @@ const EditShopScreen: React.FC = () => {
           Alert.alert('Location Fetched', 'Could not determine address from live location. Coordinates set.');
         }
       } catch (geocodeErr) {
-        console.warn('Geocoding failed but coordinates were obtained:', geocodeErr);
+        safeWarn('Geocoding failed but coordinates were obtained:', geocodeErr);
         Alert.alert('Location Partially Fetched', 'Got your coordinates but could not determine address. You can enter address details manually.');
       }
     } catch (err: any) {
-      console.error('Error fetching live location:', err);
+      safeError('Error fetching live location:', err);
       setError('Failed to get live location. Please enter your address manually.');
       Alert.alert(
         'Location Error', 
@@ -286,7 +287,7 @@ const EditShopScreen: React.FC = () => {
           return;
         }
       } catch (err: any) {
-        console.error('Error geocoding address:', err);
+        safeError('Error geocoding address:', err);
         setError('Failed to convert address to coordinates. Please check the address or use live location.');
         setGeocodingLoading(false);
         return;
@@ -323,7 +324,7 @@ const EditShopScreen: React.FC = () => {
         },
       ]);
     } catch (err: any) {
-      console.error('Shop update error:', err.response?.data || err.message);
+      safeError('Shop update error:', err.response?.data || err.message);
       let errorMessage = 'Failed to update shop. Please try again.';
       if (err.response && err.response.data) {
         if (err.response.data.name) {

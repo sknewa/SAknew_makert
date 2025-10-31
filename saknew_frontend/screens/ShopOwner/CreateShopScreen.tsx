@@ -23,6 +23,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -218,7 +219,7 @@ const CreateShopScreen: React.FC = () => {
       }
       
     } catch (error: any) {
-      console.error('Location error:', error);
+      safeError('Location error:', error);
       showAlert(
         '❌ Location Error',
         error.message || 'Unable to retrieve your location. Please enter your shop address manually.'

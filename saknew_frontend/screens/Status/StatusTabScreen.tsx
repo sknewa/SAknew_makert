@@ -5,6 +5,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext.minimal';
 import statusService from '../../services/statusService';
 import { UserStatus } from '../../services/status.types';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const StatusTabScreen: React.FC = () => {
   const navigation = useNavigation();
@@ -38,7 +39,7 @@ const StatusTabScreen: React.FC = () => {
       setMyStatuses(myStatus || null);
       setUserStatuses(otherStatuses);
     } catch (error) {
-      console.error('Failed to fetch statuses:', error);
+      safeError('Failed to fetch statuses:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -46,16 +47,16 @@ const StatusTabScreen: React.FC = () => {
   };
 
   const handleViewStatus = (userStatus: UserStatus) => {
-    navigation.navigate('StatusViewer', { userStatus });
+    navigation.navigate('StatusViewer' as any, { userStatus });
   };
 
   const handleCreateStatus = () => {
-    navigation.navigate('CreateStatus');
+    navigation.navigate('CreateStatus' as any);
   };
 
   const handleViewMyStatus = () => {
     if (myStatuses) {
-      navigation.navigate('StatusViewer', { userStatus: myStatuses });
+      navigation.navigate('StatusViewer' as any, { userStatus: myStatuses });
     } else {
       handleCreateStatus();
     }

@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 /**
  * Formats API error messages from various response formats
@@ -104,7 +105,7 @@ const formatErrorData = (data: any): string | null => {
  * @param context Additional context about where the error occurred
  */
 export const logError = (error: unknown, context: string): void => {
-  console.error(`Error in ${context}:`, error);
+  safeError(`Error in ${context}:`, error);
   
   // Here you could add integration with error monitoring services like Sentry
   // if (Sentry) {

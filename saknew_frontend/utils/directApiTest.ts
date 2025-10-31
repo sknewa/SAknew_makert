@@ -1,12 +1,13 @@
 // saknew_frontend/utils/directApiTest.ts
 import axios from 'axios';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 /**
  * Tests direct API connectivity to multiple IP addresses
  * This helps identify which IP address works for your setup
  */
 export const testMultipleIps = async () => {
-  console.log('=== TESTING MULTIPLE IP ADDRESSES ===');
+  safeLog('=== TESTING MULTIPLE IP ADDRESSES ===');
   
   // List of possible IP addresses to test
   const ipAddresses = [
@@ -20,18 +21,18 @@ export const testMultipleIps = async () => {
   // Test each IP address
   for (const ip of ipAddresses) {
     try {
-      console.log(`Testing connection to: ${ip}`);
+      safeLog(`Testing connection to: ${ip}`);
       const response = await axios.get(`${ip}/`, { 
         timeout: 5000,
         validateStatus: () => true // Accept any status code
       });
-      console.log(`✅ SUCCESS: ${ip} responded with status ${response.status}`);
+      safeLog(`✅ SUCCESS: ${ip} responded with status ${response.status}`);
     } catch (error) {
-      console.log(`❌ FAILED: ${ip} - ${error.message}`);
+      safeLog(`❌ FAILED: ${ip} - ${error.message}`);
     }
   }
   
-  console.log('=== IP ADDRESS TESTING COMPLETE ===');
+  safeLog('=== IP ADDRESS TESTING COMPLETE ===');
 };
 
 // Run the test immediately

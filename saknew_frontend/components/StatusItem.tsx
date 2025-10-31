@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { Video } from 'expo-av';
 import { UserStatus } from '../services/status.types';
 import StatusRing from './StatusRing';
 import shopService from '../services/shopService';
 import { IMAGE_BASE_URL } from '../config';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 interface StatusItemProps {
   userStatus: UserStatus;
@@ -24,7 +26,8 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
     mediaType: latest_status?.media_type,
     mediaUrl: latest_status?.media_url,
     content: latest_status?.content,
-    unviewedCount: unviewed_count
+    unviewedCount: unviewed_count,
+    statusesCount: userStatus.statuses?.length
   });
   
   // Fetch shop name if user has a shop
@@ -35,7 +38,7 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
           const shop = await shopService.getShopBySlug(user.profile.shop_slug);
           setShopName(shop.name);
         } catch (error) {
-          console.log('Failed to fetch shop name:', error);
+          safeLog('Failed to fetch shop name:', error);
           setShopName(user.username); // Fallback to username
         }
       } else {
@@ -56,9 +59,32 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
                 {latest_status.media_type === 'image' && latest_status.media_url ? (
                   (() => {
                     const imageUrl = latest_status.media_url.startsWith('http') ? latest_status.media_url : `${IMAGE_BASE_URL}${latest_status.media_url}`;
-                    console.log('DEBUG StatusItem - My Status Image URL:', imageUrl);
-                    return <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />;
+                    return (
+                      <>
+                        <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />
+                        <View style={styles.usernameOverlay}>
+                          <Text style={styles.usernameText}>{shopName}</Text>
+                        </View>
+                      </>
+                    );
                   })()
+                ) : latest_status.media_type === 'video' && latest_status.media_url ? (
+                  <>
+                    <Video
+                      source={{ uri: latest_status.media_url }}
+                      style={styles.mediaPreview}
+                      resizeMode="cover"
+                      shouldPlay={false}
+                      isLooping={false}
+                      isMuted
+                    />
+                    <View style={styles.usernameOverlay}>
+                      <Text style={styles.usernameText}>{shopName}</Text>
+                    </View>
+                    <View style={styles.videoIcon}>
+                      <Ionicons name="play" size={20} color="#fff" />
+                    </View>
+                  </>
                 ) : (
                   <Text style={styles.statusContent} numberOfLines={3}>
                     {latest_status.content}
@@ -76,7 +102,6 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
             </TouchableOpacity>
           </View>
         </TouchableOpacity>
-        <Text style={styles.nameText}>{shopName || user.username}</Text>
       </View>
     );
   }
@@ -89,9 +114,32 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
             {latest_status?.media_type === 'image' && latest_status?.media_url ? (
               (() => {
                 const imageUrl = latest_status.media_url.startsWith('http') ? latest_status.media_url : `${IMAGE_BASE_URL}${latest_status.media_url}`;
-                console.log('DEBUG StatusItem - Other Status Image URL:', imageUrl);
-                return <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />;
+                return (
+                  <>
+                    <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />
+                    <View style={styles.usernameOverlay}>
+                      <Text style={styles.usernameText}>{shopName}</Text>
+                    </View>
+                  </>
+                );
               })()
+            ) : latest_status?.media_type === 'video' && latest_status?.media_url ? (
+              <>
+                <Video
+                  source={{ uri: latest_status.media_url }}
+                  style={styles.mediaPreview}
+                  resizeMode="cover"
+                  shouldPlay={false}
+                  isLooping={false}
+                  isMuted
+                />
+                <View style={styles.usernameOverlay}>
+                  <Text style={styles.usernameText}>{shopName}</Text>
+                </View>
+                <View style={styles.videoIcon}>
+                  <Ionicons name="play" size={20} color="#fff" />
+                </View>
+              </>
             ) : (
               <Text style={styles.statusContent} numberOfLines={3}>
                 {latest_status?.content || userStatus.statuses[0]?.content}
@@ -100,7 +148,6 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
           </View>
         </View>
       </TouchableOpacity>
-      <Text style={styles.nameText}>{shopName || user.username}</Text>
     </View>
   );
 };
@@ -162,14 +209,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 3,
+    overflow: 'hidden',
   },
   statusPreview: {
     flex: 1,
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
-    padding: 8,
-    justifyContent: 'center',
+    borderRadius: 12,
+    justifyContent: 'flex-start',
     alignItems: 'center',
+    position: 'relative',
   },
   statusContent: {
     color: '#fff',
@@ -177,19 +224,39 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     textAlign: 'center',
   },
-  nameText: {
-    fontSize: 12,
-    color: '#667781',
-    textAlign: 'center',
-    marginTop: 4,
-    width: 80,
-  },
   mediaPreview: {
     width: '100%',
     height: '100%',
-    borderTopLeftRadius: 12,
-    borderTopRightRadius: 12,
+    borderRadius: 12,
     resizeMode: 'cover',
+  },
+  usernameOverlay: {
+    position: 'absolute',
+    top: 6,
+    left: 6,
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  usernameText: {
+    color: '#fff',
+    fontSize: 10,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  videoIcon: {
+    position: 'absolute',
+    top: '50%',
+    left: '50%',
+    transform: [{ translateX: -15 }, { translateY: -15 }],
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
 });
 

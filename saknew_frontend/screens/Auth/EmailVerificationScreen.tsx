@@ -18,6 +18,7 @@ import { RouteProp } from '@react-navigation/native';
 import AuthService from '../../services/authService'; // Ensure AuthService is imported
 import { AuthNavigationProp, AuthStackParamList } from '../../navigation/types'; // Ensure AuthNavigationProp is imported
 import { Ionicons } from '@expo/vector-icons';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Define the route prop type for this screen using the correct name from types.ts
 type EmailVerificationScreenRouteProp = RouteProp<AuthStackParamList, 'EmailVerification'>;
@@ -97,7 +98,7 @@ const EmailVerificationScreen: React.FC = () => {
         { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
     } catch (err: any) {
-      console.error('Email verification error:', err.response?.data || err.message);
+      safeError('Email verification error:', err.response?.data || err.message);
       let errorMessage = 'An unexpected error occurred during verification.';
       if (err.response && err.response.data) {
         if (err.response.data.detail) {
@@ -138,7 +139,7 @@ const EmailVerificationScreen: React.FC = () => {
       Alert.alert('Success!', 'A new verification code has been sent to your email.', [{ text: 'OK' }]);
       setResendTimer(RESEND_COOLDOWN_SECONDS);
     } catch (err: any) {
-      console.error('Resend code error:', err.response?.data || err.message);
+      safeError('Resend code error:', err.response?.data || err.message);
       let errorMessage = 'Failed to resend verification code.';
       if (err.response && err.response.data) {
         if (err.response.data.detail) {

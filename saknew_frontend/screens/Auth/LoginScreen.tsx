@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthNavigationProp } from '../../navigation/types';
 import { globalStyles, colors, spacing } from '../../styles/globalStyles';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 
 const LoginScreen: React.FC = () => {
@@ -46,7 +47,7 @@ const LoginScreen: React.FC = () => {
     try {
       await login(email.trim(), password.trim());
     } catch (err: any) {
-      console.error('Login error:', err.message);
+      safeError('Login error:', err.message);
       let userFriendlyMessage = 'An unexpected error occurred during login.';
       
       // Handle authentication errors

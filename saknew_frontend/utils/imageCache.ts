@@ -1,6 +1,7 @@
 import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { getImageUrl } from './imageUtils';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 // Cache configuration
 const CACHE_FOLDER = `${FileSystem.cacheDirectory}images/`;
@@ -25,12 +26,12 @@ export const initializeCache = async (): Promise<void> => {
     }
     
     isCacheInitialized = true;
-    console.log('Image cache initialized');
+    safeLog('Image cache initialized');
     
     // Clean old cache entries in the background
-    cleanCache().catch(err => console.error('Cache cleaning error:', err));
+    cleanCache().catch(err => safeError('Cache cleaning error:', err));
   } catch (error) {
-    console.error('Failed to initialize image cache:', error);
+    safeError('Failed to initialize image cache:', error);
   }
 };
 
@@ -55,7 +56,7 @@ export const getCachedImageUri = async (url: string | null): Promise<string> => 
         return urlToPath[fullUrl];
       }
     } catch (error) {
-      console.error('Error checking cached file:', error);
+      safeError('Error checking cached file:', error);
     }
   }
   
@@ -69,7 +70,7 @@ export const getCachedImageUri = async (url: string | null): Promise<string> => 
     
     return path;
   } catch (error) {
-    console.error('Error caching image:', error);
+    safeError('Error caching image:', error);
     return fullUrl; // Fallback to original URL
   }
 };
@@ -111,7 +112,7 @@ const cleanCache = async (): Promise<void> => {
       }
     }
   } catch (error) {
-    console.error('Error cleaning cache:', error);
+    safeError('Error cleaning cache:', error);
   }
 };
 

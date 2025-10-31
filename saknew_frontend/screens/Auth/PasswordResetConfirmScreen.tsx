@@ -19,6 +19,7 @@ import { RouteProp } from '@react-navigation/native';
 import AuthService from '../../services/authService';
 import { AuthNavigationProp, AuthStackParamList } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 type PasswordResetConfirmScreenRouteProp = RouteProp<AuthStackParamList, 'PasswordResetConfirm'>;
 
@@ -79,7 +80,7 @@ const PasswordResetConfirmScreen: React.FC = () => {
         { text: 'OK', onPress: () => navigation.navigate('Login') },
       ]);
     } catch (err: any) {
-      console.error('Password reset confirmation error:', err.response?.data || err.message);
+      safeError('Password reset confirmation error:', err.response?.data || err.message);
       let errorMessage = 'An unexpected error occurred during password reset.';
 
       if (err.response && err.response.data) {

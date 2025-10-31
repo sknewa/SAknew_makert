@@ -62,14 +62,14 @@ const MainTabNavigator = () => {
               iconName = focused ? 'home' : 'home-outline';
               return (
                 <View style={styles.iconContainer}>
-                  <Ionicons name={iconName} size={size} color={color} />
+                  <Ionicons name={iconName} size={20} color={color} />
                 </View>
               );
             case 'CartTab':
               iconName = focused ? 'cart' : 'cart-outline';
               return (
                 <View style={styles.iconContainer}>
-                  <Ionicons name={iconName} size={size} color={color} />
+                  <Ionicons name={iconName} size={20} color={color} />
                   <TabBarBadge count={cartCount} />
                 </View>
               );
@@ -77,7 +77,7 @@ const MainTabNavigator = () => {
               iconName = focused ? 'receipt' : 'receipt-outline';
               return (
                 <View style={styles.iconContainer}>
-                  <Ionicons name={iconName} size={size} color={color} />
+                  <Ionicons name={iconName} size={20} color={color} />
                   <TabBarBadge count={orderCount} />
                 </View>
               );
@@ -85,7 +85,7 @@ const MainTabNavigator = () => {
               iconName = focused ? 'wallet' : 'wallet-outline';
               return (
                 <View style={styles.iconContainer}>
-                  <Ionicons name={iconName} size={size} color={color} />
+                  <Ionicons name={iconName} size={20} color={color} />
                   <View style={styles.walletBadge}>
                     <Text style={styles.walletBadgeText}>R{walletBalance}</Text>
                   </View>
@@ -95,7 +95,7 @@ const MainTabNavigator = () => {
               iconName = focused ? 'storefront' : 'storefront-outline';
               return (
                 <View style={styles.iconContainer}>
-                  <Ionicons name={iconName} size={size} color={color} />
+                  <Ionicons name={iconName} size={20} color={color} />
                   <TabBarBadge count={orderCount} />
                 </View>
               );
@@ -110,19 +110,22 @@ const MainTabNavigator = () => {
           backgroundColor: colors.card,
           borderTopWidth: StyleSheet.hairlineWidth,
           borderTopColor: colors.border,
-          elevation: 8,
+          elevation: 4,
           shadowColor: colors.shadowColor,
           shadowOffset: { width: 0, height: -1 },
-          shadowOpacity: 0.1,
-          shadowRadius: 4,
-          height: Platform.OS === 'ios' ? 85 : 65,
-          paddingBottom: Platform.OS === 'ios' ? 20 : 8,
-          paddingTop: 8,
+          shadowOpacity: 0.08,
+          shadowRadius: 3,
+          height: Platform.OS === 'ios' ? 70 : 56,
+          paddingBottom: Platform.OS === 'ios' ? 12 : 6,
+          paddingTop: 6,
         },
         tabBarLabelStyle: {
-          fontSize: 10,
+          fontSize: 9,
           fontWeight: '500',
-          marginTop: -2,
+          marginTop: -1,
+        },
+        tabBarIconStyle: {
+          marginTop: 2,
         },
         headerShown: false,
       })}
@@ -130,7 +133,7 @@ const MainTabNavigator = () => {
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
       <Tab.Screen name="CartTab" component={CartScreen} options={{ title: 'Cart' }} />
       <Tab.Screen name="OrdersTab" component={MyOrdersScreen} options={{ title: 'Orders' }} />
-      <Tab.Screen name="WalletTab" component={WalletDashboardScreen} options={{ title: '' }} />
+      <Tab.Screen name="WalletTab" component={WalletDashboardScreen} options={{ title: 'Wallet' }} />
       <Tab.Screen name="ShopTab" component={ShopTabContent} options={{ title: 'Shop' }} />
     </Tab.Navigator>
   );
@@ -138,42 +141,42 @@ const MainTabNavigator = () => {
 
 const styles = StyleSheet.create({
   iconContainer: {
-    height: 32,
+    height: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   walletBadge: {
     position: 'absolute',
-    right: -12,
-    top: -6,
+    right: -10,
+    top: -5,
     backgroundColor: colors.primary,
-    borderRadius: 8,
-    minWidth: 24,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
-  },
-  walletBadgeText: {
-    color: colors.white,
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-  badge: {
-    position: 'absolute',
-    right: -8,
-    top: -4,
-    backgroundColor: colors.error,
-    borderRadius: 9,
-    minWidth: 18,
-    height: 18,
+    borderRadius: 6,
+    minWidth: 20,
+    height: 14,
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 3,
   },
+  walletBadgeText: {
+    color: colors.white,
+    fontSize: 7,
+    fontWeight: 'bold',
+  },
+  badge: {
+    position: 'absolute',
+    right: -6,
+    top: -3,
+    backgroundColor: colors.error,
+    borderRadius: 8,
+    minWidth: 16,
+    height: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 2,
+  },
   badgeText: {
     color: colors.white,
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: 'bold',
   },
 });

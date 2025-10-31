@@ -1,4 +1,5 @@
 import { IMAGE_BASE_URL } from '../config';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 /**
  * Ensures image URLs are absolute by converting relative URLs to absolute
@@ -23,11 +24,11 @@ export const getImageUrl = (url: string | null): string => {
     
     // Log the constructed URL for debugging
     const fullUrl = `${baseUrl}/${cleanUrl}`;
-    console.log('Constructed image URL:', fullUrl);
+    safeLog('Constructed image URL:', fullUrl);
     
     return fullUrl;
   } catch (error) {
-    console.error('Error processing image URL:', error);
+    safeError('Error processing image URL:', error);
     return 'https://via.placeholder.com/300x300?text=Error';
   }
 };
@@ -41,10 +42,10 @@ export const isImageAccessible = async (url: string): Promise<boolean> => {
   try {
     // Skip actual network check in development to avoid unnecessary errors
     // Just log the URL we're trying to access
-    console.log('Would check accessibility for:', url);
+    safeLog('Would check accessibility for:', url);
     return true;
   } catch (error) {
-    console.error('Error checking image accessibility:', error);
+    safeError('Error checking image accessibility:', error);
     return false;
   }
 };

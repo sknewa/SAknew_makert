@@ -1,13 +1,13 @@
 import api from './apiClient';
 import { Status, StatusView, UserStatus } from './status.types';
-import { SecurityUtils } from '../utils/securityUtils';
+import { safeLog, safeWarn } from '../utils/securityUtils';
 
 class StatusService {
   async getUserStatuses(): Promise<UserStatus[]> {
     try {
-      console.log('DEBUG: Fetching user statuses from /api/status/users/');
+      safeLog('DEBUG: Fetching user statuses from /api/status/users/');
       const response = await api.get('/api/status/users/');
-      console.log('DEBUG: Status response:', response.status, 'Data count:', Array.isArray(response.data) ? response.data.length : 'Not array');
+      safeLog('DEBUG: Status response:', response.status, 'Data count:', Array.isArray(response.data) ? response.data.length : 'Not array');
       
       // Ensure we return an array even if the response is unexpected
       if (Array.isArray(response.data)) {
@@ -15,19 +15,19 @@ class StatusService {
         response.data.forEach((userStatus: any) => {
           userStatus.statuses?.forEach((status: any) => {
             if (status.media_url) {
-              console.log('DEBUG: Status media_url:', status.id, status.media_type, status.media_url);
+              safeLog('DEBUG: Status media_url:', status.id, status.media_type, status.media_url);
             }
           });
         });
-        console.log('DEBUG: Returning', response.data.length, 'user statuses');
+        safeLog('DEBUG: Returning', response.data.length, 'user statuses');
         return response.data;
       } else {
-        console.warn('DEBUG: Expected array but got:', typeof response.data);
+        safeWarn('DEBUG: Expected array but got:', typeof response.data);
         return [];
       }
     } catch (error: any) {
-      console.log('DEBUG: Status fetch error:', error?.response?.status, error?.response?.data, error?.message);
-      SecurityUtils.safeLog('error', 'Error fetching user statuses:', error?.message);
+      safeLog('DEBUG: Status fetch error:', error?.response?.status, error?.response?.data, error?.message);
+      safeLog('Error fetching user statuses:', error?.message);
       return []; // Return empty array instead of throwing
     }
   }
@@ -37,87 +37,60 @@ class StatusService {
       const response = await api.get('/api/status/my/');
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error fetching my statuses:', error?.message);
+      safeLog('Error fetching my statuses:', error?.message);
       throw error;
     }
   }
 
   async createStatus(content: string, mediaUri?: string, mediaType?: 'image' | 'video' | 'text', backgroundColor?: string): Promise<Status> {
     try {
-      console.log('DEBUG: StatusService.createStatus called with:', {
-        contentLength: content.length,
-        hasMediaUri: !!mediaUri,
-        mediaType,
-        backgroundColor
-      });
-      
-      const sanitizedContent = SecurityUtils.sanitizeInput(content);
-      console.log('DEBUG: Content sanitized, length:', sanitizedContent.length);
+      console.log('DEBUG statusService: createStatus called with:', { hasMediaUri: !!mediaUri, mediaType, backgroundColor });
       
       if (mediaUri && (mediaType === 'image' || mediaType === 'video')) {
-        console.log('DEBUG: Creating FormData for media upload');
-        // Create FormData for file upload
+        console.log('DEBUG statusService: Creating FormData for', mediaType);
         const formData = new FormData();
-        formData.append('content', sanitizedContent);
+        formData.append('content', content || '');
         formData.append('media_type', mediaType);
-        if (backgroundColor) {
-          formData.append('background_color', backgroundColor);
-        }
+        if (backgroundColor) formData.append('background_color', backgroundColor);
         
-        // Add the media file - fetch blob and convert to File
-        const baseFilename = mediaUri.split('/').pop() || 'media';
+        const filename = `status_${Date.now()}${mediaType === 'image' ? '.jpg' : '.mp4'}`;
         const fileType = mediaType === 'image' ? 'image/jpeg' : 'video/mp4';
-        const extension = mediaType === 'image' ? '.jpg' : '.mp4';
-        const filename = baseFilename.includes('.') ? baseFilename : `${baseFilename}${extension}`;
-        console.log('DEBUG: Media file details:', { filename, fileType, mediaUri });
+        console.log('DEBUG statusService: Filename:', filename, 'Type:', fileType);
         
-        // Fetch the blob from the blob URL
-        const fetchResponse = await fetch(mediaUri);
-        const blob = await fetchResponse.blob();
-        const file = new File([blob], filename, { type: fileType });
-        console.log('DEBUG: File created:', { size: file.size, type: file.type, name: file.name });
+        console.log('DEBUG statusService: Fetching blob from:', mediaUri);
+        const blob = await fetch(mediaUri).then(r => r.blob());
+        console.log('DEBUG statusService: Blob size:', blob.size, 'Type:', blob.type);
         
-        formData.append('media_file', file);
+        formData.append('media_file', new File([blob], filename, { type: fileType }));
+        console.log('DEBUG statusService: FormData prepared, sending to API...');
         
-        // Debug: Log FormData contents
-        console.log('DEBUG: FormData entries:');
-        for (const [key, value] of (formData as any).entries()) {
-          if (value instanceof File) {
-            console.log(`  ${key}: File(name=${value.name}, size=${value.size}, type=${value.type})`);
-          } else {
-            console.log(`  ${key}: ${value}`);
-          }
-        }
-        
-        console.log('DEBUG: Sending FormData to /api/status/');
         const response = await api.post('/api/status/', formData, {
-          headers: {
-            'Content-Type': undefined, // Let browser set multipart/form-data with boundary
-          },
+          headers: { 'Content-Type': 'multipart/form-data' },
+          timeout: 120000,
+          onUploadProgress: (progressEvent) => {
+            const percentCompleted = Math.round((progressEvent.loaded * 100) / (progressEvent.total || 1));
+            console.log('DEBUG statusService: Upload progress:', percentCompleted + '%');
+          }
         });
-        console.log('DEBUG: Media status created successfully:', response.status, response.data);
+        console.log('DEBUG statusService: API response:', response.status, response.data);
         return response.data;
       } else {
-        console.log('DEBUG: Creating text-only status');
-        const payload = {
-          content: sanitizedContent,
+        console.log('DEBUG statusService: Creating text status');
+        const response = await api.post('/api/status/', {
+          content,
           media_type: mediaType || 'text',
           background_color: backgroundColor
-        };
-        console.log('DEBUG: Text status payload:', payload);
-        
-        const response = await api.post('/api/status/', payload);
-        console.log('DEBUG: Text status created successfully:', response.status, response.data);
+        });
+        console.log('DEBUG statusService: Text status created:', response.data);
         return response.data;
       }
     } catch (error: any) {
-      console.log('DEBUG: Status creation error:', {
-        message: error?.message,
+      console.log('DEBUG statusService: Error details:', {
         status: error?.response?.status,
         data: error?.response?.data,
-        config: error?.config
+        message: error?.message
       });
-      SecurityUtils.safeLog('error', 'Error creating status:', error?.message);
+      safeLog('Status creation error:', error?.response?.data || error?.message);
       throw error;
     }
   }
@@ -126,19 +99,19 @@ class StatusService {
     try {
       await api.post(`/api/status/${statusId}/view/`);
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error viewing status:', error?.message);
+      safeLog('Error viewing status:', error?.message);
       throw error;
     }
   }
 
   async deleteStatus(statusId: number): Promise<void> {
     try {
-      console.log('DEBUG: Deleting status with ID:', statusId);
+      safeLog('DEBUG: Deleting status with ID:', statusId);
       const response = await api.delete(`/api/status/${statusId}/`);
-      console.log('DEBUG: Delete response:', response.status, response.data);
+      safeLog('DEBUG: Delete response:', response.status, response.data);
     } catch (error: any) {
-      console.log('DEBUG: Delete error:', error?.response?.status, error?.response?.data, error?.message);
-      SecurityUtils.safeLog('error', 'Error deleting status:', error?.message);
+      safeLog('DEBUG: Delete error:', error?.response?.status, error?.response?.data, error?.message);
+      safeLog('Error deleting status:', error?.message);
       throw error;
     }
   }

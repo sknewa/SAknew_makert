@@ -20,6 +20,7 @@ import { AuthNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import { ScrollView } from 'react-native'; 
 import { useWindowDimensions } from 'react-native';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 
 // Centralized colors - RECOMMENDED: Move this to a separate file (e.g., ../constants/colors.ts)
@@ -76,29 +77,29 @@ const RegisterScreen: React.FC = () => {
     try {
       const result = await AuthService.register({ email: email.trim(), password, re_password: rePassword });
       
-      console.log('Registration successful:', result);
-      console.log('Current navigation state before redirect:', navigation.getState());
-      console.log('Navigation object:', navigation);
+      safeLog('Registration successful:', result);
+      safeLog('Current navigation state before redirect:', navigation.getState());
+      safeLog('Navigation object:', navigation);
       
       // Add window location tracking for web
       if (typeof window !== 'undefined') {
-        console.log('Current window location:', window.location.href);
+        safeLog('Current window location:', window.location.href);
       }
       
       // Force navigation using replace to ensure it works
-      console.log('Attempting navigation to ActivateAccount with email:', email.trim());
+      safeLog('Attempting navigation to ActivateAccount with email:', email.trim());
       navigation.replace('ActivateAccount', { userEmail: email.trim() });
-      console.log('Navigation replace call completed');
+      safeLog('Navigation replace call completed');
       
       // Check navigation state after
       setTimeout(() => {
-        console.log('Navigation state after redirect:', navigation.getState());
+        safeLog('Navigation state after redirect:', navigation.getState());
         if (typeof window !== 'undefined') {
-          console.log('Window location after redirect:', window.location.href);
+          safeLog('Window location after redirect:', window.location.href);
         }
       }, 500);
     } catch (err: any) {
-      console.log('AuthService registration error details:', {
+      safeLog('AuthService registration error details:', {
         errorType: typeof err,
         errorConstructor: err?.constructor?.name,
         message: err?.message,
@@ -108,11 +109,11 @@ const RegisterScreen: React.FC = () => {
         } : null,
         hasRequest: !!err?.request
       });
-      console.error('Registration failed', { status: err?.response?.status, code: err?.code });
-      console.error('Registration error:', err?.response?.data || err?.message || err);
+      safeError('Registration failed', { status: err?.response?.status, code: err?.code });
+      safeError('Registration error:', err?.response?.data || err?.message || err);
       
       // Don't show success message on error
-      console.log('Registration error: ' + (err?.message || 'Unknown error'));
+      safeLog('Registration error: ' + (err?.message || 'Unknown error'));
 
       let errorMessage = 'An unexpected error occurred during registration.';
       if (err?.response?.data) {

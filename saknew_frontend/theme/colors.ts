@@ -21,4 +21,6 @@ export default {
   warningAction: '#FFC107',
   white: '#FFFFFF',
   accent: '#FFD700',
+  error: '#DC3545',
+  iconColor: '#6C757D',
 };

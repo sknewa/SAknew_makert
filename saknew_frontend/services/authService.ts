@@ -4,6 +4,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { User, UserProfile } from '../types';
 import secureLogger from '../utils/secureLogger';
 import { InputValidator } from '../utils/inputValidator';
+import { safeLog, safeError, safeWarn } from '../utils/secureLogger';
 // Removed: import { DJOSER_FRONTEND_DOMAIN } from '../config'; // This import is not used here
 
 // Define interfaces for API responses and request data
@@ -32,8 +33,16 @@ interface ActivationData { // Renamed from EmailVerificationData for consistency
   code: string; // Your custom 6-digit code
 }
 
-interface UserProfileResponse extends User {
+interface UserProfileResponse {
+  id: number;
+  email: string;
+  username: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
   profile: UserProfile;
+  code?: string;
+  detail?: string;
 }
 
 const AuthService = {
@@ -140,7 +149,7 @@ const AuthService = {
         throw new Error(`Registration failed with status ${response.status}`);
       }
     } catch (error: any) {
-      console.log('AuthService registration error details:', {
+      safeLog('AuthService registration error details:', {
         errorType: typeof error,
         errorConstructor: error?.constructor?.name,
         message: error?.message,
@@ -331,8 +340,8 @@ const AuthService = {
       }
       
       // Validate password strength
-      if (!InputValidator.validatePassword(new_password)) {
-        throw new Error('Password does not meet security requirements');
+      if (new_password.length < 8) {
+        throw new Error('Password must be at least 8 characters');
       }
       
       secureLogger.log('Confirming password reset');

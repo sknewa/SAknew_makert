@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { Product, ProductImage } from '../../services/shop.types'; // Import Product and ProductImage interfaces
 import ProductImageItem from '../../components/ProductImageItem';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Define route parameters for ProductDetailScreen
 type ProductDetailRouteParams = {
@@ -45,7 +46,7 @@ const ProductDetailScreen = () => {
       // Set header title dynamically once product name is available
       navigation.setOptions({ title: fetchedProduct.name || 'Product Details' });
     } catch (err: any) {
-      console.error('Failed to fetch product details:', err.response?.data || err.message);
+      safeError('Failed to fetch product details:', err.response?.data || err.message);
       
       // If product with ID 13 doesn't exist, create a mock product for testing
       if (productId === 13) {

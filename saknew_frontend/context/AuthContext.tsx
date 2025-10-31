@@ -8,6 +8,7 @@ import React, {
   ReactNode,
 } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 // Temporarily disable imports to isolate PlatformConstants error
 // import AuthService from '../services/authService';
 // import { setOnUnauthorizedCallback } from '../services/apiClient';
@@ -47,14 +48,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Temporary mock function
   const refreshUserProfile = useCallback(async () => {
-    console.log('AuthContext: Mock refreshUserProfile called.');
+    safeLog('AuthContext: Mock refreshUserProfile called.');
     setUser({ id: 1 });
     setIsAuthenticated(false); // Keep false for now
   }, []); // Empty dependency array means this function is stable and won't re-create unnecessarily
 
   // Temporary mock function
   const loadUser = useCallback(async () => {
-    console.log('AuthContext: Mock loadUser called.');
+    safeLog('AuthContext: Mock loadUser called.');
     setLoading(true);
     setTimeout(() => {
       setUser(null);
@@ -70,20 +71,20 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   // Log state changes for debugging
   useEffect(() => {
-    console.log('AuthContext: >>> User or isAuthenticated state changed <<<');
-    console.log('AuthContext: Current user:', user);
-    console.log('AuthContext: Current isAuthenticated:', isAuthenticated);
-    console.log('AuthContext: Current user.profile?.is_seller:', user?.profile?.is_seller);
+    safeLog('AuthContext: >>> User or isAuthenticated state changed <<<');
+    safeLog('AuthContext: Current user:', user);
+    safeLog('AuthContext: Current isAuthenticated:', isAuthenticated);
+    safeLog('AuthContext: Current user.profile?.is_seller:', user?.profile?.is_seller);
   }, [user, isAuthenticated]); // Log whenever user or isAuthenticated state changes
 
 
   const login = useCallback(async (email: string, password: string) => {
-    console.log(`AuthContext: Mock login for: ${email}`);
+    safeLog(`AuthContext: Mock login for: ${email}`);
     setLoading(false);
   }, []); // Dependency on refreshUserProfile
 
   const logout = useCallback(async () => {
-    console.log('AuthContext: Mock logout');
+    safeLog('AuthContext: Mock logout');
     setUser(null);
     setIsAuthenticated(false);
     setLoading(false);
@@ -92,7 +93,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Temporarily disabled
   // React.useEffect(() => {
   //   setOnUnauthorizedCallback(() => {
-  //     console.log('AuthContext: Unauthorized callback triggered, logging out user');
+  //     safeLog('AuthContext: Unauthorized callback triggered, logging out user');
   //     logout();
   //   });
   // }, [logout]);

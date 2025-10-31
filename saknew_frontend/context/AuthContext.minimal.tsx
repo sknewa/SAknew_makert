@@ -1,5 +1,6 @@
 import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 // Real API calls for authentication
 const API_BASE_URL = 'https://saknew-makert-e7ac1361decc.herokuapp.com';
@@ -18,7 +19,7 @@ const refreshTokenApiCall = async (existingRefreshToken: string) => {
 };
 
 const getMyProfileApiCall = async (accessToken: string): Promise<User> => {
-  console.log('AuthContext: Fetching user profile from API...');
+  safeLog('AuthContext: Fetching user profile from API...');
   const response = await fetch(`${API_BASE_URL}/api/accounts/me/`, {
     method: 'GET',
     headers: {
@@ -90,20 +91,20 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
             const userProfile = await getMyProfileApiCall(accessToken);
             setUser(userProfile);
             setIsAuthenticated(true);
-            console.log('Restored authentication from stored token');
+            safeLog('Restored authentication from stored token');
           } catch (error) {
-            console.log('Token validation failed, clearing auth state');
+            safeLog('Token validation failed, clearing auth state');
             await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
             setUser(null);
             setIsAuthenticated(false);
           }
         } else {
-          console.log('No stored token found');
+          safeLog('No stored token found');
           setUser(null);
           setIsAuthenticated(false);
         }
       } catch (error) {
-        console.error('Error checking auth state:', error);
+        safeError('Error checking auth state:', error);
         setUser(null);
         setIsAuthenticated(false);
       } finally {
@@ -115,14 +116,14 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const login = async (email: string, password: string) => {
     if (loginInProgress) {
-      console.log('Login already in progress, skipping...');
+      safeLog('Login already in progress, skipping...');
       return;
     }
     
     setLoginInProgress(true);
     setLoading(true);
     try {
-      console.log('Attempting login for:', email);
+      safeLog('Attempting login for:', email);
       const { access, refresh } = await loginApiCall(email, password);
       
       await AsyncStorage.setItem('access_token', access);
@@ -132,9 +133,9 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
       const userProfile = await getMyProfileApiCall(access);
       setUser(userProfile);
       setIsAuthenticated(true);
-      console.log('Login successful, real JWT tokens stored');
+      safeLog('Login successful, real JWT tokens stored');
     } catch (error: any) {
-      console.error('Login failed:', error.message || error);
+      safeError('Login failed:', error.message || error);
       throw new Error(error.message || 'Login failed');
     } finally {
       setLoading(false);
@@ -143,18 +144,18 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   };
 
   const logout = async () => {
-    console.log('Logging out, clearing tokens and user state.');
+    safeLog('Logging out, clearing tokens and user state.');
     await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
     setUser(null);
     setIsAuthenticated(false);
   };
 
   const handleUnauthorized = async (): Promise<boolean> => {
-    console.log('Handling unauthorized error, attempting to refresh token...');
+    safeLog('Handling unauthorized error, attempting to refresh token...');
     const existingRefreshToken = await AsyncStorage.getItem('refresh_token');
 
     if (!existingRefreshToken) {
-      console.log('No refresh token found.');
+      safeLog('No refresh token found.');
       await logout();
       return false;
     }
@@ -162,17 +163,17 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     try {
       const { access: newAccessToken } = await refreshTokenApiCall(existingRefreshToken);
       await AsyncStorage.setItem('access_token', newAccessToken);
-      console.log('Token refreshed successfully.');
+      safeLog('Token refreshed successfully.');
       return true;
     } catch (error) {
-      console.error('Failed to refresh token:', error);
+      safeError('Failed to refresh token:', error);
       await logout();
       return false;
     }
   };
 
   const refreshUserProfile = async () => {
-    console.log('Refreshing user profile');
+    safeLog('Refreshing user profile');
     const accessToken = await AsyncStorage.getItem('access_token');
     // FIX: Removed dependency on `isAuthenticated` which can be stale.
     // The presence of an access token is the only check needed.
@@ -181,7 +182,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         const userProfile = await getMyProfileApiCall(accessToken);
         setUser(userProfile);
       } catch (error) {
-        console.error('Failed to refresh user profile', error);
+        safeError('Failed to refresh user profile', error);
         // Potentially handle token refresh here or log out
         await handleUnauthorized();
       }

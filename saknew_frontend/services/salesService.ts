@@ -1,6 +1,6 @@
 // saknew_frontend/services/salesService.ts
 import apiClient from './apiClient'; // Assuming apiClient is configured with the base URL
-import { SecurityUtils } from '../utils/securityUtils';
+import { safeLog } from '../utils/secureLogger';
 import { Product } from './shop.types'; // Import Product interface from shop.types
 
 // --- Interfaces for Data Types (matching Django Serializers) ---
@@ -114,16 +114,16 @@ export interface Review {
 
 const getMyCart = async (): Promise<Cart> => {
   try {
-    console.log('🔧 [salesService.getMyCart] START - Making GET request to /api/carts/my_cart/');
+    safeLog('🔧 [salesService.getMyCart] START - Making GET request to /api/carts/my_cart/');
     const response = await apiClient.get('/api/carts/my_cart/');
-    console.log('✅ [salesService.getMyCart] Response received');
-    console.log('✅ [salesService.getMyCart] Cart items count:', response.data?.items?.length || 0);
-    console.log('✅ [salesService.getMyCart] Cart total:', response.data?.total);
-    console.log('✅ [salesService.getMyCart] END - Returning cart data');
+    safeLog('✅ [salesService.getMyCart] Response received');
+    safeLog('✅ [salesService.getMyCart] Cart items count:', response.data?.items?.length || 0);
+    safeLog('✅ [salesService.getMyCart] Cart total:', response.data?.total);
+    safeLog('✅ [salesService.getMyCart] END - Returning cart data');
     return response.data;
   } catch (error: any) {
-    console.log('❌ [salesService.getMyCart] ERROR:', error.response?.data || error.message);
-    SecurityUtils.safeLog('error', 'Error fetching cart:', error.response?.data || error.message);
+    safeLog('❌ [salesService.getMyCart] ERROR:', error.response?.data || error.message);
+    console.error('Error fetching cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -137,7 +137,7 @@ const addCartItem = async (productId: number, quantity: number = 1, size?: strin
     const response = await apiClient.post('/api/carts/add/', payload);
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error adding item to cart:', error.response?.data || error.message);
+    console.error('Error adding item to cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -152,49 +152,49 @@ const updateCartItemQuantity = async (productId: number, quantity: number): Prom
     const response = await apiClient.patch('/api/carts/update-quantity/', { product_id: productId, quantity });
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error updating cart item quantity:', error.response?.data || error.message);
+    console.error('Error updating cart item quantity:', error.response?.data || error.message);
     throw error;
   }
 };
 
 const removeCartItem = async (productId: number): Promise<Cart> => {
   try {
-    console.log('🔧 [salesService.removeCartItem] START - Called with productId:', productId);
-    console.log('🔧 [salesService.removeCartItem] Product ID type:', typeof productId);
-    console.log('🔧 [salesService.removeCartItem] Payload:', JSON.stringify({ product_id: productId }));
-    console.log('🔧 [salesService.removeCartItem] Making POST request to /api/carts/remove/');
+    safeLog('🔧 [salesService.removeCartItem] START - Called with productId:', productId);
+    safeLog('🔧 [salesService.removeCartItem] Product ID type:', typeof productId);
+    safeLog('🔧 [salesService.removeCartItem] Payload:', JSON.stringify({ product_id: productId }));
+    safeLog('🔧 [salesService.removeCartItem] Making POST request to /api/carts/remove/');
     
     const response = await apiClient.post('/api/carts/remove/', { product_id: productId });
     
-    console.log('✅ [salesService.removeCartItem] Response received');
-    console.log('✅ [salesService.removeCartItem] Response status:', response.status);
-    console.log('✅ [salesService.removeCartItem] Response data:', JSON.stringify(response.data, null, 2));
-    console.log('✅ [salesService.removeCartItem] Cart from response:', response.data.cart);
-    console.log('✅ [salesService.removeCartItem] END - Returning cart');
+    safeLog('✅ [salesService.removeCartItem] Response received');
+    safeLog('✅ [salesService.removeCartItem] Response status:', response.status);
+    safeLog('✅ [salesService.removeCartItem] Response data:', JSON.stringify(response.data, null, 2));
+    safeLog('✅ [salesService.removeCartItem] Cart from response:', response.data.cart);
+    safeLog('✅ [salesService.removeCartItem] END - Returning cart');
     
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    console.log('❌ [salesService.removeCartItem] ERROR occurred');
-    console.log('❌ [salesService.removeCartItem] Error object:', error);
-    console.log('❌ [salesService.removeCartItem] Error message:', error?.message);
-    console.log('❌ [salesService.removeCartItem] Error response:', error.response);
-    console.log('❌ [salesService.removeCartItem] Error response status:', error.response?.status);
-    console.log('❌ [salesService.removeCartItem] Error response data:', JSON.stringify(error.response?.data, null, 2));
-    SecurityUtils.safeLog('error', 'Error removing item from cart:', error.response?.data || error.message);
+    safeLog('❌ [salesService.removeCartItem] ERROR occurred');
+    safeLog('❌ [salesService.removeCartItem] Error object:', error);
+    safeLog('❌ [salesService.removeCartItem] Error message:', error?.message);
+    safeLog('❌ [salesService.removeCartItem] Error response:', error.response);
+    safeLog('❌ [salesService.removeCartItem] Error response status:', error.response?.status);
+    safeLog('❌ [salesService.removeCartItem] Error response data:', JSON.stringify(error.response?.data, null, 2));
+    console.error('Error removing item from cart:', error.response?.data || error.message);
     throw error;
   }
 };
 
 const clearCart = async (): Promise<Cart> => {
   try {
-    console.log('🔧 [salesService.clearCart] START - Making POST request to /api/carts/clear/');
+    safeLog('🔧 [salesService.clearCart] START - Making POST request to /api/carts/clear/');
     const response = await apiClient.post('/api/carts/clear/');
-    console.log('✅ [salesService.clearCart] Response received:', JSON.stringify(response.data, null, 2));
-    console.log('✅ [salesService.clearCart] END - Returning cart');
+    safeLog('✅ [salesService.clearCart] Response received:', JSON.stringify(response.data, null, 2));
+    safeLog('✅ [salesService.clearCart] END - Returning cart');
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
-    console.log('❌ [salesService.clearCart] ERROR:', error.response?.data || error.message);
-    SecurityUtils.safeLog('error', 'Error clearing cart:', error.response?.data || error.message);
+    safeLog('❌ [salesService.clearCart] ERROR:', error.response?.data || error.message);
+    console.error('Error clearing cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -206,7 +206,7 @@ const createOrderFromCart = async (shippingAddress: ShippingAddress): Promise<Or
     const response = await apiClient.post('/api/orders/create-from-cart/', { shipping_address: shippingAddress });
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error creating order from cart:', error.response?.data || error.message);
+    console.error('Error creating order from cart:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -216,7 +216,7 @@ const getOrderById = async (orderId: string): Promise<Order> => {
     const response = await apiClient.get(`/api/orders/${orderId}/`);
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error fetching order ${SecurityUtils.sanitizeForLogging(orderId)}:`, error.response?.data || error.message);
+    console.error(`Error fetching order ${orderId}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -226,27 +226,34 @@ const getMyOrders = async (): Promise<Order[]> => {
     const response = await apiClient.get('/api/orders/'); // Assumes backend filters by user automatically
     return response.data.results; // Assuming pagination, so results array
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error fetching my orders:', error.response?.data || error.message);
+    console.error('Error fetching my orders:', error.response?.data || error.message);
     throw error;
   }
 };
 
-const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string): Promise<{ detail: string; order: Order; delivery_verification_code?: string; delivery_code?: string }> => {
+const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string | { code?: string; item_id?: number; reason?: string }): Promise<{ detail: string; order: Order; delivery_verification_code?: string; delivery_code?: string }> => {
   try {
-    const payload: { action_type: string; verification_code?: string; cancellation_reason?: string } = { action_type: actionType };
+    const payload: { action_type: string; verification_code?: string; cancellation_reason?: string; item_id?: number; code?: string; reason?: string } = { action_type: actionType };
     
     if (verificationCodeOrReason) {
-      if (actionType === 'cancel_order') {
-        payload.cancellation_reason = verificationCodeOrReason;
+      if (typeof verificationCodeOrReason === 'string') {
+        if (actionType === 'cancel_order') {
+          payload.cancellation_reason = verificationCodeOrReason;
+        } else {
+          payload.verification_code = verificationCodeOrReason;
+        }
       } else {
-        payload.verification_code = verificationCodeOrReason;
+        // Handle object payload for per-item operations
+        if (verificationCodeOrReason.code) payload.verification_code = verificationCodeOrReason.code;
+        if (verificationCodeOrReason.reason) payload.cancellation_reason = verificationCodeOrReason.reason;
+        if (verificationCodeOrReason.item_id) payload.item_id = verificationCodeOrReason.item_id;
       }
     }
     
     const response = await apiClient.patch(`/api/orders/${orderId}/status-update/`, payload);
     return response.data; // Backend returns {"detail": ..., "order": OrderData, "delivery_verification_code"?: ...}
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error updating order ${SecurityUtils.sanitizeForLogging(orderId)} status (${SecurityUtils.sanitizeForLogging(actionType)}):`, error.response?.data || error.message);
+    console.error(`Error updating order ${orderId} status (${actionType}):`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -259,7 +266,7 @@ const verifyDeliveryCode = async (orderId: string, verificationCode: string): Pr
     });
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error verifying delivery code for order ${SecurityUtils.sanitizeForLogging(orderId)}:`, error.response?.data || error.message);
+    console.error(`Error verifying delivery code for order ${orderId}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -271,7 +278,7 @@ const processPayment = async (orderId: string, paymentMethod: 'wallet' | 'stripe
     const response = await apiClient.post('/api/payments/', { order_id: orderId, payment_method: paymentMethod });
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error processing payment:', error.response?.data || error.message);
+    console.error('Error processing payment:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -281,7 +288,7 @@ const verifyPayment = async (orderId: string, verificationCode: string): Promise
     const response = await apiClient.post('/api/payments/verify/', { order_id: orderId, verification_code: verificationCode });
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error verifying payment:', error.response?.data || error.message);
+    console.error('Error verifying payment:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -300,7 +307,7 @@ const createReview = async (reviewData: CreateReviewData): Promise<Review> => {
     const response = await apiClient.post('/api/reviews/', reviewData);
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', 'Error creating review:', error.response?.data || error.message);
+    console.error('Error creating review:', error.response?.data || error.message);
     throw error;
   }
 };
@@ -315,7 +322,7 @@ const updateReview = async (reviewId: number, reviewData: UpdateReviewData): Pro
     const response = await apiClient.patch(`/api/reviews/${reviewId}/`, reviewData);
     return response.data;
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error updating review ${SecurityUtils.sanitizeForLogging(reviewId)}:`, error.response?.data || error.message);
+    console.error(`Error updating review ${reviewId}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -324,7 +331,7 @@ const deleteReview = async (reviewId: number): Promise<void> => {
   try {
     await apiClient.delete(`/api/reviews/${reviewId}/`);
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error deleting review ${SecurityUtils.sanitizeForLogging(reviewId)}:`, error.response?.data || error.message);
+    console.error(`Error deleting review ${reviewId}:`, error.response?.data || error.message);
     throw error;
   }
 };
@@ -334,7 +341,7 @@ const getReviewsByProduct = async (productId: number): Promise<Review[]> => {
     const response = await apiClient.get(`/api/reviews/?product_id=${productId}`);
     return response.data.results || []; // Assuming pagination, so results array
   } catch (error: any) {
-    SecurityUtils.safeLog('error', `Error fetching reviews for product ${SecurityUtils.sanitizeForLogging(productId)}:`, error.response?.data || error.message);
+    console.error(`Error fetching reviews for product ${productId}:`, error.response?.data || error.message);
     throw error;
   }
 };

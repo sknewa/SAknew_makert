@@ -9,6 +9,7 @@ import shopService from '../../services/shopService';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';
 import BackButton from '../../components/BackButton';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 function getDefaultDates() {
   const now = new Date();
@@ -35,33 +36,33 @@ const AddPromotionScreen = () => {
   const endDateInputRef = useRef<any>(null);
 
   const handleAddPromotion = async () => {
-    console.log('🎯 AddPromotion - Starting handleAddPromotion');
-    console.log('🎯 AddPromotion - Product ID:', productId);
-    console.log('🎯 AddPromotion - Discount:', discount);
-    console.log('🎯 AddPromotion - Start Date:', startDate);
-    console.log('🎯 AddPromotion - End Date:', endDate);
+    safeLog('🎯 AddPromotion - Starting handleAddPromotion');
+    safeLog('🎯 AddPromotion - Product ID:', productId);
+    safeLog('🎯 AddPromotion - Discount:', discount);
+    safeLog('🎯 AddPromotion - Start Date:', startDate);
+    safeLog('🎯 AddPromotion - End Date:', endDate);
     
     if (!discount || isNaN(Number(discount)) || Number(discount) <= 0 || Number(discount) >= 100) {
-      console.log('❌ AddPromotion - Invalid discount percentage');
+      safeLog('❌ AddPromotion - Invalid discount percentage');
       setError('Please enter a valid discount percentage (1-99).');
       return;
     }
     if (endDate <= startDate) {
-      console.log('❌ AddPromotion - Invalid date range');
+      safeLog('❌ AddPromotion - Invalid date range');
       setError('End date must be after start date.');
       return;
     }
     setLoading(true);
     setError(null);
     try {
-      console.log('📤 AddPromotion - Calling shopService.addProductPromotion');
+      safeLog('📤 AddPromotion - Calling shopService.addProductPromotion');
       const result = await shopService.addProductPromotion(productId, {
         discount_percentage: Number(discount),
         start_date: startDate.toISOString(),
         end_date: endDate.toISOString(),
       });
-      console.log('✅ AddPromotion - Promotion added successfully:', result);
-      console.log('🔄 AddPromotion - Navigating to ProductManagement with productId:', productId);
+      safeLog('✅ AddPromotion - Promotion added successfully:', result);
+      safeLog('🔄 AddPromotion - Navigating to ProductManagement with productId:', productId);
       
       // Navigate immediately
       (navigation as any).navigate('ProductManagement', { productId });
@@ -71,11 +72,11 @@ const AddPromotionScreen = () => {
         Alert.alert('Success', 'Promotion added successfully!');
       }, 100);
     } catch (err: any) {
-      console.log('❌ AddPromotion - Error adding promotion:', err);
-      console.log('❌ AddPromotion - Error response:', err.response?.data);
+      safeLog('❌ AddPromotion - Error adding promotion:', err);
+      safeLog('❌ AddPromotion - Error response:', err.response?.data);
       const errorMsg = err.response?.data?.detail || 'Failed to add promotion. Please try again.';
       if (errorMsg.includes('already has an active promotion')) {
-        console.log('⚠️ AddPromotion - Product already has active promotion');
+        safeLog('⚠️ AddPromotion - Product already has active promotion');
         Alert.alert(
           'Active Promotion Exists',
           'This product already has an active promotion. Please remove the existing promotion first or wait for it to expire.',
@@ -84,7 +85,7 @@ const AddPromotionScreen = () => {
       }
       setError(errorMsg);
     } finally {
-      console.log('🏁 AddPromotion - handleAddPromotion completed');
+      safeLog('🏁 AddPromotion - handleAddPromotion completed');
       setLoading(false);
     }
   };

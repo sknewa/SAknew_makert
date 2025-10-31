@@ -50,7 +50,9 @@ const MyOrdersScreen: React.FC = () => {
     visible: boolean;
     orderId: string;
     code: string;
-  }>({ visible: false, orderId: '', code: '' });
+    itemId?: number;
+    itemName?: string;
+  }>({ visible: false, orderId: '', code: '', itemId: undefined, itemName: undefined });
   
   const [reviewModal, setReviewModal] = useState<{
     visible: boolean;
@@ -60,11 +62,15 @@ const MyOrdersScreen: React.FC = () => {
     comment: string;
   }>({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
   
+  const [reviewedProducts, setReviewedProducts] = useState<Set<number>>(new Set());
+  
   const [cancelModal, setCancelModal] = useState<{
     visible: boolean;
     orderId: string;
     orderDate: string;
-  }>({ visible: false, orderId: '', orderDate: '' });
+    itemId?: number;
+    itemName?: string;
+  }>({ visible: false, orderId: '', orderDate: '', itemId: undefined, itemName: undefined });
   
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -109,9 +115,18 @@ const MyOrdersScreen: React.FC = () => {
     }
 
     try {
-      await updateOrderStatus(verificationModal.orderId, 'verify_delivery_code', verificationModal.code);
-      Alert.alert('Success', 'Delivery verified successfully! Your order is now complete.');
-      setVerificationModal({ visible: false, orderId: '', code: '' });
+      const action = verificationModal.itemId ? 'verify_item_delivery' : 'verify_delivery_code';
+      const payload = verificationModal.itemId 
+        ? { code: verificationModal.code, item_id: verificationModal.itemId }
+        : verificationModal.code;
+      
+      await updateOrderStatus(verificationModal.orderId, action, payload);
+      
+      const message = verificationModal.itemId
+        ? 'Item delivery verified successfully!'
+        : 'Delivery verified successfully! Your order is now complete.';
+      Alert.alert('Success', message);
+      setVerificationModal({ visible: false, orderId: '', code: '', itemId: undefined, itemName: undefined });
       fetchOrders();
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to verify delivery.');
@@ -119,21 +134,21 @@ const MyOrdersScreen: React.FC = () => {
   };
 
   const handleRequestCode = async (orderId: string) => {
-    console.log('🔍 DEBUG: === REQUEST CODE START ===');
-    console.log('🔍 DEBUG: Order ID:', orderId);
+    safeLog('🔍 DEBUG: === REQUEST CODE START ===');
+    safeLog('🔍 DEBUG: Order ID:', orderId);
     
     try {
-      console.log('🔍 DEBUG: Calling updateOrderStatus with action: request_code');
+      safeLog('🔍 DEBUG: Calling updateOrderStatus with action: request_code');
       const response = await updateOrderStatus(orderId, 'request_code');
-      console.log('🔍 DEBUG: Full response:', JSON.stringify(response, null, 2));
-      console.log('🔍 DEBUG: Response keys:', Object.keys(response));
-      console.log('🔍 DEBUG: Delivery code from response:', response.delivery_verification_code);
-      console.log('🔍 DEBUG: Delivery code from order:', response.order?.delivery_verification_code);
+      safeLog('🔍 DEBUG: Full response:', JSON.stringify(response, null, 2));
+      safeLog('🔍 DEBUG: Response keys:', Object.keys(response));
+      safeLog('🔍 DEBUG: Delivery code from response:', response.delivery_verification_code);
+      safeLog('🔍 DEBUG: Delivery code from order:', response.order?.delivery_verification_code);
       
       const deliveryCode = response.delivery_verification_code || response.order?.delivery_verification_code || response.delivery_code;
       
       if (!deliveryCode) {
-        console.error('🔍 DEBUG: No delivery code found in response!');
+        safeError('🔍 DEBUG: No delivery code found in response!');
         Alert.alert('Error', 'Failed to retrieve delivery code. Please try again.');
         return;
       }
@@ -142,21 +157,21 @@ const MyOrdersScreen: React.FC = () => {
         'Delivery Code',
         `Your delivery code is: ${deliveryCode}\n\nShow this code to the seller when they deliver your order.`,
         [{ text: 'OK', onPress: () => {
-          console.log('🔍 DEBUG: Refreshing orders after code request');
+          safeLog('🔍 DEBUG: Refreshing orders after code request');
           fetchOrders();
         }}]
       );
-      console.log('🔍 DEBUG: === REQUEST CODE SUCCESS ===');
+      safeLog('🔍 DEBUG: === REQUEST CODE SUCCESS ===');
     } catch (err: any) {
-      console.error('🔍 DEBUG: === REQUEST CODE ERROR ===');
-      console.error('🔍 DEBUG: Error:', err);
-      console.error('🔍 DEBUG: Error response:', err?.response);
-      console.error('🔍 DEBUG: Error data:', err?.response?.data);
+      safeError('🔍 DEBUG: === REQUEST CODE ERROR ===');
+      safeError('🔍 DEBUG: Error:', err);
+      safeError('🔍 DEBUG: Error response:', err?.response);
+      safeError('🔍 DEBUG: Error data:', err?.response?.data);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to get delivery code.');
     }
   };
 
-  const handleCancelOrder = (orderId: string, orderDate: string) => {
+  const handleCancelOrder = (orderId: string, orderDate: string, itemId?: number, itemName?: string) => {
     const orderTime = new Date(orderDate).getTime();
     const currentTime = new Date().getTime();
     const hoursSincePurchase = (currentTime - orderTime) / (1000 * 60 * 60);
@@ -170,32 +185,41 @@ const MyOrdersScreen: React.FC = () => {
       return;
     }
     
-    setCancelModal({ visible: true, orderId, orderDate });
+    setCancelModal({ visible: true, orderId, orderDate, itemId, itemName });
     setCancelReason('');
   };
   
   const confirmCancelOrder = async () => {
     if (!cancelReason.trim()) {
-      Alert.alert('Reason Required', 'Please provide a reason for cancelling this order.');
+      Alert.alert('Reason Required', 'Please provide a reason for cancelling.');
       return;
     }
     
     setCancelling(true);
     try {
-      await updateOrderStatus(cancelModal.orderId, 'cancel_order', cancelReason);
-      setCancelModal({ visible: false, orderId: '', orderDate: '' });
+      const action = cancelModal.itemId ? 'cancel_item' : 'cancel_order';
+      const payload = cancelModal.itemId 
+        ? { reason: cancelReason, item_id: cancelModal.itemId }
+        : cancelReason;
+      
+      await updateOrderStatus(cancelModal.orderId, action, payload);
+      setCancelModal({ visible: false, orderId: '', orderDate: '', itemId: undefined, itemName: undefined });
       setCancelReason('');
-      Alert.alert('Order Cancelled', 'Your order has been cancelled and the refund has been processed to your wallet.');
+      
+      const message = cancelModal.itemId 
+        ? 'Item cancelled and refund processed to your wallet.'
+        : 'Order cancelled and refund processed to your wallet.';
+      Alert.alert('Cancelled', message);
       await fetchOrders();
     } catch (err: any) {
-      Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel order.');
+      Alert.alert('Error', err?.response?.data?.detail || 'Failed to cancel.');
     } finally {
       setCancelling(false);
     }
   };
 
-  const handleMarkAsReceived = (orderId: string) => {
-    setVerificationModal({ visible: true, orderId, code: '' });
+  const handleMarkAsReceived = (orderId: string, itemId?: number, itemName?: string) => {
+    setVerificationModal({ visible: true, orderId, code: '', itemId, itemName });
   };
 
   const openReviewModal = (product: any, orderId: string) => {
@@ -216,12 +240,13 @@ const MyOrdersScreen: React.FC = () => {
         rating: reviewModal.rating,
         comment: reviewModal.comment
       });
+      setReviewedProducts(prev => new Set(prev).add(reviewModal.product.id));
       Alert.alert('Success', 'Review submitted successfully!');
       setReviewModal({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
-      fetchOrders(); // Refresh to prevent duplicate reviews
     } catch (error: any) {
       const errorMsg = error?.response?.data?.detail || 'Failed to submit review';
       if (errorMsg.includes('already reviewed')) {
+        setReviewedProducts(prev => new Set(prev).add(reviewModal.product.id));
         Alert.alert('Already Reviewed', 'You have already reviewed this product.');
       } else {
         Alert.alert('Error', errorMsg);
@@ -368,20 +393,39 @@ const MyOrdersScreen: React.FC = () => {
 
               <View style={styles.itemsContainer}>
                 {order.items.map((item) => (
-                  <View key={item.id} style={styles.itemRow}>
-                    <Image
-                      source={{ 
-                        uri: item.product.main_image_url || 'https://via.placeholder.com/60x60?text=No+Image' 
-                      }}
-                      style={styles.productImage}
-                    />
-                    <View style={styles.itemDetails}>
-                      <Text style={styles.productNameItem} numberOfLines={2}>
-                        {item.product.name}
-                      </Text>
-                      <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
-                      <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
+                  <View key={item.id}>
+                    <View style={styles.itemRow}>
+                      <Image
+                        source={{ 
+                          uri: item.product.main_image_url || 'https://via.placeholder.com/60x60?text=No+Image' 
+                        }}
+                        style={styles.productImage}
+                      />
+                      <View style={styles.itemDetails}>
+                        <Text style={styles.productNameItem} numberOfLines={2}>
+                          {item.product.name}
+                        </Text>
+                        <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
+                        <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
+                      </View>
+                      {(order.order_status === 'pending' || order.order_status === 'processing') && order.items.length > 1 && (
+                        <TouchableOpacity
+                          style={styles.itemCancelButton}
+                          onPress={() => handleCancelOrder(order.id, order.order_date, item.id, item.product.name)}
+                        >
+                          <Ionicons name="close-circle" size={20} color={colors.dangerAction} />
+                        </TouchableOpacity>
+                      )}
                     </View>
+                    {order.order_status === 'ready_for_delivery' && order.delivery_verification_code && order.items.length > 1 && (
+                      <TouchableOpacity
+                        style={styles.itemMarkReceivedButton}
+                        onPress={() => handleMarkAsReceived(order.id, item.id, item.product.name)}
+                      >
+                        <Ionicons name="checkmark-circle-outline" size={14} color={colors.primary} />
+                        <Text style={styles.itemMarkReceivedText}>Mark as Received</Text>
+                      </TouchableOpacity>
+                    )}
                   </View>
                 ))}
               </View>
@@ -413,7 +457,7 @@ const MyOrdersScreen: React.FC = () => {
                     </TouchableOpacity>
                   )}
 
-                  {(order.order_status === 'completed' || order.delivery_verified) && (
+                  {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
                     <TouchableOpacity
                       style={styles.reviewLink}
                       onPress={() => openReviewModal(order.items[0].product, order.id)}
@@ -442,17 +486,19 @@ const MyOrdersScreen: React.FC = () => {
                         <Text style={styles.deliveryCode}>{order.delivery_verification_code}</Text>
                         <Text style={styles.codeInstruction}>Show this code to the seller</Text>
                       </View>
-                      <TouchableOpacity
-                        style={styles.markReceivedButton}
-                        onPress={() => handleMarkAsReceived(order.id)}
-                      >
-                        <Ionicons name="checkmark-circle" size={16} color={colors.white} />
-                        <Text style={styles.mainActionText}>Mark as Received</Text>
-                      </TouchableOpacity>
+                      {order.items.length === 1 && (
+                        <TouchableOpacity
+                          style={styles.markReceivedButton}
+                          onPress={() => handleMarkAsReceived(order.id)}
+                        >
+                          <Ionicons name="checkmark-circle" size={16} color={colors.white} />
+                          <Text style={styles.mainActionText}>Mark as Received</Text>
+                        </TouchableOpacity>
+                      )}
                     </View>
                   )}
 
-                  {(order.order_status === 'completed' || order.delivery_verified) && (
+                  {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
                     <TouchableOpacity
                       style={styles.addReviewButton}
                       onPress={() => openReviewModal(order.items[0].product, order.id)}
@@ -480,12 +526,16 @@ const MyOrdersScreen: React.FC = () => {
         visible={verificationModal.visible}
         transparent
         animationType="slide"
-        onRequestClose={() => setVerificationModal({ visible: false, orderId: '', code: '' })}
+        onRequestClose={() => setVerificationModal({ visible: false, orderId: '', code: '', itemId: undefined, itemName: undefined })}
       >
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Verify Delivery</Text>
-            <Text style={styles.modalSubtitle}>Enter the delivery code shown by the seller:</Text>
+            <Text style={styles.modalTitle}>{verificationModal.itemId ? 'Verify Item Delivery' : 'Verify Delivery'}</Text>
+            <Text style={styles.modalSubtitle}>
+              {verificationModal.itemId 
+                ? `Enter the delivery code for "${verificationModal.itemName}":`
+                : 'Enter the delivery code shown by the seller:'}
+            </Text>
             
             <TextInput
               style={styles.codeInput}
@@ -499,7 +549,7 @@ const MyOrdersScreen: React.FC = () => {
             <View style={styles.modalButtons}>
               <TouchableOpacity
                 style={styles.cancelButton}
-                onPress={() => setVerificationModal({ visible: false, orderId: '', code: '' })}
+                onPress={() => setVerificationModal({ visible: false, orderId: '', code: '', itemId: undefined, itemName: undefined })}
               >
                 <Text style={styles.cancelButtonText}>Cancel</Text>
               </TouchableOpacity>
@@ -527,8 +577,12 @@ const MyOrdersScreen: React.FC = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Ionicons name="warning" size={48} color={colors.dangerAction} style={{ alignSelf: 'center', marginBottom: 16 }} />
-            <Text style={styles.modalTitle}>Cancel Order</Text>
-            <Text style={styles.modalSubtitle}>Please provide a reason for cancelling this order. Your refund will be processed to your wallet.</Text>
+            <Text style={styles.modalTitle}>{cancelModal.itemId ? 'Cancel Item' : 'Cancel Order'}</Text>
+            <Text style={styles.modalSubtitle}>
+              {cancelModal.itemId 
+                ? `Cancel "${cancelModal.itemName}"? Your refund will be processed to your wallet.`
+                : 'Cancel entire order? Your refund will be processed to your wallet.'}
+            </Text>
             
             <TextInput
               style={styles.reasonInput}
@@ -544,7 +598,7 @@ const MyOrdersScreen: React.FC = () => {
               <TouchableOpacity
                 style={styles.cancelButton}
                 onPress={() => {
-                  setCancelModal({ visible: false, orderId: '', orderDate: '' });
+                  setCancelModal({ visible: false, orderId: '', orderDate: '', itemId: undefined, itemName: undefined });
                   setCancelReason('');
                 }}
               >
@@ -640,6 +694,9 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   productImage: { width: 60, height: 60, borderRadius: 4, marginRight: 10, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: colors.border },
   itemDetails: { flex: 1 },
+  itemCancelButton: { padding: 4, marginLeft: 8 },
+  itemMarkReceivedButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '10', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, marginTop: 4, marginLeft: 70 },
+  itemMarkReceivedText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginLeft: 4 },
   productNameItem: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
   itemQuantity: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
   itemPrice: { fontSize: 12, fontWeight: '700', color: colors.primary },

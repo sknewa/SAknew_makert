@@ -12,7 +12,6 @@ export type MainStackParamList = {
   // Screens inferred from your project structure and error message
   BottomTabs: undefined;
   ProductDetail: { productId: number }; // It's best practice to pass only an ID
-  CategoryProducts: { categoryName: string; categorySlug: string };
   Cart: undefined;
   Shipping: undefined;
   Payment: { orderId: string };
@@ -28,6 +27,15 @@ export type MainStackParamList = {
   
   // Public shop screen for buyers
   PublicShop: { shopSlug: string };
+  
+  // Category products screen
+  CategoryProducts: { categoryName: string; categorySlug: string };
+  CategoryProductsScreen: { categoryName: string; categorySlug?: string; products?: any[] };
+  
+  // Shop owner screens
+  EditProduct: { productId: number };
+  AddPromotion: { productId: number };
+  ShopTab: undefined;
 };
 
 // This is the navigation prop type for components inside the MainStack.

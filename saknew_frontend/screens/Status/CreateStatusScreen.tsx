@@ -4,7 +4,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import * as ImagePicker from 'expo-image-picker';
 import { Video } from 'expo-av';
+import { manipulateAsync, SaveFormat } from 'expo-image-manipulator';
 import statusService from '../../services/statusService';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const backgroundColors = [
   '#25D366', '#128C7E', '#075E54', '#34B7F1', '#9C27B0',
@@ -22,7 +24,7 @@ const CreateStatusScreen: React.FC = () => {
   const [mediaType, setMediaType] = useState<'text' | 'image' | 'video'>('text');
 
   const pickImage = async () => {
-    console.log('DEBUG: Starting image picker');
+    safeLog('DEBUG: Starting image picker');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsEditing: true,
@@ -30,77 +32,74 @@ const CreateStatusScreen: React.FC = () => {
       quality: 0.8,
     });
 
-    console.log('DEBUG: Image picker result:', result.canceled ? 'Canceled' : 'Selected');
+    safeLog('DEBUG: Image picker result:', result.canceled ? 'Canceled' : 'Selected');
     if (!result.canceled) {
-      console.log('DEBUG: Selected image URI:', result.assets[0].uri);
+      safeLog('DEBUG: Selected image URI:', result.assets[0].uri);
       setMediaUri(result.assets[0].uri);
       setMediaType('image');
     }
   };
 
   const pickVideo = async () => {
-    console.log('DEBUG: Starting video picker');
+    console.log('DEBUG CreateStatus: Starting video picker');
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['videos'],
-      allowsEditing: true,
-      videoMaxDuration: 60,
-      quality: 0.8,
+      allowsEditing: false,
+      videoMaxDuration: 30,
+      quality: 0.5,
+      videoQuality: 0,
     });
 
-    console.log('DEBUG: Video picker result:', result.canceled ? 'Canceled' : 'Selected');
+    console.log('DEBUG CreateStatus: Video picker result:', result.canceled ? 'Canceled' : 'Selected');
     if (!result.canceled) {
-      console.log('DEBUG: Selected video URI:', result.assets[0].uri);
-      setMediaUri(result.assets[0].uri);
+      const asset = result.assets[0];
+      console.log('DEBUG CreateStatus: Video asset:', {
+        uri: asset.uri,
+        duration: asset.duration,
+        width: asset.width,
+        height: asset.height,
+        fileSize: asset.fileSize
+      });
+      if (asset.duration && asset.duration > 30000) {
+        Alert.alert('Video Too Long', 'Please select a video under 30 seconds');
+        return;
+      }
+      setMediaUri(asset.uri);
       setMediaType('video');
+      console.log('DEBUG CreateStatus: Video set, mediaType=video');
     }
   };
 
   const removeMedia = () => {
-    console.log('DEBUG: Removing media, switching to text mode');
+    safeLog('DEBUG: Removing media, switching to text mode');
     setMediaUri(null);
     setMediaType('text');
   };
 
   const handleCreateStatus = async () => {
-    console.log('DEBUG: Starting status creation process');
-    const trimmedContent = content.trim();
-    console.log('DEBUG: Content length:', trimmedContent.length);
-    console.log('DEBUG: Media URI:', mediaUri ? 'Present' : 'None');
-    console.log('DEBUG: Media type:', mediaType);
-    console.log('DEBUG: Selected color:', selectedColor);
-    
-    if (!trimmedContent && !mediaUri) {
-      console.log('DEBUG: Empty status validation failed');
-      Alert.alert('Empty Status', 'Please add text or media for your status');
+    if (!content.trim() && !mediaUri) {
+      Alert.alert('Empty Status', 'Please add text or media');
       return;
     }
 
+    console.log('DEBUG CreateStatus: Creating status with:', {
+      hasContent: !!content.trim(),
+      hasMediaUri: !!mediaUri,
+      mediaType,
+      mediaUri
+    });
+
     setLoading(true);
-    console.log('DEBUG: Loading state set to true');
-    
     try {
-      console.log('DEBUG: Calling statusService.createStatus with params:', {
-        content: trimmedContent || '',
-        hasMedia: !!mediaUri,
-        mediaType,
-        backgroundColor: selectedColor
-      });
-      
-      const result = await statusService.createStatus(trimmedContent || '', mediaUri || undefined, mediaType, selectedColor);
-      console.log('DEBUG: Status created successfully:', result);
-      
-      console.log('DEBUG: Calling onStatusCreated callback');
-      onStatusCreated?.(); // Call the callback to refresh statuses
-      
-      console.log('DEBUG: Navigating back');
+      const result = await statusService.createStatus(content.trim() || '', mediaUri || undefined, mediaType, selectedColor);
+      console.log('DEBUG CreateStatus: Status created successfully:', result);
+      onStatusCreated?.();
       navigation.goBack();
     } catch (error: any) {
-      console.log('DEBUG: Status creation failed:', error);
-      console.log('DEBUG: Error message:', error?.message);
-      console.log('DEBUG: Error response:', error?.response?.data);
-      Alert.alert('Error', error?.message || 'Failed to create status. Please try again.');
+      console.log('DEBUG CreateStatus: Error creating status:', error?.response?.data || error?.message);
+      const errorMsg = error?.response?.data?.detail || error?.message || 'Failed to create status';
+      Alert.alert('Error', errorMsg);
     } finally {
-      console.log('DEBUG: Setting loading to false');
       setLoading(false);
     }
   };
@@ -195,7 +194,7 @@ const CreateStatusScreen: React.FC = () => {
             {content.length}/700
           </Text>
         </View>
-        <Text style={styles.tipText}>💡 Tip: Status visible for 24h • Videos max 60s</Text>
+        <Text style={styles.tipText}>💡 Tip: Status visible for 24h • Videos max 30s</Text>
       </View>
     </SafeAreaView>
   );

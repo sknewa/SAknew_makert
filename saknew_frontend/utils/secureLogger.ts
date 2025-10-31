@@ -54,6 +54,11 @@ export const secureWarn = (...args: any[]) => {
   console.warn(...sanitizedArgs);
 };
 
+// Export as safeLog, safeError, safeWarn for backward compatibility
+export const safeLog = secureLog;
+export const safeError = secureError;
+export const safeWarn = secureWarn;
+
 export default {
   log: secureLog,
   error: secureError,

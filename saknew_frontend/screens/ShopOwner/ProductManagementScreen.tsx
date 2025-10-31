@@ -9,6 +9,7 @@ import { getFullImageUrl } from '../../utils/imageHelper';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';
 import { Product } from '../../types';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -29,12 +30,12 @@ const ProductManagementScreen = () => {
   const [reviewsLoading, setReviewsLoading] = useState(false);
 
   const fetchProductDetails = useCallback(async () => {
-    console.log('🔍 ProductManagement - Fetching product details for ID:', productId);
+    safeLog('🔍 ProductManagement - Fetching product details for ID:', productId);
     setLoading(true);
     setError(null);
     try {
       const fetchedProduct = await shopService.getProductById(productId);
-      console.log('✅ ProductManagement - Product fetched:', {
+      safeLog('✅ ProductManagement - Product fetched:', {
         id: fetchedProduct.id,
         name: fetchedProduct.name,
         hasPromotion: !!fetchedProduct.promotion,
@@ -61,14 +62,14 @@ const ProductManagementScreen = () => {
 
   useFocusEffect(
     useCallback(() => {
-      console.log('🔄 ProductManagement - Screen focused, fetching product details');
+      safeLog('🔄 ProductManagement - Screen focused, fetching product details');
       fetchProductDetails();
     }, [fetchProductDetails])
   );
 
   const handleEditProduct = () => {
     if (product) {
-      navigation.navigate('EditProduct', { productId: product.id });
+      navigation.navigate('EditProduct' as any, { productId: product.id });
     }
   };
 
@@ -274,7 +275,7 @@ const ProductManagementScreen = () => {
             ) : (
               <TouchableOpacity
                 style={[styles.actionButton, styles.promotionButton, { minWidth: 160, minHeight: 44, marginTop: 0, borderWidth: 2, borderColor: colors.warningAction, shadowColor: colors.warningAction, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }]}
-                onPress={() => navigation.navigate('AddPromotion', { productId: product?.id })}
+                onPress={() => navigation.navigate('AddPromotion' as any, { productId: product?.id })}
                 activeOpacity={0.85}
               >
                 <Ionicons name="pricetag" size={22} color={colors.warningAction} style={{ marginRight: 8 }} />

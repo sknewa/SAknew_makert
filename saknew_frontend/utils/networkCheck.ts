@@ -2,20 +2,21 @@
 
 import { Platform } from 'react-native';
 import { API_BASE_URL } from '../config';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 /**
  * Checks network connectivity and logs detailed information
  */
 export const checkNetworkConnectivity = async () => {
   try {
-    console.log('=== NETWORK CONNECTIVITY CHECK ===');
-    console.log('API URL:', API_BASE_URL);
-    console.log('Platform:', Platform.OS);
+    safeLog('=== NETWORK CONNECTIVITY CHECK ===');
+    safeLog('API URL:', API_BASE_URL);
+    safeLog('Platform:', Platform.OS);
     
     // Simple connectivity check without NetInfo
     return true;
   } catch (error) {
-    console.error('Error checking network:', error);
+    safeError('Error checking network:', error);
     return false;
   }
 };

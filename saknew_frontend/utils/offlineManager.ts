@@ -1,4 +1,5 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 
 // Keys for offline storage
@@ -30,7 +31,7 @@ export const saveOfflineData = async (key: string, data: any): Promise<void> => 
       timestamp: Date.now(),
     }));
   } catch (error) {
-    console.error('Error saving offline data:', error);
+    safeError('Error saving offline data:', error);
   }
 };
 
@@ -44,7 +45,7 @@ export const getOfflineData = async <T>(key: string): Promise<T | null> => {
     }
     return null;
   } catch (error) {
-    console.error('Error getting offline data:', error);
+    safeError('Error getting offline data:', error);
     return null;
   }
 };
@@ -69,9 +70,9 @@ export const queueOfflineAction = async (action: Omit<OfflineAction, 'id' | 'tim
     
     // Save updated queue
     await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(queue));
-    console.log('Action queued for offline use');
+    safeLog('Action queued for offline use');
   } catch (error) {
-    console.error('Error queuing offline action:', error);
+    safeError('Error queuing offline action:', error);
   }
 };
 
@@ -87,7 +88,7 @@ export const processOfflineQueue = async (
     const queue: OfflineAction[] = JSON.parse(queueData);
     if (queue.length === 0) return;
     
-    console.log(`Processing ${queue.length} offline actions`);
+    safeLog(`Processing ${queue.length} offline actions`);
     
     // Process each action
     const remainingActions: OfflineAction[] = [];
@@ -99,7 +100,7 @@ export const processOfflineQueue = async (
           remainingActions.push(action);
         }
       } catch (error) {
-        console.error('Error processing offline action:', error);
+        safeError('Error processing offline action:', error);
         remainingActions.push(action);
       }
     }
@@ -107,12 +108,12 @@ export const processOfflineQueue = async (
     // Save remaining actions
     if (remainingActions.length > 0) {
       await AsyncStorage.setItem(OFFLINE_QUEUE_KEY, JSON.stringify(remainingActions));
-      console.log(`${remainingActions.length} actions remain in queue`);
+      safeLog(`${remainingActions.length} actions remain in queue`);
     } else {
       await AsyncStorage.removeItem(OFFLINE_QUEUE_KEY);
-      console.log('Offline queue processed successfully');
+      safeLog('Offline queue processed successfully');
     }
   } catch (error) {
-    console.error('Error processing offline queue:', error);
+    safeError('Error processing offline queue:', error);
   }
 };

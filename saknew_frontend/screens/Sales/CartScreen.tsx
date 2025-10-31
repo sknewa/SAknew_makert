@@ -19,6 +19,7 @@ import { salesService } from '../../services/apiService';
 import { Cart, CartItem } from '../../services/salesService';
 import { MainNavigationProp } from '../../navigation/types';
 import { useBadges } from '../../context/BadgeContext';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const colors = {
   background: '#F5F5F5',
@@ -81,26 +82,26 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
 
   // Handle item removal (calls backend)
   const handleRemoveItem = async (productId: number) => {
-    console.log('🗑️ [CartScreen.handleRemoveItem] START - Product ID:', productId);
-    console.log('🗑️ [CartScreen.handleRemoveItem] Current cart state:', JSON.stringify(cart, null, 2));
+    safeLog('🗑️ [CartScreen.handleRemoveItem] START - Product ID:', productId);
+    safeLog('🗑️ [CartScreen.handleRemoveItem] Current cart state:', JSON.stringify(cart, null, 2));
     
     // Use window.confirm for web, Alert for mobile
     const isWeb = typeof window !== 'undefined' && window.confirm;
     
     if (isWeb) {
-      console.log('🌐 [CartScreen.handleRemoveItem] Using window.confirm for web');
+      safeLog('🌐 [CartScreen.handleRemoveItem] Using window.confirm for web');
       const confirmed = window.confirm('Are you sure you want to remove this item from your cart?');
-      console.log('🌐 [CartScreen.handleRemoveItem] User response:', confirmed);
+      safeLog('🌐 [CartScreen.handleRemoveItem] User response:', confirmed);
       
       if (!confirmed) {
-        console.log('❌ [CartScreen.handleRemoveItem] User cancelled deletion');
+        safeLog('❌ [CartScreen.handleRemoveItem] User cancelled deletion');
         return;
       }
       
-      console.log('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
+      safeLog('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
       await performRemoval(productId);
     } else {
-      console.log('📱 [CartScreen.handleRemoveItem] Using Alert for mobile');
+      safeLog('📱 [CartScreen.handleRemoveItem] Using Alert for mobile');
       Alert.alert(
         "Remove Item",
         "Are you sure you want to remove this item from your cart?",
@@ -108,12 +109,12 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
           { 
             text: "Cancel", 
             style: "cancel",
-            onPress: () => console.log('❌ [CartScreen.handleRemoveItem] User cancelled deletion')
+            onPress: () => safeLog('❌ [CartScreen.handleRemoveItem] User cancelled deletion')
           },
           {
             text: "Remove",
             onPress: () => {
-              console.log('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
+              safeLog('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
               performRemoval(productId);
             },
             style: "destructive",
@@ -125,41 +126,41 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
   };
 
   const performRemoval = async (productId: number) => {
-    console.log('📤 [CartScreen.performRemoval] START - productId:', productId);
+    safeLog('📤 [CartScreen.performRemoval] START - productId:', productId);
     try {
-      console.log('🔧 [CartScreen.performRemoval] Calling salesService.removeCartItem...');
+      safeLog('🔧 [CartScreen.performRemoval] Calling salesService.removeCartItem...');
       const result = await salesService.removeCartItem(productId);
-      console.log('✅ [CartScreen.performRemoval] salesService.removeCartItem returned successfully');
-      console.log('✅ [CartScreen.performRemoval] Result:', JSON.stringify(result, null, 2));
+      safeLog('✅ [CartScreen.performRemoval] salesService.removeCartItem returned successfully');
+      safeLog('✅ [CartScreen.performRemoval] Result:', JSON.stringify(result, null, 2));
       
-      console.log('🔄 [CartScreen.performRemoval] About to refresh cart and badges');
+      safeLog('🔄 [CartScreen.performRemoval] About to refresh cart and badges');
       await fetchCart();
-      console.log('✅ [CartScreen.performRemoval] fetchCart completed');
-      console.log('✅ [CartScreen.performRemoval] END - Item removed successfully');
+      safeLog('✅ [CartScreen.performRemoval] fetchCart completed');
+      safeLog('✅ [CartScreen.performRemoval] END - Item removed successfully');
     } catch (err: any) {
-      console.log('❌ [CartScreen.performRemoval] ERROR occurred');
-      console.log('❌ [CartScreen.performRemoval] Error object:', err);
-      console.log('❌ [CartScreen.performRemoval] Error message:', err?.message);
-      console.log('❌ [CartScreen.performRemoval] Error response:', err?.response);
-      console.log('❌ [CartScreen.performRemoval] Error response data:', err?.response?.data);
-      console.log('❌ [CartScreen.performRemoval] Error response status:', err?.response?.status);
+      safeLog('❌ [CartScreen.performRemoval] ERROR occurred');
+      safeLog('❌ [CartScreen.performRemoval] Error object:', err);
+      safeLog('❌ [CartScreen.performRemoval] Error message:', err?.message);
+      safeLog('❌ [CartScreen.performRemoval] Error response:', err?.response);
+      safeLog('❌ [CartScreen.performRemoval] Error response data:', err?.response?.data);
+      safeLog('❌ [CartScreen.performRemoval] Error response status:', err?.response?.status);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to remove item.');
     }
   };
 
   // Handle clearing entire cart
   const handleClearCart = async () => {
-    console.log('🗑️ [CartScreen.handleClearCart] START - Clearing entire cart');
+    safeLog('🗑️ [CartScreen.handleClearCart] START - Clearing entire cart');
     
     const isWeb = typeof window !== 'undefined' && window.confirm;
     
     if (isWeb) {
       const confirmed = window.confirm('Are you sure you want to remove all items from your cart?');
       if (!confirmed) {
-        console.log('❌ [CartScreen.handleClearCart] User cancelled');
+        safeLog('❌ [CartScreen.handleClearCart] User cancelled');
         return;
       }
-      console.log('✅ [CartScreen.handleClearCart] User confirmed');
+      safeLog('✅ [CartScreen.handleClearCart] User confirmed');
       await performClearCart();
     } else {
       Alert.alert(
@@ -169,12 +170,12 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
           { 
             text: "Cancel", 
             style: "cancel",
-            onPress: () => console.log('❌ [CartScreen.handleClearCart] User cancelled')
+            onPress: () => safeLog('❌ [CartScreen.handleClearCart] User cancelled')
           },
           {
             text: "Clear All",
             onPress: () => {
-              console.log('✅ [CartScreen.handleClearCart] User confirmed');
+              safeLog('✅ [CartScreen.handleClearCart] User confirmed');
               performClearCart();
             },
             style: "destructive",
@@ -186,15 +187,15 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
 
   const performClearCart = async () => {
     try {
-      console.log('📤 [CartScreen.performClearCart] Calling salesService.clearCart');
+      safeLog('📤 [CartScreen.performClearCart] Calling salesService.clearCart');
       await salesService.clearCart();
-      console.log('✅ [CartScreen.performClearCart] clearCart successful');
+      safeLog('✅ [CartScreen.performClearCart] clearCart successful');
       
-      console.log('🔄 [CartScreen.performClearCart] Refreshing cart');
+      safeLog('🔄 [CartScreen.performClearCart] Refreshing cart');
       await fetchCart();
-      console.log('✅ [CartScreen.performClearCart] END - Cart cleared successfully');
+      safeLog('✅ [CartScreen.performClearCart] END - Cart cleared successfully');
     } catch (err: any) {
-      console.log('❌ [CartScreen.performClearCart] ERROR:', err?.response?.data);
+      safeLog('❌ [CartScreen.performClearCart] ERROR:', err?.response?.data);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to clear cart.');
     }
   };
@@ -215,24 +216,24 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
 
   // Fetch cart from backend
   const fetchCart = async () => {
-    console.log('🔄 [CartScreen.fetchCart] START - Fetching cart from backend');
+    safeLog('🔄 [CartScreen.fetchCart] START - Fetching cart from backend');
     setLoading(true);
     setError(null);
     try {
-      console.log('📤 [CartScreen.fetchCart] Calling salesService.getMyCart');
+      safeLog('📤 [CartScreen.fetchCart] Calling salesService.getMyCart');
       const backendCart = await salesService.getMyCart();
-      console.log('✅ [CartScreen.fetchCart] Cart received:', JSON.stringify(backendCart, null, 2));
-      console.log('✅ [CartScreen.fetchCart] Cart items count:', backendCart?.items?.length || 0);
+      safeLog('✅ [CartScreen.fetchCart] Cart received:', JSON.stringify(backendCart, null, 2));
+      safeLog('✅ [CartScreen.fetchCart] Cart items count:', backendCart?.items?.length || 0);
       
       setCart(backendCart);
-      console.log('✅ [CartScreen.fetchCart] Cart state updated');
+      safeLog('✅ [CartScreen.fetchCart] Cart state updated');
       
       // Refresh badges when cart is updated
-      console.log('🔄 [CartScreen.fetchCart] Refreshing badges');
+      safeLog('🔄 [CartScreen.fetchCart] Refreshing badges');
       await refreshBadges();
-      console.log('✅ [CartScreen.fetchCart] END - Badges refreshed');
+      safeLog('✅ [CartScreen.fetchCart] END - Badges refreshed');
     } catch (err: any) {
-      console.log('❌ [CartScreen.fetchCart] ERROR:', err?.response?.data || err?.message);
+      safeLog('❌ [CartScreen.fetchCart] ERROR:', err?.response?.data || err?.message);
       setError('Failed to load cart.');
     } finally {
       setLoading(false);
@@ -313,16 +314,16 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
           </View>
         }
         renderItem={({ item }) => {
-          console.log('💰 [CartScreen.renderItem] Rendering product:', item.product.name);
-          console.log('💰 [CartScreen.renderItem] Original price:', item.product.price);
-          console.log('💰 [CartScreen.renderItem] Display price:', item.product.display_price);
-          console.log('💰 [CartScreen.renderItem] Has promotion:', !!item.product.promotion);
-          console.log('💰 [CartScreen.renderItem] Discount %:', item.product.discount_percentage_value);
-          console.log('💰 [CartScreen.renderItem] Quantity:', item.quantity);
+          safeLog('💰 [CartScreen.renderItem] Rendering product:', item.product.name);
+          safeLog('💰 [CartScreen.renderItem] Original price:', item.product.price);
+          safeLog('💰 [CartScreen.renderItem] Display price:', item.product.display_price);
+          safeLog('💰 [CartScreen.renderItem] Has promotion:', !!item.product.promotion);
+          safeLog('💰 [CartScreen.renderItem] Discount %:', item.product.discount_percentage_value);
+          safeLog('💰 [CartScreen.renderItem] Quantity:', item.quantity);
           const unitPrice = parseFloat(item.product.display_price || item.product.price || '0');
           const lineTotal = unitPrice * item.quantity;
-          console.log('💰 [CartScreen.renderItem] Calculated unit price:', unitPrice);
-          console.log('💰 [CartScreen.renderItem] Calculated line total:', lineTotal);
+          safeLog('💰 [CartScreen.renderItem] Calculated unit price:', unitPrice);
+          safeLog('💰 [CartScreen.renderItem] Calculated line total:', lineTotal);
           
           return (
           <View key={item.product.id} style={styles.cartItem}>
@@ -332,10 +333,10 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                   <Text style={styles.productName}>{item.product.name}</Text>
                   <TouchableOpacity
                     onPress={() => {
-                      console.log('🖱️ [CartScreen.renderItem] Trash icon PRESSED');
-                      console.log('🖱️ [CartScreen.renderItem] Product name:', item.product.name);
-                      console.log('🖱️ [CartScreen.renderItem] Product ID:', item.product.id);
-                      console.log('🖱️ [CartScreen.renderItem] Calling handleRemoveItem...');
+                      safeLog('🖱️ [CartScreen.renderItem] Trash icon PRESSED');
+                      safeLog('🖱️ [CartScreen.renderItem] Product name:', item.product.name);
+                      safeLog('🖱️ [CartScreen.renderItem] Product ID:', item.product.id);
+                      safeLog('🖱️ [CartScreen.renderItem] Calling handleRemoveItem...');
                       handleRemoveItem(item.product.id);
                     }}
                     style={styles.deleteBtn}

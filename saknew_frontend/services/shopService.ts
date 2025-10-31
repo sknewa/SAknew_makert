@@ -1,7 +1,7 @@
 // saknew_frontend/services/shopService.ts
 import apiClient from './apiClient';
 import publicApiClient from './publicApiClient';
-import { SecurityUtils } from '../utils/securityUtils';
+import { safeLog } from '../utils/secureLogger';
 import {
   Product,
   Shop,
@@ -44,12 +44,12 @@ const ShopService = {
    */
   async getShops(page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Shop>> {
     try {
-      SecurityUtils.safeLog('info', 'Fetching all shops');
+      console.log('Fetching all shops');
       // This is likely a public endpoint, so publicApiClient is appropriate here.
       const response = await publicApiClient.get<PaginatedResponse<Shop>>(`/api/shops/?page=${page}&page_size=${pageSize}`);
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error fetching shops', error.response?.status);
+      console.error('Error fetching shops', error.response?.status);
       throw error;
     }
   },
@@ -61,12 +61,12 @@ const ShopService = {
    */
   async getShopBySlug(slug: string): Promise<Shop> {
     try {
-      const sanitizedSlug = SecurityUtils.sanitizeSlug(slug);
-      SecurityUtils.safeLog('info', 'Fetching shop by slug');
-      const response = await apiClient.get<Shop>(`/api/shops/${sanitizedSlug}/`);
+      const sanitizedSlug = encodeURIComponent(slug);
+      console.log('Fetching shop by slug');
+      const response = await publicApiClient.get<Shop>(`/api/shops/${sanitizedSlug}/`);
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error fetching shop', error.response?.status);
+      console.error('Error fetching shop', error.response?.status);
       throw error;
     }
   },
@@ -83,13 +83,13 @@ const ShopService = {
       
       // Check if response contains error (token expired)
       if (response.data && typeof response.data === 'object' && 'code' in response.data) {
-        console.log('🏪 SHOP SERVICE - Error in response data:', response.data);
+        console.error('🏪 SHOP SERVICE - Error in response data:', response.data);
         throw new Error('Authentication failed');
       }
       
       return response.data;
     } catch (error: any) {
-      console.log('🏪 SHOP SERVICE - Error fetching my shop:', error.response?.status, error.response?.data);
+      console.error('🏪 SHOP SERVICE - Error fetching my shop:', error.response?.status, error.response?.data);
       throw error;
     }
   },
@@ -104,17 +104,17 @@ const ShopService = {
       if (!shopSlug) {
         throw new Error('Shop slug is required');
       }
-      const sanitizedShopSlug = SecurityUtils.sanitizeSlug(shopSlug);
-      SecurityUtils.safeLog('info', 'Fetching shop products');
-      const response = await apiClient.get<Product[]>(`/api/shops/${sanitizedShopSlug}/products/`);
+      const sanitizedShopSlug = encodeURIComponent(shopSlug);
+      console.log('Fetching shop products');
+      const response = await publicApiClient.get<Product[]>(`/api/shops/${sanitizedShopSlug}/products/`);
 
       if (response.data && response.data.length > 0) {
-        SecurityUtils.safeLog('info', 'Products fetched successfully');
+        console.log('Products fetched successfully');
       }
 
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error fetching shop products', error.response?.status);
+      console.error('Error fetching shop products', error.response?.status);
       throw error;
     }
   },
@@ -294,10 +294,10 @@ const ShopService = {
       console.log(`ShopService: Fetching all products (page ${page})...`);
       // Use publicApiClient for this public endpoint
       const response = await publicApiClient.get<PaginatedResponse<Product>>(`/api/products/?page=${page}&page_size=${pageSize}`);
-      SecurityUtils.safeLog('info', 'Products fetched successfully', `Count: ${response.data.count}`);
+      console.log('Products fetched successfully', `Count: ${response.data.count}`);
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error fetching products', error.response?.status || 'Network error');
+      console.error('Error fetching products', error.response?.status || 'Network error');
       // Return empty results instead of throwing
       return { count: 0, next: null, previous: null, results: [] };
     }
@@ -314,8 +314,8 @@ const ShopService = {
    */
   async searchProducts(query: string, userLat?: number, userLon?: number, page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Product>> {
     try {
-      const sanitizedQuery = SecurityUtils.sanitizeInput(query);
-      SecurityUtils.safeLog('info', 'Searching products');
+      const sanitizedQuery = query;
+      console.log('Searching products');
       let url = `/api/products/search/?q=${encodeURIComponent(sanitizedQuery)}&page=${page}&page_size=${pageSize}`;
       if (userLat !== undefined && userLon !== undefined) {
         url += `&user_lat=${userLat}&user_lon=${userLon}`;
@@ -323,7 +323,7 @@ const ShopService = {
       const response = await publicApiClient.get<PaginatedResponse<Product>>(url);
       return response.data;
     } catch (error: any) {
-      SecurityUtils.safeLog('error', 'Error searching products', error.response?.status);
+      console.error('Error searching products', error.response?.status);
       throw error;
     }
   },
@@ -410,7 +410,7 @@ const ShopService = {
         formData.append('image', imageData);
       }
       
-      formData.append('is_main', data.is_main.toString());
+      formData.append('is_main', (data.is_main ?? false).toString());
       console.log('📤 ShopService: FormData prepared, making POST request...');
       
       const response = await apiClient.post<ProductImage>(

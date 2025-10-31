@@ -24,6 +24,7 @@ import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
 import { AddProductImageData, Product } from '../../services/shop.types';
 import BackButton from '../../components/BackButton';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Define common colors
 const colors = {
@@ -359,7 +360,7 @@ const EditProductScreen: React.FC = () => {
         const file = new File([blob], filename, { type: blob.type || type });
         return file;
       } catch (error) {
-        console.error('Error fetching blob:', error);
+        safeError('Error fetching blob:', error);
         throw error;
       }
     };

@@ -26,6 +26,7 @@ import { getImageUrl, isImageAccessible } from '../../utils/imageUtils';
 import { testApiConnectivity } from '../../utils/apiTest';
 import StatusSection from '../../components/StatusSection';
 import * as Location from 'expo-location';
+import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 /**
  * Converts a product from the service layer type to the app's product type.
@@ -94,7 +95,7 @@ const HomeScreen = () => {
       const categoryList = Array.isArray(response) ? response : response.results || [];
       setCategories([{ id: 0, name: 'All', slug: 'all' }, ...categoryList]);
     } catch (err) {
-      console.error('Error fetching categories:', err);
+      safeError('Error fetching categories:', err);
     }
   }, []);
 
@@ -384,6 +385,15 @@ const HomeScreen = () => {
           />
         </>
       )}
+      
+      {/* Feedback Button */}
+      <TouchableOpacity 
+        style={styles.feedbackButton}
+        onPress={() => navigation.navigate('Feedback' as any)}
+        accessibilityLabel="Send Feedback"
+      >
+        <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -412,7 +422,7 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
       });
     } else {
       // Handle cases where there's no slug, like the "Other" category
-      console.warn(`View More clicked for category "${categoryName}" with no slug.`);
+      safeWarn(`View More clicked for category "${categoryName}" with no slug.`);
     }
   };
 
@@ -459,9 +469,7 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: 'white',
     letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
+    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.2)',
   },
   logoutButton: {
     padding: 6,
@@ -661,6 +669,22 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     marginLeft: 6,
+  },
+  feedbackButton: {
+    position: 'absolute',
+    right: 20,
+    bottom: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
+    backgroundColor: colors.primary,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 8,
   },
 });
 

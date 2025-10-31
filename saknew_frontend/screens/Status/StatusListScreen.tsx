@@ -78,7 +78,7 @@ const StatusListScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>My Status Updates</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('CreateStatus')}>
+        <TouchableOpacity onPress={() => navigation.navigate('CreateStatus' as any)}>
           <Ionicons name="add" size={24} color="#25D366" />
         </TouchableOpacity>
       </View>
@@ -95,7 +95,7 @@ const StatusListScreen: React.FC = () => {
             <Text style={styles.emptyText}>No status updates yet</Text>
             <TouchableOpacity 
               style={styles.createButton}
-              onPress={() => navigation.navigate('CreateStatus')}
+              onPress={() => navigation.navigate('CreateStatus' as any)}
             >
               <Text style={styles.createButtonText}>Create Your First Status</Text>
             </TouchableOpacity>

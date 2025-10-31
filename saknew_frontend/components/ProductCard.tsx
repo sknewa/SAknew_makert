@@ -8,6 +8,7 @@ import shopService from '../services/shopService';
 import { addCartItem } from '../services/salesService';
 import { colors, spacing } from '../styles/globalStyles';
 import * as Location from 'expo-location';
+import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 const screenWidth = Dimensions.get('window').width;
 const productCardWidth = (screenWidth - (spacing.md * 4)) / 3 + 3;
@@ -61,32 +62,32 @@ const ProductCard: React.FC<ProductCardProps> = ({
   
   useEffect(() => {
     const calculateDistance = async () => {
-      console.log('📍 [ProductCard] Distance calculation START for product:', product.id);
-      console.log('📍 [ProductCard] shopLatitude:', shopLatitude);
-      console.log('📍 [ProductCard] shopLongitude:', shopLongitude);
+      safeLog('📍 [ProductCard] Distance calculation START for product:', product.id);
+      safeLog('📍 [ProductCard] shopLatitude:', shopLatitude);
+      safeLog('📍 [ProductCard] shopLongitude:', shopLongitude);
       
       if (!shopLatitude || !shopLongitude) {
-        console.log('❌ [ProductCard] No shop coordinates provided');
+        safeLog('❌ [ProductCard] No shop coordinates provided');
         return;
       }
       
       try {
-        console.log('📍 [ProductCard] Requesting location permission...');
+        safeLog('📍 [ProductCard] Requesting location permission...');
         const { status } = await Location.requestForegroundPermissionsAsync();
-        console.log('📍 [ProductCard] Permission status:', status);
+        safeLog('📍 [ProductCard] Permission status:', status);
         
         if (status !== 'granted') {
-          console.log('❌ [ProductCard] Location permission not granted');
+          safeLog('❌ [ProductCard] Location permission not granted');
           return;
         }
         
-        console.log('📍 [ProductCard] Getting current position...');
+        safeLog('📍 [ProductCard] Getting current position...');
         const location = await Location.getCurrentPositionAsync({});
-        console.log('📍 [ProductCard] User location:', location.coords.latitude, location.coords.longitude);
+        safeLog('📍 [ProductCard] User location:', location.coords.latitude, location.coords.longitude);
         
         const shopLat = parseFloat(shopLatitude);
         const shopLon = parseFloat(shopLongitude);
-        console.log('📍 [ProductCard] Shop coordinates:', shopLat, shopLon);
+        safeLog('📍 [ProductCard] Shop coordinates:', shopLat, shopLon);
         
         const R = 6371;
         const dLat = (shopLat - location.coords.latitude) * Math.PI / 180;
@@ -98,27 +99,27 @@ const ProductCard: React.FC<ProductCardProps> = ({
         const d = R * c;
         
         const distanceText = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`;
-        console.log('✅ [ProductCard] Distance calculated:', distanceText);
+        safeLog('✅ [ProductCard] Distance calculated:', distanceText);
         setDistance(distanceText);
       } catch (error) {
-        console.log('❌ [ProductCard] Distance calculation error:', error);
+        safeLog('❌ [ProductCard] Distance calculation error:', error);
       }
     };
     
     calculateDistance();
   }, [shopLatitude, shopLongitude, product.id]);
   
-  console.log('🎴 ProductCard - Rendering product:', product.id, product.name);
-  console.log('🎴 ProductCard - Has promotion:', !!product.promotion);
+  safeLog('🎴 ProductCard - Rendering product:', product.id, product.name);
+  safeLog('🎴 ProductCard - Has promotion:', !!product.promotion);
   if (product.promotion) {
-    console.log('🎴 ProductCard - Promotion details:', {
+    safeLog('🎴 ProductCard - Promotion details:', {
       id: product.promotion.id,
       discount: product.promotion.discount_percentage,
       start: product.promotion.start_date,
       end: product.promotion.end_date
     });
   }
-  console.log('🎴 ProductCard - Prices:', {
+  safeLog('🎴 ProductCard - Prices:', {
     price: product.price,
     display_price: product.display_price
   });
@@ -169,15 +170,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const confirmDelete = async () => {
     setShowDeleteModal(false);
     try {
-      console.log('🗑️ Deleting product:', product.id, product.name);
+      safeLog('🗑️ Deleting product:', product.id, product.name);
       await shopService.deleteProduct(product.id);
-      console.log('✅ Product deleted successfully');
+      safeLog('✅ Product deleted successfully');
       if (onProductDeleted) {
-        console.log('🔄 Calling onProductDeleted callback');
+        safeLog('🔄 Calling onProductDeleted callback');
         onProductDeleted();
       }
     } catch (err: any) {
-      console.error('❌ Failed to delete product:', err);
+      safeError('❌ Failed to delete product:', err);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete product');
     }
   };
@@ -289,7 +290,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           <TouchableOpacity 
             onPress={(e) => {
               e.stopPropagation();
-              const shopSlug = product.shop_name.toLowerCase().replace(/\s+/g, '-');
+              const shopSlug = product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
               navigation?.navigate('PublicShop', { shopSlug });
             }}
           >
