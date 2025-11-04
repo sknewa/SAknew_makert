@@ -41,6 +41,7 @@ const linking = {
   prefixes: ['https://saknew-makert.netlify.app', 'http://localhost:8081'],
   config: {
     screens: {
+      MainTabs: '',
       Login: 'login',
       Register: 'register',
       PasswordResetRequest: 'password-reset',
