@@ -52,7 +52,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 };
 
 const HomeScreen = () => {
-  const { logout, loading } = useAuth();
+  const { logout, loading, isAuthenticated } = useAuth();
   const navigation = useNavigation<MainNavigationProp>();
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -269,14 +269,46 @@ const HomeScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <Text style={styles.headerTitle}>SA_knew markets</Text>
-        <TouchableOpacity
-          style={styles.logoutButton}
-          onPress={logout}
-          disabled={loading}
-          accessibilityLabel="Logout"
-        >
-          <Ionicons name="log-out-outline" size={20} color={'#DC3545'} />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.howItWorksButton}
+            onPress={() => navigation.navigate('HowItWorks' as any)}
+            accessibilityLabel="How it works"
+          >
+            <Ionicons name="help-circle-outline" size={20} color="white" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </TouchableOpacity>
+          {isAuthenticated ? (
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={logout}
+              disabled={loading}
+              accessibilityLabel="Logout"
+            >
+              <Ionicons name="log-out-outline" size={20} color={'#DC3545'} />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => navigation.navigate('Login' as any)}
+                accessibilityLabel="Login"
+              >
+                <Ionicons name="log-in-outline" size={20} color="white" />
+                <Text style={styles.loginText}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => navigation.navigate('Register' as any)}
+                accessibilityLabel="Register"
+              >
+                <Ionicons name="person-add-outline" size={20} color="white" />
+                <Text style={styles.registerText}>Register</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
       
       {/* Status Section */}
@@ -392,7 +424,10 @@ const HomeScreen = () => {
         onPress={() => navigation.navigate('Feedback' as any)}
         accessibilityLabel="Send Feedback"
       >
-        <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+        <View style={styles.feedbackIconCircle}>
+          <Ionicons name="chatbubble-ellipses" size={24} color="white" />
+        </View>
+        <Text style={styles.feedbackButtonText}>Send{"\n"}feedback</Text>
       </TouchableOpacity>
     </SafeAreaView>
   );
@@ -471,9 +506,54 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
     textShadow: '0px 1px 2px rgba(0, 0, 0, 0.2)',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  howItWorksButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  howItWorksText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
   logoutButton: {
     padding: 6,
     borderRadius: 8,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: '#DC3545',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  loginButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  registerButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  registerText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
   },
   searchContainer: {
     paddingHorizontal: spacing.md,
@@ -674,9 +754,12 @@ const styles = StyleSheet.create({
     position: 'absolute',
     right: 20,
     bottom: 20,
-    width: 56,
-    height: 56,
-    borderRadius: 28,
+    alignItems: 'center',
+  },
+  feedbackIconCircle: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     backgroundColor: colors.primary,
     justifyContent: 'center',
     alignItems: 'center',
@@ -685,6 +768,14 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.3,
     shadowRadius: 8,
     elevation: 8,
+  },
+  feedbackButtonText: {
+    color: colors.primary,
+    fontSize: 9,
+    fontWeight: '700',
+    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 11,
   },
 });
 

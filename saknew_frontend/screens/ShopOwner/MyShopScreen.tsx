@@ -234,7 +234,7 @@ const MyShopScreen: React.FC = () => {
     safeLog('Shop data:', { slug: shop?.slug, name: shop?.name });
     
     if (shop?.slug) {
-      const webUrl = `https://saknew-makert-e7ac1361decc.herokuapp.com/shop/${shop.slug}`;
+      const webUrl = `https://saknew-makert.netlify.app/PublicShop/${shop.slug}`;
       const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
       
       safeLog('Share message:', shareMessage);

@@ -25,6 +25,7 @@ import StatusItem from '../../components/StatusItem';
 import statusService from '../../services/statusService';
 import { UserStatus } from '../../services/status.types';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { useBadges } from '../../context/BadgeContext';
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   const serviceProduct = p as any;
@@ -39,6 +40,7 @@ const PublicShopScreen = () => {
   const navigation = useNavigation<MainNavigationProp>();
   const route = useRoute();
   const { shopSlug } = route.params as { shopSlug: string };
+  const { cartCount, orderCount, walletBalance } = useBadges();
   
   const [shop, setShop] = useState<any>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
@@ -344,6 +346,44 @@ const PublicShopScreen = () => {
           }
         />
       )}
+      
+      {/* Bottom Navigation */}
+      <View style={styles.bottomNav}>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}>
+          <Ionicons name="home-outline" size={24} color={colors.textSecondary} />
+          <Text style={styles.navText}>Home</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab' })}>
+          <View>
+            <Ionicons name="cart-outline" size={24} color={colors.textSecondary} />
+            {cartCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.navText}>Cart</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'OrdersTab' })}>
+          <View>
+            <Ionicons name="receipt-outline" size={24} color={colors.textSecondary} />
+            {orderCount > 0 && (
+              <View style={styles.badge}>
+                <Text style={styles.badgeText}>{orderCount > 99 ? '99+' : orderCount}</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.navText}>Orders</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'WalletTab' })}>
+          <Ionicons name="wallet-outline" size={24} color={colors.textSecondary} />
+          <Text style={styles.navText}>Wallet</Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'ShopTab' })}>
+          <Ionicons name="storefront-outline" size={24} color={colors.textSecondary} />
+          <Text style={styles.navText}>Shop</Text>
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -584,6 +624,46 @@ const styles = StyleSheet.create({
     color: 'white',
     fontWeight: '600',
     marginLeft: 6,
+  },
+  bottomNav: {
+    flexDirection: 'row',
+    backgroundColor: colors.card,
+    borderTopWidth: 1,
+    borderTopColor: colors.border,
+    paddingVertical: 8,
+    paddingBottom: 12,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  navItem: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  navText: {
+    fontSize: 10,
+    color: colors.textSecondary,
+    marginTop: 4,
+  },
+  badge: {
+    position: 'absolute',
+    right: -8,
+    top: -4,
+    backgroundColor: '#E74C3C',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+  },
+  badgeText: {
+    color: 'white',
+    fontSize: 10,
+    fontWeight: 'bold',
   },
 });
 

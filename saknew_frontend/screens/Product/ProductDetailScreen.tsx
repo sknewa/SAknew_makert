@@ -168,6 +168,16 @@ const ProductDetailScreen = () => {
     safeLog('Selected Size:', selectedSize);
     safeLog('Skip Size Check:', skipSizeCheck);
     
+    // Check if user is authenticated
+    if (!isAuthenticated) {
+      safeLog('User not authenticated');
+      Alert.alert('Login Required', 'Please login to add items to cart', [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Login', onPress: () => navigation.navigate('Login' as any) }
+      ]);
+      return;
+    }
+    
     if (product) {
       // Check if user is the owner of the product
       if (isOwner) {
@@ -203,7 +213,8 @@ const ProductDetailScreen = () => {
         safeError('Error response:', err.response);
         safeError('Error response data:', err.response?.data);
         safeError('Error message:', err.message);
-        showAlert('Error', err.response?.data?.detail || 'Failed to add item to cart. Please try again.');
+        const errorMessage = err.message || err.response?.data?.detail || 'Failed to add item to cart. Please try again.';
+        showAlert('Error', errorMessage);
       } finally {
         safeLog('Setting addingToCart to false');
         setAddingToCart(false);

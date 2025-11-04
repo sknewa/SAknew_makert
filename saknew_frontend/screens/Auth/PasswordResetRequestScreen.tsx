@@ -59,9 +59,10 @@ const PasswordResetRequestScreen: React.FC = () => {
     setLoading(true);
     try {
       await AuthService.requestPasswordReset(email.trim());
+      setEmail('');
       Alert.alert(
-        'Password Reset Email Sent',
-        'If an account with that email exists, you will receive a password reset link shortly. Please check your inbox (and spam folder).',
+        '✉️ Check Your Email',
+        `We've sent a password reset link to ${email.trim()}. Please check your inbox and spam folder.`,
         [
           { text: 'OK', onPress: () => navigation.navigate('Login') },
         ]
@@ -113,7 +114,7 @@ const PasswordResetRequestScreen: React.FC = () => {
             <Text style={styles.logoText}>Saknew Market</Text>
             <Text style={styles.welcomeTitle}>Forgot Your Password?</Text>
             <Text style={styles.welcomeSubtitle}>
-              Enter your email address below and we'll send you a link to reset your password.
+              Enter your email address and we'll send you a link to reset your password.
             </Text>
           </View>
 

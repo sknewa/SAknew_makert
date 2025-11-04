@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { NavigatorScreenParams } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -6,6 +6,7 @@ import { Platform, View, Text, StyleSheet } from 'react-native';
 
 import { useAuth } from '../context/AuthContext.minimal';
 import { useBadges } from '../context/BadgeContext';
+import CustomAlert from '../components/CustomAlert';
 
 import HomeScreen from '../screens/Home/HomeScreen';
 import CartScreen from '../screens/Sales/CartScreen';
@@ -41,6 +42,8 @@ const ShopTabContent = () => {
 
 const MainTabNavigator = () => {
   const { cartCount, orderCount, walletBalance } = useBadges();
+  const { isAuthenticated } = useAuth();
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', onConfirm: () => {} });
   console.log('MainTabNavigator - cartCount:', cartCount, 'orderCount:', orderCount, 'walletBalance:', walletBalance);
 
   const TabBarBadge = ({ count }: { count: number }) => {
@@ -53,6 +56,7 @@ const MainTabNavigator = () => {
   };
 
   return (
+    <>
     <Tab.Navigator
       screenOptions={({ route }) => ({
         tabBarIcon: ({ focused, color, size }) => {
@@ -70,7 +74,7 @@ const MainTabNavigator = () => {
               return (
                 <View style={styles.iconContainer}>
                   <Ionicons name={iconName} size={20} color={color} />
-                  <TabBarBadge count={cartCount} />
+                  {isAuthenticated && <TabBarBadge count={cartCount} />}
                 </View>
               );
             case 'OrdersTab':
@@ -78,7 +82,7 @@ const MainTabNavigator = () => {
               return (
                 <View style={styles.iconContainer}>
                   <Ionicons name={iconName} size={20} color={color} />
-                  <TabBarBadge count={orderCount} />
+                  {isAuthenticated && <TabBarBadge count={orderCount} />}
                 </View>
               );
             case 'WalletTab':
@@ -86,9 +90,11 @@ const MainTabNavigator = () => {
               return (
                 <View style={styles.iconContainer}>
                   <Ionicons name={iconName} size={20} color={color} />
-                  <View style={styles.walletBadge}>
-                    <Text style={styles.walletBadgeText}>R{walletBalance}</Text>
-                  </View>
+                  {isAuthenticated && (
+                    <View style={styles.walletBadge}>
+                      <Text style={styles.walletBadgeText}>R{walletBalance}</Text>
+                    </View>
+                  )}
                 </View>
               );
             case 'ShopTab':
@@ -96,7 +102,7 @@ const MainTabNavigator = () => {
               return (
                 <View style={styles.iconContainer}>
                   <Ionicons name={iconName} size={20} color={color} />
-                  <TabBarBadge count={orderCount} />
+                  {isAuthenticated && <TabBarBadge count={orderCount} />}
                 </View>
               );
             default:
@@ -131,11 +137,100 @@ const MainTabNavigator = () => {
       })}
     >
       <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
-      <Tab.Screen name="CartTab" component={CartScreen} options={{ title: 'Cart' }} />
-      <Tab.Screen name="OrdersTab" component={MyOrdersScreen} options={{ title: 'Orders' }} />
-      <Tab.Screen name="WalletTab" component={WalletDashboardScreen} options={{ title: 'Wallet' }} />
-      <Tab.Screen name="ShopTab" component={ShopTabContent} options={{ title: 'Shop' }} />
+      <Tab.Screen 
+        name="CartTab" 
+        component={CartScreen} 
+        options={{ title: 'Cart' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              setAlertConfig({
+                visible: true,
+                title: 'Login Required',
+                message: 'Please login to view your cart',
+                onConfirm: () => {
+                  setAlertConfig({ ...alertConfig, visible: false });
+                  navigation.getParent()?.navigate('Login' as any);
+                },
+              });
+            }
+          },
+        })}
+      />
+      <Tab.Screen 
+        name="OrdersTab" 
+        component={MyOrdersScreen} 
+        options={{ title: 'Orders' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              setAlertConfig({
+                visible: true,
+                title: 'Login Required',
+                message: 'Please login to view your orders',
+                onConfirm: () => {
+                  setAlertConfig({ ...alertConfig, visible: false });
+                  navigation.getParent()?.navigate('Login' as any);
+                },
+              });
+            }
+          },
+        })}
+      />
+      <Tab.Screen 
+        name="WalletTab" 
+        component={WalletDashboardScreen} 
+        options={{ title: 'Wallet' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              setAlertConfig({
+                visible: true,
+                title: 'Login Required',
+                message: 'Please login to access your wallet',
+                onConfirm: () => {
+                  setAlertConfig({ ...alertConfig, visible: false });
+                  navigation.getParent()?.navigate('Login' as any);
+                },
+              });
+            }
+          },
+        })}
+      />
+      <Tab.Screen 
+        name="ShopTab" 
+        component={ShopTabContent} 
+        options={{ title: 'Shop' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            if (!isAuthenticated) {
+              e.preventDefault();
+              setAlertConfig({
+                visible: true,
+                title: 'Login Required',
+                message: 'Please login to manage your shop',
+                onConfirm: () => {
+                  setAlertConfig({ ...alertConfig, visible: false });
+                  navigation.getParent()?.navigate('Login' as any);
+                },
+              });
+            }
+          },
+        })}
+      />
     </Tab.Navigator>
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        onConfirm={alertConfig.onConfirm}
+        confirmText="Login"
+      />
+    </>
   );
 };
 

@@ -33,8 +33,24 @@ import StatusListScreen from '../screens/Status/StatusListScreen';
 import PublicShopScreen from '../screens/Shop/PublicShopScreen';
 import CategoryProductsScreen from '../screens/CategoryProductsScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
+import HowItWorksScreen from '../screens/HowItWorksScreen';
 
 const Stack = createNativeStackNavigator();
+
+const linking = {
+  prefixes: ['https://saknew-makert.netlify.app', 'http://localhost:8081'],
+  config: {
+    screens: {
+      Login: 'login',
+      Register: 'register',
+      PasswordResetRequest: 'password-reset',
+      PasswordResetConfirm: 'password-reset-confirm/:uid/:token',
+      EmailVerification: 'verify-email',
+      ActivateAccount: 'activate/:uid/:token',
+      PublicShop: 'PublicShop/:shopSlug',
+    },
+  },
+};
 
 const AppNavigator = () => {
   // Use the authentication state from AuthContext
@@ -50,7 +66,7 @@ const AppNavigator = () => {
   }
 
   return (
-    <NavigationContainer>
+    <NavigationContainer linking={linking}>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         {isAuthenticated ? (
           // Authenticated screens (User is logged in)
@@ -76,18 +92,22 @@ const AppNavigator = () => {
             <Stack.Screen name="PublicShop" component={PublicShopScreen} />
             <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
+            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
           </Stack.Group>
         ) : (
-          // Authentication screens (User is NOT logged in)
+          // Unauthenticated screens (User is NOT logged in)
           <Stack.Group>
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
             <Stack.Screen name="Login" component={LoginScreen} />
-            {/* FIXED: Changed component="RegisterScreen" to component={RegisterScreen} */}
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
             <Stack.Screen name="PasswordResetRequest" component={PasswordResetRequestScreen} />
             <Stack.Screen name="PasswordResetConfirm" component={PasswordResetConfirmScreen} />
             <Stack.Screen name="ActivateAccount" component={ActivateAccountScreen} />
             <Stack.Screen name="PublicShop" component={PublicShopScreen} />
+            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
+            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
           </Stack.Group>
         )}
         </Stack.Navigator>

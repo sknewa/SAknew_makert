@@ -315,7 +315,7 @@ const AuthService = {
       }
       
       secureLogger.log('Requesting password reset');
-      const response = await apiClient.post('/api/auth/users/reset_password/', { email });
+      const response = await apiClient.post('/api/accounts/password-reset-request/', { email });
       secureLogger.log('Password reset request sent');
       return response.data;
     } catch (error: any) {
@@ -345,7 +345,7 @@ const AuthService = {
       }
       
       secureLogger.log('Confirming password reset');
-      const response = await apiClient.post('/api/auth/users/reset_password_confirm/', { uid, token, new_password, new_password2 });
+      const response = await apiClient.post('/api/accounts/password-reset-confirm/', { uid, token, new_password, new_password2 });
       secureLogger.log('Password reset confirmed successfully');
       return response.data;
     } catch (error: any) {

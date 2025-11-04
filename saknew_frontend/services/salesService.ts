@@ -138,6 +138,12 @@ const addCartItem = async (productId: number, quantity: number = 1, size?: strin
     return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
   } catch (error: any) {
     console.error('Error adding item to cart:', error.response?.data || error.message);
+    // Check if authentication error
+    if (error.response?.data?.detail === 'Authentication credentials were not provided.') {
+      const authError = new Error('You have to login to add products to cart');
+      (authError as any).response = error.response;
+      throw authError;
+    }
     throw error;
   }
 };

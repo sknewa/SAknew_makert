@@ -25,8 +25,7 @@ type PasswordResetConfirmScreenRouteProp = RouteProp<AuthStackParamList, 'Passwo
 
 const colors = {
   primary: '#4CAF50',
-  backgroundLight: '#F0F2F5',
-  backgroundDark: '#E0E2E5',
+  background: '#F0F2F5',
   card: '#FFFFFF',
   textPrimary: '#333333',
   textSecondary: '#666666',
@@ -76,9 +75,8 @@ const PasswordResetConfirmScreen: React.FC = () => {
     setLoading(true);
     try {
       await AuthService.confirmPasswordReset(uid.trim(), token.trim(), newPassword, reNewPassword);
-      Alert.alert('Success!', 'Your password has been reset. You can now log in with your new password.', [
-        { text: 'OK', onPress: () => navigation.navigate('Login') },
-      ]);
+      navigation.navigate('Login');
+      Alert.alert('Success!', 'Your password has been reset. You can now log in with your new password.');
     } catch (err: any) {
       safeError('Password reset confirmation error:', err.response?.data || err.message);
       let errorMessage = 'An unexpected error occurred during password reset.';
@@ -95,7 +93,6 @@ const PasswordResetConfirmScreen: React.FC = () => {
         errorMessage = err.message;
       }
       setError(errorMessage);
-    } finally {
       setLoading(false);
     }
   }, [uid, token, newPassword, reNewPassword, navigation]);
@@ -116,40 +113,6 @@ const PasswordResetConfirmScreen: React.FC = () => {
           </View>
 
           <View style={styles.card}>
-            <Text style={styles.inputLabel}>User ID (UID)</Text>
-            <View style={[styles.inputContainer, isUidFocused && styles.inputFocused]}>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter User ID from email"
-                placeholderTextColor="#999"
-                value={uid}
-                onChangeText={setUid}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading && !routeUid}
-                onFocus={() => setIsUidFocused(true)}
-                onBlur={() => setIsUidFocused(false)}
-              />
-            </View>
-
-            <Text style={styles.inputLabel}>Reset Token</Text>
-            <View style={[styles.inputContainer, isTokenFocused && styles.inputFocused]}>
-              <TextInput
-                style={styles.inputField}
-                placeholder="Enter Reset Token from email"
-                placeholderTextColor="#999"
-                value={token}
-                onChangeText={setToken}
-                autoCapitalize="none"
-                autoCorrect={false}
-                editable={!loading && !routeToken}
-                multiline={true}
-                numberOfLines={2}
-                onFocus={() => setIsTokenFocused(true)}
-                onBlur={() => setIsTokenFocused(false)}
-              />
-            </View>
-
             <Text style={styles.inputLabel}>New Password</Text>
             <View style={[styles.inputContainer, isNewPasswordFocused && styles.inputFocused]}>
               <Ionicons name="lock-closed-outline" size={18} color={colors.iconColor} style={styles.inputIcon} />
@@ -214,28 +177,28 @@ const PasswordResetConfirmScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: colors.backgroundLight },
+  safeArea: { flex: 1, backgroundColor: colors.background },
   keyboardAvoidingContainer: { flex: 1 },
   scrollContent: { flexGrow: 1, padding: 20, justifyContent: 'center' },
   backButton: { position: 'absolute', top: Platform.OS === 'ios' ? 50 : 20, left: 20, zIndex: 10, padding: 5 },
   header: { marginBottom: 16, alignItems: 'center' },
   headerIcon: { marginBottom: 6 },
-  logoText: { fontSize: 16, fontWeight: '700', color: colors.primary, marginBottom: 4 },
-  welcomeTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 4, textAlign: 'center' },
-  welcomeSubtitle: { fontSize: 11, color: colors.textSecondary, textAlign: 'center', lineHeight: 16, marginBottom: 6 },
-  card: { backgroundColor: colors.card, borderRadius: 8, padding: 12, width: '100%', maxWidth: 400, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2, marginBottom: 16 },
-  inputLabel: { fontSize: 12, color: colors.textPrimary, marginBottom: 6, fontWeight: '600' },
-  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.backgroundLight, height: 40, borderRadius: 6, paddingHorizontal: 10, marginBottom: 10, borderWidth: 1, borderColor: colors.border },
-  inputFocused: { borderColor: colors.focusedBorder, backgroundColor: colors.backgroundDark },
+  logoText: { fontSize: 18, fontWeight: '700', color: colors.primary, marginBottom: 4, letterSpacing: 0.5 },
+  welcomeTitle: { fontSize: 20, fontWeight: '700', color: colors.textPrimary, marginBottom: 4, textAlign: 'center' },
+  welcomeSubtitle: { fontSize: 14, color: colors.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 6 },
+  card: { backgroundColor: colors.card, borderRadius: 12, padding: 16, width: '100%', maxWidth: 400, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4, marginBottom: 16 },
+  inputLabel: { fontSize: 13, color: colors.textPrimary, marginBottom: 6, fontWeight: '600' },
+  inputContainer: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, height: 44, borderRadius: 8, paddingHorizontal: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+  inputFocused: { borderColor: colors.focusedBorder, borderWidth: 2 },
   inputIcon: { marginRight: 8 },
-  inputField: { flex: 1, fontSize: 13, color: colors.textPrimary },
+  inputField: { flex: 1, fontSize: 14, color: colors.textPrimary },
   passwordVisibilityToggle: { padding: 4 },
-  errorMessage: { color: colors.error, fontSize: 11, textAlign: 'center', marginTop: -6, marginBottom: 10 },
-  resetButton: { backgroundColor: colors.primary, height: 40, borderRadius: 6, justifyContent: 'center', alignItems: 'center', marginTop: 6 },
-  resetButtonText: { color: '#fff', fontSize: 14, fontWeight: '600' },
+  errorMessage: { color: colors.error, fontSize: 12, textAlign: 'center', marginTop: -6, marginBottom: 10 },
+  resetButton: { backgroundColor: colors.primary, height: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center', marginTop: 6, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  resetButtonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   loginContainer: { flexDirection: 'row', alignItems: 'center', marginTop: 10, justifyContent: 'center' },
-  loginText: { fontSize: 12, color: colors.textSecondary },
-  loginButtonText: { fontSize: 13, color: colors.primary, fontWeight: '600' },
+  loginText: { fontSize: 14, color: colors.textSecondary },
+  loginButtonText: { fontSize: 14, color: colors.primary, fontWeight: '600' },
 });
 
 export default PasswordResetConfirmScreen;
