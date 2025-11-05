@@ -3,6 +3,8 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator,
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../styles/globalStyles';
 import { addFunds } from '../../services/walletService';
+import { initiatePayFastPayment } from '../../services/payfastService';
+import { Linking } from 'react-native';
 import { useBadges } from '../../context/BadgeContext';
 import BackButton from '../../components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
@@ -22,26 +24,29 @@ const AddFundsScreen: React.FC = () => {
     }
     setLoading(true);
     try {
-      safeLog('Adding funds:', amt);
-      const result = await addFunds(amt);
-      safeLog('Funds added successfully:', result);
+      safeLog('Initiating PayFast payment:', amt);
+      const result = await initiatePayFastPayment(amt);
+      safeLog('PayFast payment initiated:', result);
       
-      // Refresh wallet balance in context
-      await refreshBadges();
-      safeLog('Badges refreshed after adding funds');
+      // Create form and submit to PayFast
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = result.payment_url;
       
-      setAmount('');
+      Object.entries(result.payment_data).forEach(([key, value]) => {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = key;
+        input.value = String(value);
+        form.appendChild(input);
+      });
+      
+      document.body.appendChild(form);
+      form.submit();
+      
       setLoading(false);
-      
-      if (typeof window !== 'undefined' && window.confirm) {
-        window.alert(`Success: R${amt.toFixed(2)} added successfully!`);
-      } else {
-        Alert.alert('Success', `R${amt.toFixed(2)} added successfully!`);
-      }
-      
-      setTimeout(() => {
-        (navigation as any).navigate('WalletDashboard');
-      }, 100);
+      return;
+
     } catch (err: any) {
       safeError('Error adding funds:', err);
       
