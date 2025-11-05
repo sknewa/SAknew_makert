@@ -27,12 +27,26 @@ const AddFundsScreen: React.FC = () => {
       safeLog('Initiating PayFast payment:', amt);
       const result = await initiatePayFastPayment(amt);
       safeLog('PayFast payment initiated:', result);
+      safeLog('Payment data:', result.payment_data);
       
-      // Use simple test deposit for now
-      await addFunds(amt);
-      await refreshBadges();
-      setAmount('');
-      Alert.alert('Success', `R${amt.toFixed(2)} added successfully!`);
+      // Redirect to PayFast payment
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = result.payment_url;
+        
+        Object.entries(result.payment_data).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+      }
+      
       setLoading(false);
       return;
 
