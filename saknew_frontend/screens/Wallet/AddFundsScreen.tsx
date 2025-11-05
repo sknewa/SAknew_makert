@@ -28,21 +28,28 @@ const AddFundsScreen: React.FC = () => {
       const result = await initiatePayFastPayment(amt);
       safeLog('PayFast payment initiated:', result);
       
-      // Create form and submit to PayFast
-      const form = document.createElement('form');
-      form.method = 'POST';
-      form.action = result.payment_url;
-      
-      Object.entries(result.payment_data).forEach(([key, value]) => {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = key;
-        input.value = String(value);
-        form.appendChild(input);
-      });
-      
-      document.body.appendChild(form);
-      form.submit();
+      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        // Web: Create form and submit to PayFast
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = result.payment_url;
+        
+        Object.entries(result.payment_data).forEach(([key, value]) => {
+          const input = document.createElement('input');
+          input.type = 'hidden';
+          input.name = key;
+          input.value = String(value);
+          form.appendChild(input);
+        });
+        
+        document.body.appendChild(form);
+        form.submit();
+      } else {
+        // Mobile: Open PayFast URL with query params
+        const params = new URLSearchParams(result.payment_data as any).toString();
+        const url = `${result.payment_url}?${params}`;
+        await Linking.openURL(url);
+      }
       
       setLoading(false);
       return;
