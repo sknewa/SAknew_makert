@@ -360,7 +360,7 @@ const WalletDashboardScreen: React.FC = () => {
                           isPurchase ? styles.amountNegative : (amt > 0 ? styles.amountPositive : styles.amountNegative),
                           isEarning && styles.amountEarning
                         ]}>
-                          {amt > 0 ? '+' : ''}{formatCurrency(txn.amount)}
+                          {(isPurchase || txn.transaction_type.toUpperCase() === 'WITHDRAWAL') ? '-' : (amt > 0 ? '+' : '')}{formatCurrency(Math.abs(amt))}
                         </Text>
                         {isEarning && (
                           <View style={styles.earningBadge}>
