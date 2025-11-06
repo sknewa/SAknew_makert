@@ -776,8 +776,6 @@ const styles = StyleSheet.create({
     borderRadius: spacing.xs,
     paddingHorizontal: spacing.sm,
     height: 36,
-    borderWidth: 1,
-    borderColor: colors.border,
     gap: spacing.xs,
   },
   inputFocused: {

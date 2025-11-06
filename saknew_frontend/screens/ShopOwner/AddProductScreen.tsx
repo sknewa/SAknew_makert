@@ -834,8 +834,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
     borderRadius: 6,
     paddingHorizontal: 10,
     paddingVertical: Platform.OS === 'ios' ? 8 : 6,
