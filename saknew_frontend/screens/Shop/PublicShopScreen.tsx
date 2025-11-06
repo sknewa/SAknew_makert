@@ -234,9 +234,9 @@ const PublicShopScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color="white" />
+          <Ionicons name="arrow-back" size={24} color={colors.primary} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Shop</Text>
+        <View style={{ flex: 1 }} />
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.howItWorksButton}
@@ -285,14 +285,23 @@ const PublicShopScreen = () => {
             <View style={styles.shopIconContainer}>
               <Ionicons name="storefront" size={40} color={colors.primary} />
             </View>
-            <Text style={styles.shopName}>{shop.name}</Text>
+            <Text style={styles.shopName}>
+              {shop.name.split('').map((char, i) => (
+                <Text key={i} style={[styles.shopNameChar, { color: i % 2 === 0 ? colors.primary : '#FF6B6B' }]}>
+                  {char}
+                </Text>
+              ))}
+            </Text>
             {shop.description && (
               <Text style={styles.shopDescription}>{shop.description}</Text>
             )}
             <View style={styles.shopMetaContainer}>
               <View style={styles.shopMetaItem}>
                 <Ionicons name="location" size={16} color={colors.primary} />
-                <Text style={styles.shopMetaText}>{shop.location || 'South Africa'}</Text>
+                <Text style={styles.shopMetaText}>
+                  {shop.city || shop.province || shop.location || 'South Africa'}
+                  {shop.province && shop.city ? `, ${shop.province}` : ''}
+                </Text>
               </View>
               <View style={styles.shopMetaItem}>
                 <Ionicons name="cube" size={16} color={colors.primary} />
@@ -578,7 +587,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.card,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
   backButton: {
     padding: 6,
@@ -606,7 +617,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   howItWorksText: {
-    color: 'white',
+    color: colors.primary,
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
@@ -617,7 +628,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   logoutText: {
-    color: 'white',
+    color: colors.primary,
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
@@ -628,7 +639,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   loginText: {
-    color: 'white',
+    color: colors.primary,
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
@@ -639,7 +650,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   registerText: {
-    color: 'white',
+    color: colors.primary,
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
@@ -674,12 +685,20 @@ const styles = StyleSheet.create({
     borderColor: colors.primary + '30',
   },
   shopName: {
-    fontSize: 24,
-    fontWeight: '800',
-    color: colors.textPrimary,
+    fontSize: 28,
+    fontWeight: '900',
     marginBottom: 8,
     textAlign: 'center',
-    letterSpacing: 0.5,
+    letterSpacing: 1,
+    textShadowColor: 'rgba(0, 0, 0, 0.15)',
+    textShadowOffset: { width: 2, height: 2 },
+    textShadowRadius: 4,
+  },
+  shopNameChar: {
+    fontWeight: '900',
+    textShadowColor: 'rgba(0, 0, 0, 0.2)',
+    textShadowOffset: { width: 3, height: 3 },
+    textShadowRadius: 5,
   },
   shopDescription: {
     fontSize: 14,
