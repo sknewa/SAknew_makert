@@ -842,6 +842,8 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.05,
     shadowRadius: 1,
     elevation: 1,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   inputFocused: {
     borderColor: colors.inputFocusBorder,

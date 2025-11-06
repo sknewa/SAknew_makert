@@ -381,6 +381,8 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: 10,
     marginBottom: 10,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
 
   inputIcon: {

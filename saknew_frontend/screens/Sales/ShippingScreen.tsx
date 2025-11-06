@@ -435,6 +435,8 @@ const styles = StyleSheet.create({
     fontSize: 14,
     backgroundColor: colors.card,
     color: colors.textPrimary,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   buttonRow: {
     flexDirection: 'row',

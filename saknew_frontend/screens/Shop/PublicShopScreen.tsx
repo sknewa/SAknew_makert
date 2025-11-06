@@ -705,6 +705,8 @@ const styles = StyleSheet.create({
     borderRadius: spacing.sm,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    borderWidth: 1,
+    borderColor: '#FFFFFF',
   },
   searchIcon: {
     marginRight: 12,

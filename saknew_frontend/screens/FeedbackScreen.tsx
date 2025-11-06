@@ -25,29 +25,15 @@ const FeedbackScreen = () => {
   const [loading, setLoading] = useState(false);
 
   const handleSubmit = async () => {
-    console.log('📝 Feedback submission started');
-    console.log('📝 User email:', user?.email);
-    console.log('📝 Feedback text:', feedback);
-    
     if (!feedback.trim()) {
-      console.log('❌ Feedback validation failed: empty feedback');
       Alert.alert('Error', 'Please enter your feedback');
       return;
     }
 
     setLoading(true);
     try {
-      console.log('📤 Sending feedback to backend...');
-      const feedbackData = {
-        email: user?.email,
-        feedback: feedback.trim(),
-        timestamp: new Date().toISOString(),
-      };
-      console.log('📤 Feedback data:', feedbackData);
-      
       await submitFeedback(feedback.trim());
       
-      console.log('✅ Feedback submitted successfully');
       Alert.alert(
         'Thank You!',
         'Your feedback has been submitted successfully.',
@@ -55,11 +41,9 @@ const FeedbackScreen = () => {
       );
       setFeedback('');
     } catch (error) {
-      console.error('❌ Feedback submission error:', error);
       Alert.alert('Error', 'Failed to submit feedback. Please try again.');
     } finally {
       setLoading(false);
-      console.log('📝 Feedback submission completed');
     }
   };
 
@@ -84,7 +68,7 @@ const FeedbackScreen = () => {
 
           <Text style={styles.title}>We'd love to hear from you!</Text>
           <Text style={styles.subtitle}>
-            Your feedback helps us improve SA_knew markets
+            Your feedback helps us improve SA_knew markets. No login required!
           </Text>
 
           <TextInput

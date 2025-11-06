@@ -109,6 +109,7 @@ const AppNavigator = () => {
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
             <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
             <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} />
           </Stack.Group>
         )}
         </Stack.Navigator>
