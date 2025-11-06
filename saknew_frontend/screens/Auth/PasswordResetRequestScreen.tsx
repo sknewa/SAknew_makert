@@ -39,7 +39,7 @@ const PasswordResetRequestScreen: React.FC = () => {
   const [email, setEmail] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isEmailFocused, setIsEmailFocused] = useState<boolean>(false);
+
 
   const handlePasswordResetRequest = useCallback(async () => {
     setError(null);
@@ -120,12 +120,12 @@ const PasswordResetRequestScreen: React.FC = () => {
 
           <View style={styles.card}>
             <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={[styles.inputContainer, isEmailFocused && styles.inputFocused]}>
+            <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={18} color={colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -133,8 +133,6 @@ const PasswordResetRequestScreen: React.FC = () => {
                 textContentType="emailAddress"
                 autoCorrect={false}
                 editable={!loading}
-                onFocus={() => setIsEmailFocused(true)}
-                onBlur={() => setIsEmailFocused(false)}
               />
             </View>
 
@@ -244,10 +242,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  inputFocused: {
-    borderColor: colors.focusedBorder,
-    backgroundColor: colors.backgroundDark,
-  },
+
   inputIcon: {
     marginRight: 8,
   },

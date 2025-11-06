@@ -227,11 +227,8 @@ const PublicShopScreen = () => {
     fetchProducts(categorySlug === 'all' ? undefined : categorySlug);
   }, [fetchProducts]);
 
-  return (
-    <SafeAreaView style={globalStyles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
-      
-      {/* Combined Header & Shop Section */}
+  const renderHeader = () => (
+    <>
       {shop && (
         <View style={styles.combinedHeader}>
           <View style={styles.topBar}>
@@ -275,14 +272,10 @@ const PublicShopScreen = () => {
           </View>
           <View style={styles.shopContent}>
             <View style={styles.shopIconContainer}>
-              <Ionicons name="storefront" size={40} color={colors.primary} />
+              <Ionicons name="storefront" size={32} color={colors.primary} />
             </View>
             <Text style={styles.shopName}>
-              {shop.name.split('').map((char, i) => (
-                <Text key={i} style={[styles.shopNameChar, { color: i % 2 === 0 ? colors.primary : '#FF6B6B' }]}>
-                  {char}
-                </Text>
-              ))}
+              {shop.name}
             </Text>
             {shop.description && (
               <Text style={styles.shopDescription}>{shop.description}</Text>
@@ -304,8 +297,11 @@ const PublicShopScreen = () => {
           </View>
         </View>
       )}
-      
-      {/* Status Section */}
+    </>
+  );
+
+  const renderStickyHeader = () => (
+    <View style={styles.stickyHeaderContainer}>
       {shopStatus && (
         <View style={styles.statusSectionContainer}>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.scrollView}>
@@ -316,8 +312,6 @@ const PublicShopScreen = () => {
           </ScrollView>
         </View>
       )}
-      
-      {/* Search Bar */}
       <View style={styles.searchContainer}>
         <View style={styles.searchBar}>
           <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
@@ -336,8 +330,6 @@ const PublicShopScreen = () => {
           ) : null}
         </View>
       </View>
-      
-      {/* Categories Navigation */}
       {visibleCategories.length > 0 && (
         <View style={styles.categoriesContainer}>
           <FlatList
@@ -365,8 +357,13 @@ const PublicShopScreen = () => {
           />
         </View>
       )}
+    </View>
+  );
 
-      {/* Main Content */}
+  return (
+    <SafeAreaView style={globalStyles.safeContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+      
       {error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={60} color={colors.error} />
@@ -385,15 +382,20 @@ const PublicShopScreen = () => {
         </View>
       ) : (
         <FlatList
-          data={categorySections}
-          keyExtractor={([categoryName]) => categoryName}
-          renderItem={({ item: [categoryName, products] }) => (
-            <CategorySection
-              categoryName={categoryName}
-              products={products}
-              navigation={navigation}
-            />
-          )}
+          data={[{ type: 'header' }, { type: 'sticky' }, ...categorySections.map(([name, prods]) => ({ type: 'category', categoryName: name, products: prods }))]}
+          keyExtractor={(item, index) => item.type === 'category' ? item.categoryName : item.type + index}
+          renderItem={({ item }) => {
+            if (item.type === 'header') return renderHeader();
+            if (item.type === 'sticky') return renderStickyHeader();
+            return (
+              <CategorySection
+                categoryName={item.categoryName}
+                products={item.products}
+                navigation={navigation}
+              />
+            );
+          }}
+          stickyHeaderIndices={[1]}
           style={styles.productsContainer}
           showsVerticalScrollIndicator={false}
           refreshControl={
@@ -405,13 +407,15 @@ const PublicShopScreen = () => {
             />
           }
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <Ionicons name="basket-outline" size={60} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No products found</Text>
-              <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
-                <Text style={styles.refreshButtonText}>Refresh</Text>
-              </TouchableOpacity>
-            </View>
+            categorySections.length === 0 ? (
+              <View style={styles.emptyContainer}>
+                <Ionicons name="basket-outline" size={60} color={colors.textSecondary} />
+                <Text style={styles.emptyText}>No products found</Text>
+                <TouchableOpacity style={styles.refreshButton} onPress={onRefresh}>
+                  <Text style={styles.refreshButtonText}>Refresh</Text>
+                </TouchableOpacity>
+              </View>
+            ) : null
           }
         />
       )}
@@ -578,23 +582,23 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 20,
+    paddingBottom: 12,
   },
   topBar: {
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+    paddingVertical: 6,
     gap: 8,
   },
   backButton: {
-    padding: 6,
+    padding: 4,
     width: 32,
   },
   shopContent: {
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingTop: 12,
+    paddingHorizontal: 16,
+    paddingTop: 8,
   },
   howItWorksButton: {
     padding: 6,
@@ -637,63 +641,62 @@ const styles = StyleSheet.create({
     marginTop: 2,
   },
   shopIconContainer: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 60,
+    height: 60,
+    borderRadius: 30,
     backgroundColor: colors.primary + '15',
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 12,
-    borderWidth: 3,
+    marginBottom: 8,
+    borderWidth: 2,
     borderColor: colors.primary + '30',
   },
   shopName: {
-    fontSize: 28,
+    fontSize: 26,
     fontWeight: '900',
-    marginBottom: 8,
+    marginBottom: 6,
     textAlign: 'center',
-    letterSpacing: 1,
-    textShadowColor: 'rgba(0, 0, 0, 0.15)',
-    textShadowOffset: { width: 2, height: 2 },
-    textShadowRadius: 4,
-  },
-  shopNameChar: {
-    fontWeight: '900',
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 3, height: 3 },
-    textShadowRadius: 5,
+    letterSpacing: 1.5,
+    color: '#6B46C1',
+    textShadowColor: 'rgba(0, 0, 0, 0.4)',
+    textShadowOffset: { width: 0, height: 4 },
+    textShadowRadius: 8,
   },
   shopDescription: {
-    fontSize: 14,
+    fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 16,
-    lineHeight: 20,
-    paddingHorizontal: 16,
+    marginBottom: 10,
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
   shopMetaContainer: {
     flexDirection: 'row',
-    gap: 20,
-    marginTop: 8,
+    gap: 12,
+    marginTop: 4,
   },
   shopMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     backgroundColor: colors.background,
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 20,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 16,
   },
   shopMetaText: {
     fontSize: 12,
     color: colors.textPrimary,
     fontWeight: '600',
   },
+  stickyHeaderContainer: {
+    backgroundColor: colors.background,
+  },
   searchContainer: {
     paddingHorizontal: spacing.md,
-    marginTop: spacing.xs,
-    marginBottom: spacing.xs,
+    paddingTop: spacing.xs,
+    paddingBottom: spacing.xs,
+    backgroundColor: colors.background,
   },
   searchBar: {
     flexDirection: 'row',

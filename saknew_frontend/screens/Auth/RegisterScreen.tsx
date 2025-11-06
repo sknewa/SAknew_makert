@@ -48,9 +48,7 @@ const RegisterScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showRePassword, setShowRePassword] = useState<boolean>(false);
-  const [isEmailFocused, setIsEmailFocused] = useState<boolean>(false);
-  const [isPasswordFocused, setIsPasswordFocused] = useState<boolean>(false);
-  const [isRePasswordFocused, setIsRePasswordFocused] = useState<boolean>(false);
+
 
 
   const handleRegister = useCallback(async () => {
@@ -184,12 +182,12 @@ return (
           <View style={styles.card}>
             {/* Email Input */}
             <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={[styles.inputContainer, isEmailFocused && styles.inputFocused]}>
+            <View style={styles.inputContainer}>
               <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -197,19 +195,17 @@ return (
                 textContentType="emailAddress"
                 autoCorrect={false}
                 editable={!loading}
-                onFocus={() => setIsEmailFocused(true)}
-                onBlur={() => setIsEmailFocused(false)}
               />
             </View>
 
             {/* Password Input */}
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={[styles.inputContainer, isPasswordFocused && styles.inputFocused]}>
+            <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Create a strong password"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
@@ -217,8 +213,6 @@ return (
                 textContentType="newPassword"
                 autoCorrect={false}
                 editable={!loading}
-                onFocus={() => setIsPasswordFocused(true)}
-                onBlur={() => setIsPasswordFocused(false)}
               />
               <TouchableOpacity
                 style={styles.passwordVisibilityToggle}
@@ -236,12 +230,12 @@ return (
 
             {/* Confirm Password Input */}
             <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={[styles.inputContainer, isRePasswordFocused && styles.inputFocused]}>
+            <View style={styles.inputContainer}>
               <Ionicons name="lock-closed-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Re-enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={rePassword}
                 onChangeText={setRePassword}
                 secureTextEntry={!showRePassword}
@@ -249,8 +243,6 @@ return (
                 textContentType="newPassword"
                 autoCorrect={false}
                 editable={!loading}
-                onFocus={() => setIsRePasswordFocused(true)}
-                onBlur={() => setIsRePasswordFocused(false)}
               />
               <TouchableOpacity
                 style={styles.passwordVisibilityToggle}
@@ -392,10 +384,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  inputFocused: {
-    borderColor: colors.focusedBorder,
-    backgroundColor: colors.backgroundDark,
-  },
+
   inputIcon: {
     marginRight: 8,
   },

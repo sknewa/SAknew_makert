@@ -122,7 +122,7 @@ const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={email}
                 onChangeText={setEmail}
                 autoCapitalize="none"
@@ -139,7 +139,7 @@ const LoginScreen: React.FC = () => {
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your password"
-                placeholderTextColor="#999"
+                placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={setPassword}
                 secureTextEntry={!showPassword}
