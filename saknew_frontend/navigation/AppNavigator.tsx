@@ -34,6 +34,8 @@ import PublicShopScreen from '../screens/Shop/PublicShopScreen';
 import CategoryProductsScreen from '../screens/CategoryProductsScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import HowItWorksScreen from '../screens/HowItWorksScreen';
+import ChatScreen from '../screens/Messaging/ChatScreen';
+import ConversationsListScreen from '../screens/Messaging/ConversationsListScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -94,6 +96,8 @@ const AppNavigator = () => {
             <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="ConversationsList" component={ConversationsListScreen} />
           </Stack.Group>
         ) : (
           // Unauthenticated screens (User is NOT logged in)

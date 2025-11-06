@@ -130,6 +130,9 @@ const PurchaseDetailScreen: React.FC = () => {
           <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Purchase Details</Text>
+        <TouchableOpacity onPress={() => navigation.navigate('ConversationsList' as any)}>
+          <Ionicons name="chatbubble-ellipses" size={24} color={colors.primary} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content}>
