@@ -231,57 +231,49 @@ const PublicShopScreen = () => {
     <SafeAreaView style={globalStyles.safeContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.primary} />
-        </TouchableOpacity>
-        <View style={{ flex: 1 }} />
-        <View style={styles.headerButtons}>
-          <TouchableOpacity
-            style={styles.howItWorksButton}
-            onPress={() => navigation.navigate('HowItWorks' as any)}
-            accessibilityLabel="How it works"
-          >
-            <Ionicons name="help-circle-outline" size={20} color="white" />
-            <Text style={styles.howItWorksText}>How it works</Text>
-          </TouchableOpacity>
-          {isAuthenticated ? (
-            <TouchableOpacity
-              style={styles.logoutButton}
-              onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
-              accessibilityLabel="Home"
-            >
-              <Ionicons name="home-outline" size={20} color="white" />
-              <Text style={styles.logoutText}>Home</Text>
-            </TouchableOpacity>
-          ) : (
-            <>
-              <TouchableOpacity
-                style={styles.loginButton}
-                onPress={() => navigation.navigate('Login' as any)}
-                accessibilityLabel="Login"
-              >
-                <Ionicons name="log-in-outline" size={20} color="white" />
-                <Text style={styles.loginText}>Login</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.registerButton}
-                onPress={() => navigation.navigate('Register' as any)}
-                accessibilityLabel="Register"
-              >
-                <Ionicons name="person-add-outline" size={20} color="white" />
-                <Text style={styles.registerText}>Register</Text>
-              </TouchableOpacity>
-            </>
-          )}
-        </View>
-      </View>
-      
-      {/* Shop Welcome Section */}
+      {/* Combined Header & Shop Section */}
       {shop && (
-        <View style={styles.shopWelcomeSection}>
-          <View style={styles.shopHeaderGradient}>
+        <View style={styles.combinedHeader}>
+          <View style={styles.topBar}>
+            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
+              <Ionicons name="arrow-back" size={24} color={colors.primary} />
+            </TouchableOpacity>
+            <View style={{ flex: 1 }} />
+            <TouchableOpacity
+              style={styles.howItWorksButton}
+              onPress={() => navigation.navigate('HowItWorks' as any)}
+            >
+              <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
+              <Text style={styles.howItWorksText}>How it works</Text>
+            </TouchableOpacity>
+            {isAuthenticated ? (
+              <TouchableOpacity
+                style={styles.logoutButton}
+                onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+              >
+                <Ionicons name="home-outline" size={20} color={colors.primary} />
+                <Text style={styles.logoutText}>Home</Text>
+              </TouchableOpacity>
+            ) : (
+              <>
+                <TouchableOpacity
+                  style={styles.loginButton}
+                  onPress={() => navigation.navigate('Login' as any)}
+                >
+                  <Ionicons name="log-in-outline" size={20} color={colors.primary} />
+                  <Text style={styles.loginText}>Login</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.registerButton}
+                  onPress={() => navigation.navigate('Register' as any)}
+                >
+                  <Ionicons name="person-add-outline" size={20} color={colors.primary} />
+                  <Text style={styles.registerText}>Register</Text>
+                </TouchableOpacity>
+              </>
+            )}
+          </View>
+          <View style={styles.shopContent}>
             <View style={styles.shopIconContainer}>
               <Ionicons name="storefront" size={40} color={colors.primary} />
             </View>
@@ -299,8 +291,9 @@ const PublicShopScreen = () => {
               <View style={styles.shopMetaItem}>
                 <Ionicons name="location" size={16} color={colors.primary} />
                 <Text style={styles.shopMetaText}>
-                  {shop.city || shop.province || shop.location || 'South Africa'}
-                  {shop.province && shop.city ? `, ${shop.province}` : ''}
+                  {shop.province || 'South Africa'}
+                  {shop.city ? `, ${shop.city}` : ''}
+                  {shop.location && shop.location !== shop.city && shop.location !== shop.province ? `, ${shop.location}` : ''}
                 </Text>
               </View>
               <View style={styles.shopMetaItem}>
@@ -581,39 +574,30 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
+  combinedHeader: {
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
+    paddingBottom: 20,
+  },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    gap: 8,
   },
   backButton: {
     padding: 6,
     width: 32,
   },
-  headerTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: 'white',
-    letterSpacing: 0.5,
-    textShadowColor: 'rgba(0, 0, 0, 0.2)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    flex: 1,
-    textAlign: 'center',
-  },
-  headerButtons: {
-    flexDirection: 'row',
+  shopContent: {
     alignItems: 'center',
-    gap: 8,
+    paddingHorizontal: 20,
+    paddingTop: 12,
   },
   howItWorksButton: {
     padding: 6,
-    borderRadius: 8,
     alignItems: 'center',
   },
   howItWorksText: {
@@ -624,7 +608,6 @@ const styles = StyleSheet.create({
   },
   logoutButton: {
     padding: 6,
-    borderRadius: 8,
     alignItems: 'center',
   },
   logoutText: {
@@ -635,7 +618,6 @@ const styles = StyleSheet.create({
   },
   loginButton: {
     padding: 6,
-    borderRadius: 8,
     alignItems: 'center',
   },
   loginText: {
@@ -646,7 +628,6 @@ const styles = StyleSheet.create({
   },
   registerButton: {
     padding: 6,
-    borderRadius: 8,
     alignItems: 'center',
   },
   registerText: {
@@ -654,24 +635,6 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
-  },
-  shopWelcomeSection: {
-    marginHorizontal: spacing.md,
-    marginTop: spacing.md,
-    marginBottom: spacing.sm,
-  },
-  shopHeaderGradient: {
-    backgroundColor: colors.card,
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: colors.border,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
-    elevation: 4,
   },
   shopIconContainer: {
     width: 80,
