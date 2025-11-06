@@ -26,6 +26,8 @@ import statusService from '../../services/statusService';
 import { UserStatus } from '../../services/status.types';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 import { useBadges } from '../../context/BadgeContext';
+import { useAuth } from '../../context/AuthContext.minimal';
+import CustomAlert from '../../components/CustomAlert';
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   const serviceProduct = p as any;
@@ -41,6 +43,8 @@ const PublicShopScreen = () => {
   const route = useRoute();
   const { shopSlug } = route.params as { shopSlug: string };
   const { cartCount, orderCount, walletBalance } = useBadges();
+  const { isAuthenticated } = useAuth();
+  const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', onConfirm: () => {} });
   
   const [shop, setShop] = useState<any>(null);
   const [products, setProducts] = useState<AppProduct[]>([]);
@@ -233,7 +237,45 @@ const PublicShopScreen = () => {
           <Ionicons name="arrow-back" size={20} color="white" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>{shop?.name || 'Shop'}</Text>
-        <View style={styles.backButton} />
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.howItWorksButton}
+            onPress={() => navigation.navigate('HowItWorks' as any)}
+            accessibilityLabel="How it works"
+          >
+            <Ionicons name="help-circle-outline" size={20} color="white" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </TouchableOpacity>
+          {isAuthenticated ? (
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+              accessibilityLabel="Home"
+            >
+              <Ionicons name="home-outline" size={20} color="white" />
+              <Text style={styles.logoutText}>Home</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => navigation.navigate('Login' as any)}
+                accessibilityLabel="Login"
+              >
+                <Ionicons name="log-in-outline" size={20} color="white" />
+                <Text style={styles.loginText}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => navigation.navigate('Register' as any)}
+                accessibilityLabel="Register"
+              >
+                <Ionicons name="person-add-outline" size={20} color="white" />
+                <Text style={styles.registerText}>Register</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
       </View>
       
       {/* Status Section */}
@@ -353,10 +395,24 @@ const PublicShopScreen = () => {
           <Ionicons name="home-outline" size={24} color={colors.textSecondary} />
           <Text style={styles.navText}>Home</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab' })}>
+        <TouchableOpacity style={styles.navItem} onPress={() => {
+          if (!isAuthenticated) {
+            setAlertConfig({
+              visible: true,
+              title: 'Login Required',
+              message: 'Please login to view your cart',
+              onConfirm: () => {
+                setAlertConfig({ ...alertConfig, visible: false });
+                navigation.navigate('Login' as any);
+              },
+            });
+          } else {
+            navigation.navigate('MainTabs', { screen: 'CartTab' });
+          }
+        }}>
           <View>
             <Ionicons name="cart-outline" size={24} color={colors.textSecondary} />
-            {cartCount > 0 && (
+            {isAuthenticated && cartCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
               </View>
@@ -364,10 +420,24 @@ const PublicShopScreen = () => {
           </View>
           <Text style={styles.navText}>Cart</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'OrdersTab' })}>
+        <TouchableOpacity style={styles.navItem} onPress={() => {
+          if (!isAuthenticated) {
+            setAlertConfig({
+              visible: true,
+              title: 'Login Required',
+              message: 'Please login to view your orders',
+              onConfirm: () => {
+                setAlertConfig({ ...alertConfig, visible: false });
+                navigation.navigate('Login' as any);
+              },
+            });
+          } else {
+            navigation.navigate('MainTabs', { screen: 'OrdersTab' });
+          }
+        }}>
           <View>
             <Ionicons name="receipt-outline" size={24} color={colors.textSecondary} />
-            {orderCount > 0 && (
+            {isAuthenticated && orderCount > 0 && (
               <View style={styles.badge}>
                 <Text style={styles.badgeText}>{orderCount > 99 ? '99+' : orderCount}</Text>
               </View>
@@ -375,15 +445,52 @@ const PublicShopScreen = () => {
           </View>
           <Text style={styles.navText}>Orders</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'WalletTab' })}>
+        <TouchableOpacity style={styles.navItem} onPress={() => {
+          if (!isAuthenticated) {
+            setAlertConfig({
+              visible: true,
+              title: 'Login Required',
+              message: 'Please login to access your wallet',
+              onConfirm: () => {
+                setAlertConfig({ ...alertConfig, visible: false });
+                navigation.navigate('Login' as any);
+              },
+            });
+          } else {
+            navigation.navigate('MainTabs', { screen: 'WalletTab' });
+          }
+        }}>
           <Ionicons name="wallet-outline" size={24} color={colors.textSecondary} />
           <Text style={styles.navText}>Wallet</Text>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'ShopTab' })}>
+        <TouchableOpacity style={styles.navItem} onPress={() => {
+          if (!isAuthenticated) {
+            setAlertConfig({
+              visible: true,
+              title: 'Login Required',
+              message: 'Please login to manage your shop',
+              onConfirm: () => {
+                setAlertConfig({ ...alertConfig, visible: false });
+                navigation.navigate('Login' as any);
+              },
+            });
+          } else {
+            navigation.navigate('MainTabs', { screen: 'ShopTab' });
+          }
+        }}>
           <Ionicons name="storefront-outline" size={24} color={colors.textSecondary} />
           <Text style={styles.navText}>Shop</Text>
         </TouchableOpacity>
       </View>
+      
+      <CustomAlert
+        visible={alertConfig.visible}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
+        onConfirm={alertConfig.onConfirm}
+        confirmText="Login"
+      />
     </SafeAreaView>
   );
 };
@@ -460,6 +567,57 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.2)',
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 2,
+    flex: 1,
+    textAlign: 'center',
+  },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  howItWorksButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  howItWorksText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  logoutButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  logoutText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  loginButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  loginText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
+  },
+  registerButton: {
+    padding: 6,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  registerText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: '600',
+    marginTop: 2,
   },
   searchContainer: {
     paddingHorizontal: spacing.md,
