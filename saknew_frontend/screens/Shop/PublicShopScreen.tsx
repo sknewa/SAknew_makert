@@ -234,9 +234,9 @@ const PublicShopScreen = () => {
       {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={20} color="white" />
+          <Ionicons name="arrow-back" size={24} color="white" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>{shop?.name || 'Shop'}</Text>
+        <Text style={styles.headerTitle}>Shop</Text>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.howItWorksButton}
@@ -277,6 +277,31 @@ const PublicShopScreen = () => {
           )}
         </View>
       </View>
+      
+      {/* Shop Welcome Section */}
+      {shop && (
+        <View style={styles.shopWelcomeSection}>
+          <View style={styles.shopHeaderGradient}>
+            <View style={styles.shopIconContainer}>
+              <Ionicons name="storefront" size={40} color={colors.primary} />
+            </View>
+            <Text style={styles.shopName}>{shop.name}</Text>
+            {shop.description && (
+              <Text style={styles.shopDescription}>{shop.description}</Text>
+            )}
+            <View style={styles.shopMetaContainer}>
+              <View style={styles.shopMetaItem}>
+                <Ionicons name="location" size={16} color={colors.primary} />
+                <Text style={styles.shopMetaText}>{shop.location || 'South Africa'}</Text>
+              </View>
+              <View style={styles.shopMetaItem}>
+                <Ionicons name="cube" size={16} color={colors.primary} />
+                <Text style={styles.shopMetaText}>{allProducts.length} Products</Text>
+              </View>
+            </View>
+          </View>
+        </View>
+      )}
       
       {/* Status Section */}
       {shopStatus && (
@@ -618,6 +643,70 @@ const styles = StyleSheet.create({
     fontSize: 8,
     fontWeight: '600',
     marginTop: 2,
+  },
+  shopWelcomeSection: {
+    marginHorizontal: spacing.md,
+    marginTop: spacing.md,
+    marginBottom: spacing.sm,
+  },
+  shopHeaderGradient: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  shopIconContainer: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: colors.primary + '15',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 12,
+    borderWidth: 3,
+    borderColor: colors.primary + '30',
+  },
+  shopName: {
+    fontSize: 24,
+    fontWeight: '800',
+    color: colors.textPrimary,
+    marginBottom: 8,
+    textAlign: 'center',
+    letterSpacing: 0.5,
+  },
+  shopDescription: {
+    fontSize: 14,
+    color: colors.textSecondary,
+    textAlign: 'center',
+    marginBottom: 16,
+    lineHeight: 20,
+    paddingHorizontal: 16,
+  },
+  shopMetaContainer: {
+    flexDirection: 'row',
+    gap: 20,
+    marginTop: 8,
+  },
+  shopMetaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.background,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 20,
+  },
+  shopMetaText: {
+    fontSize: 12,
+    color: colors.textPrimary,
+    fontWeight: '600',
   },
   searchContainer: {
     paddingHorizontal: spacing.md,
