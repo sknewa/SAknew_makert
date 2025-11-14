@@ -57,6 +57,9 @@ const PublicShopScreen = () => {
   const [categories, setCategories] = useState<any[]>([]);
   const [selectedCategory, setSelectedCategory] = useState<string>('all');
   const [allProducts, setAllProducts] = useState<AppProduct[]>([]);
+  const [showSearchInput, setShowSearchInput] = useState(false);
+  const [distanceFilter, setDistanceFilter] = useState<number | null>(null);
+  const [priceFilter, setPriceFilter] = useState<'low' | 'high' | null>(null);
 
   const categorySections = useMemo(() => 
     Object.entries(groupedProducts), 
@@ -231,49 +234,7 @@ const PublicShopScreen = () => {
     <>
       {shop && (
         <View style={styles.combinedHeader}>
-          <View style={styles.topBar}>
-            <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-              <Ionicons name="arrow-back" size={24} color={colors.primary} />
-            </TouchableOpacity>
-            <View style={{ flex: 1 }} />
-            <TouchableOpacity
-              style={styles.howItWorksButton}
-              onPress={() => navigation.navigate('HowItWorks' as any)}
-            >
-              <Ionicons name="help-circle-outline" size={20} color={colors.primary} />
-              <Text style={styles.howItWorksText}>How it works</Text>
-            </TouchableOpacity>
-            {isAuthenticated ? (
-              <TouchableOpacity
-                style={styles.logoutButton}
-                onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
-              >
-                <Ionicons name="home-outline" size={20} color={colors.primary} />
-                <Text style={styles.logoutText}>Home</Text>
-              </TouchableOpacity>
-            ) : (
-              <>
-                <TouchableOpacity
-                  style={styles.loginButton}
-                  onPress={() => navigation.navigate('Login' as any)}
-                >
-                  <Ionicons name="log-in-outline" size={20} color={colors.primary} />
-                  <Text style={styles.loginText}>Login</Text>
-                </TouchableOpacity>
-                <TouchableOpacity
-                  style={styles.registerButton}
-                  onPress={() => navigation.navigate('Register' as any)}
-                >
-                  <Ionicons name="person-add-outline" size={20} color={colors.primary} />
-                  <Text style={styles.registerText}>Register</Text>
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
           <View style={styles.shopContent}>
-            <View style={styles.shopIconContainer}>
-              <Ionicons name="storefront" size={32} color={colors.primary} />
-            </View>
             <Text style={styles.shopName}>
               {shop.name}
             </Text>
@@ -312,24 +273,57 @@ const PublicShopScreen = () => {
           </ScrollView>
         </View>
       )}
-      <View style={styles.searchContainer}>
-        <View style={styles.searchBar}>
-          <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Search products..."
-            placeholderTextColor={colors.textSecondary}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            returnKeyType="search"
-          />
-          {searchQuery ? (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
-            </TouchableOpacity>
-          ) : null}
-        </View>
+      
+      {/* Quick Filter Chips with Search Icon */}
+      <View style={styles.filterChipsContainer}>
+        <TouchableOpacity 
+          style={[styles.filterChip, priceFilter === 'low' && styles.filterChipActive]}
+          onPress={() => setPriceFilter(priceFilter === 'low' ? null : 'low')}
+        >
+          <Ionicons name="arrow-down" size={14} color={priceFilter === 'low' ? 'white' : colors.primary} />
+          <Text style={[styles.filterChipText, priceFilter === 'low' && styles.filterChipTextActive]}>Low Price</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={[styles.filterChip, priceFilter === 'high' && styles.filterChipActive]}
+          onPress={() => setPriceFilter(priceFilter === 'high' ? null : 'high')}
+        >
+          <Ionicons name="arrow-up" size={14} color={priceFilter === 'high' ? 'white' : colors.primary} />
+          <Text style={[styles.filterChipText, priceFilter === 'high' && styles.filterChipTextActive]}>High Price</Text>
+        </TouchableOpacity>
+        <TouchableOpacity 
+          style={styles.searchIconButton}
+          onPress={() => setShowSearchInput(!showSearchInput)}
+        >
+          <Ionicons name="search" size={20} color={colors.primary} />
+        </TouchableOpacity>
       </View>
+      
+      {/* Expandable Search Input */}
+      {showSearchInput && (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoFocus
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity onPress={() => setShowSearchInput(false)} style={styles.closeSearchButton}>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      
       {visibleCategories.length > 0 && (
         <View style={styles.categoriesContainer}>
           <FlatList
@@ -582,79 +576,20 @@ const styles = StyleSheet.create({
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 12,
-  },
-  topBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 6,
-    gap: 8,
-  },
-  backButton: {
-    padding: 4,
-    width: 32,
+    paddingBottom: 8,
+    paddingTop: 8,
   },
   shopContent: {
     alignItems: 'center',
     paddingHorizontal: 16,
-    paddingTop: 8,
+    paddingTop: 4,
   },
-  howItWorksButton: {
-    padding: 6,
-    alignItems: 'center',
-  },
-  howItWorksText: {
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  logoutButton: {
-    padding: 6,
-    alignItems: 'center',
-  },
-  logoutText: {
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  loginButton: {
-    padding: 6,
-    alignItems: 'center',
-  },
-  loginText: {
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  registerButton: {
-    padding: 6,
-    alignItems: 'center',
-  },
-  registerText: {
-    color: colors.primary,
-    fontSize: 8,
-    fontWeight: '600',
-    marginTop: 2,
-  },
-  shopIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
-    backgroundColor: colors.primary + '15',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginBottom: 8,
-    borderWidth: 2,
-    borderColor: colors.primary + '30',
-  },
+
+
   shopName: {
     fontSize: 26,
     fontWeight: '900',
-    marginBottom: 6,
+    marginBottom: 4,
     textAlign: 'center',
     letterSpacing: 1.5,
     color: '#6B46C1',
@@ -666,14 +601,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: colors.textSecondary,
     textAlign: 'center',
-    marginBottom: 10,
+    marginBottom: 6,
     lineHeight: 18,
     paddingHorizontal: 12,
   },
   shopMetaContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginTop: 4,
+    marginTop: 2,
   },
   shopMetaItem: {
     flexDirection: 'row',
@@ -692,21 +627,59 @@ const styles = StyleSheet.create({
   stickyHeaderContainer: {
     backgroundColor: colors.background,
   },
+  filterChipsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: spacing.md,
+    marginTop: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  filterChip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: 4,
+  },
+  filterChipActive: {
+    backgroundColor: colors.primary,
+  },
+  filterChipText: {
+    fontSize: 11,
+    color: colors.primary,
+  },
+  filterChipTextActive: {
+    color: 'white',
+    fontWeight: '600',
+  },
+  searchIconButton: {
+    padding: 8,
+    marginLeft: 'auto',
+  },
   searchContainer: {
     paddingHorizontal: spacing.md,
-    paddingTop: spacing.xs,
-    paddingBottom: spacing.xs,
-    backgroundColor: colors.background,
+    marginBottom: spacing.xs,
   },
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: colors.card,
-    borderRadius: spacing.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: spacing.xs,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  closeSearchButton: {
+    marginLeft: 8,
   },
   searchIcon: {
     marginRight: 12,
@@ -787,17 +760,26 @@ const styles = StyleSheet.create({
   },
   productsContainer: {
     flex: 1,
-    paddingHorizontal: spacing.xs,
+    paddingHorizontal: 0,
   },
   categorySection: {
-    marginBottom: spacing.md,
+    marginBottom: 0,
+    backgroundColor: colors.card,
+    paddingVertical: spacing.sm,
+    marginHorizontal: 0,
+    borderRadius: 0,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   categoryTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: colors.textPrimary,
-    marginBottom: spacing.xs,
-    paddingHorizontal: spacing.xs,
+    marginBottom: spacing.sm,
+    paddingHorizontal: spacing.sm,
   },
   categoryGrid: {
     paddingBottom: spacing.xs,

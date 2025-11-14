@@ -26,6 +26,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { getReviewsByProduct, Review, addCartItem } from '../../services/salesService';
 import BackButton from '../../components/BackButton';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { messagingService } from '../../services/messagingService';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -229,6 +230,51 @@ const ProductDetailScreen = () => {
   const handleEditProduct = () => {
     if (product) {
       navigation.navigate('EditProduct', { productId: product.id });
+    }
+  };
+
+  // Handle message seller
+  const handleMessageSeller = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to message the seller.');
+      return;
+    }
+
+    if (!product) return;
+
+    try {
+      console.log('=== MESSAGE SELLER DEBUG ===');
+      console.log('Product:', { id: product.id, name: product.name, shop: product.shop, main_image_url: product.main_image_url, display_price: product.display_price });
+      
+      const conversations = await messagingService.getConversations();
+      let conversation = conversations.find((conv) => conv.seller === product.shop);
+
+      if (!conversation) {
+        console.log('Creating new conversation for shop:', product.shop);
+        conversation = await messagingService.createConversation(product.shop);
+      }
+      
+      console.log('Conversation found/created:', conversation.id);
+      console.log('Navigating with pinnedProduct:', {
+        id: product.id,
+        name: product.name,
+        image: product.main_image_url,
+        price: product.display_price
+      });
+      
+      navigation.navigate('Chat' as never, { 
+        conversationId: conversation.id,
+        pinnedProduct: {
+          id: product.id,
+          name: product.name,
+          image: product.main_image_url,
+          price: product.display_price
+        }
+      } as never);
+    } catch (err) {
+      console.error('Failed to message seller:', err);
+      safeError('Failed to message seller:', err);
+      showAlert('Error', 'Failed to open chat. Please try again.');
     }
   };
 
@@ -446,23 +492,33 @@ const ProductDetailScreen = () => {
               </View>
             </View>
           ) : (
-            <TouchableOpacity 
-              style={[styles.addToCartButton, (!product || product.stock <= 0 || addingToCart) && styles.disabledButton]} 
-              onPress={() => handleAddToCart(false)}
-              disabled={!product || product.stock <= 0 || addingToCart}
-              accessibilityLabel={product?.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
-            >
-              {addingToCart ? (
-                <ActivityIndicator size="small" color={colors.buttonText} />
-              ) : (
-                <>
-                  <Ionicons name="cart-outline" size={20} color={colors.buttonText} />
-                  <Text style={styles.addToCartText}>
-                    {product?.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
-                  </Text>
-                </>
-              )}
-            </TouchableOpacity>
+            <>
+              <TouchableOpacity 
+                style={styles.messageSellerButton}
+                onPress={handleMessageSeller}
+              >
+                <Ionicons name="chatbubble-outline" size={20} color="#10B981" />
+                <Text style={styles.messageSellerText}>Contact Seller</Text>
+              </TouchableOpacity>
+              
+              <TouchableOpacity 
+                style={[styles.addToCartButton, (!product || product.stock <= 0 || addingToCart) && styles.disabledButton]} 
+                onPress={() => handleAddToCart(false)}
+                disabled={!product || product.stock <= 0 || addingToCart}
+                accessibilityLabel={product?.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+              >
+                {addingToCart ? (
+                  <ActivityIndicator size="small" color={colors.buttonText} />
+                ) : (
+                  <>
+                    <Ionicons name="cart-outline" size={20} color={colors.buttonText} />
+                    <Text style={styles.addToCartText}>
+                      {product?.stock > 0 ? 'Add to Cart' : 'Out of Stock'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </>
           )}
         </View>
         
@@ -968,6 +1024,24 @@ const styles = StyleSheet.create({
   },
   promotionButton: {
     backgroundColor: colors.successAction,
+  },
+  messageSellerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 8,
+    marginTop: 10,
+    borderWidth: 1,
+    borderColor: '#10B981',
+  },
+  messageSellerText: {
+    color: '#10B981',
+    fontSize: typography.fontSizeM,
+    fontWeight: '600' as '600',
+    marginLeft: 8,
+    fontFamily: typography.fontFamily,
   },
   addToCartButton: {
     flexDirection: 'row',

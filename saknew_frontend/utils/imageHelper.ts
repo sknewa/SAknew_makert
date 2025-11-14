@@ -33,6 +33,12 @@ export const getFullImageUrl = (imageUrl: string | null | undefined): string | n
     return imageUrl;
   }
 
+  // Handle Cloudinary relative paths (from CloudinaryField)
+  if (imageUrl.startsWith('image/upload/')) {
+    // Construct full Cloudinary URL
+    return `https://res.cloudinary.com/dmkb7tmtg/${imageUrl}`;
+  }
+
   // For relative paths, construct with API base URL
   const cleanPath = imageUrl.replace(/^\/+/, '');
   const baseUrl = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL;

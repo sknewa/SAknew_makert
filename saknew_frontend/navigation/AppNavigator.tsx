@@ -25,6 +25,9 @@ import ShippingScreen from '../screens/Sales/ShippingScreen';
 import PaymentScreen from '../screens/Sales/PaymentScreen';
 import OrderSuccessScreen from '../screens/Sales/OrderSuccessScreen';
 import AddFundsScreen from '../screens/Wallet/AddFundsScreen';
+import CardPaymentScreen from '../screens/Wallet/CardPaymentScreen';
+import RedeemVoucherScreen from '../screens/Wallet/RedeemVoucherScreen';
+import WithdrawScreen from '../screens/Wallet/WithdrawScreen';
 import OrderDetailScreen from '../screens/ShopOwner/OrderDetailScreen';
 import PurchaseDetailScreen from '../screens/Sales/PurchaseDetailScreen';
 import StatusViewerScreen from '../screens/Status/StatusViewerScreen';
@@ -70,47 +73,50 @@ const AppNavigator = () => {
 
   return (
     <NavigationContainer linking={linking}>
-      <Stack.Navigator screenOptions={{ headerShown: false }}>
+      <Stack.Navigator screenOptions={{ headerShown: true }}>
         {isAuthenticated ? (
           // Authenticated screens (User is logged in)
           <Stack.Group>
             {/* MainTabs now handles all primary authenticated navigation, including Shop */}
-            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
             {/* ProductDetail, ProductManagement, EditProduct, AddPromotion are outside MainTabs as they can be navigated to from anywhere */}
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ProductManagement" component={ProductManagementScreen} />
             <Stack.Screen name="EditProduct" component={EditProductScreen} />
             <Stack.Screen name="AddPromotion" component={AddPromotionScreen} />
             {/* Register payment, order success, and wallet add funds screens */}
-            <Stack.Screen name="Payment" component={PaymentScreen} />
+            <Stack.Screen name="Payment" component={PaymentScreen} options={{ headerShown: false }} />
             <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
-            <Stack.Screen name="AddFundsScreen" component={AddFundsScreen} />
+            <Stack.Screen name="AddFundsScreen" component={AddFundsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="CardPayment" component={CardPaymentScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="RedeemVoucher" component={RedeemVoucherScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="WithdrawScreen" component={WithdrawScreen} options={{ headerShown: false }} />
             <Stack.Screen name="WalletDashboard" component={AddFundsScreen} />
             <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
-            <Stack.Screen name="Shipping" component={ShippingScreen} />
+            <Stack.Screen name="Shipping" component={ShippingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} />
             <Stack.Screen name="StatusViewer" component={StatusViewerScreen} />
             <Stack.Screen name="CreateStatus" component={CreateStatusScreen} />
             <Stack.Screen name="StatusList" component={StatusListScreen} />
-            <Stack.Screen name="PublicShop" component={PublicShopScreen} />
+            <Stack.Screen name="PublicShop" component={PublicShopScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />
             <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
-            <Stack.Screen name="Chat" component={ChatScreen} />
+            <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ConversationsList" component={ConversationsListScreen} />
           </Stack.Group>
         ) : (
           // Unauthenticated screens (User is NOT logged in)
           <Stack.Group>
-            <Stack.Screen name="MainTabs" component={MainTabNavigator} />
+            <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
             <Stack.Screen name="Login" component={LoginScreen} />
             <Stack.Screen name="Register" component={RegisterScreen} />
             <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
             <Stack.Screen name="PasswordResetRequest" component={PasswordResetRequestScreen} />
             <Stack.Screen name="PasswordResetConfirm" component={PasswordResetConfirmScreen} />
             <Stack.Screen name="ActivateAccount" component={ActivateAccountScreen} />
-            <Stack.Screen name="PublicShop" component={PublicShopScreen} />
-            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} />
+            <Stack.Screen name="PublicShop" component={PublicShopScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
             <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
             <Stack.Screen name="Feedback" component={FeedbackScreen} />

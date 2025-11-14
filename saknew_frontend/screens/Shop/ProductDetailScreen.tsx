@@ -19,6 +19,8 @@ import shopService from '../../services/shopService';
 import { Product, ProductImage } from '../../services/shop.types'; // Import Product and ProductImage interfaces
 import ProductImageItem from '../../components/ProductImageItem';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { useAuth } from '../../context/AuthContext';
+import { messagingService } from '../../services/messagingService';
 
 // Define route parameters for ProductDetailScreen
 type ProductDetailRouteParams = {
@@ -32,6 +34,7 @@ const ProductDetailScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { productId, productName } = route.params as ProductDetailRouteParams;
+  const { user, isAuthenticated } = useAuth();
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -86,6 +89,43 @@ const ProductDetailScreen = () => {
   useEffect(() => {
     fetchProductDetails();
   }, [fetchProductDetails]);
+
+  useEffect(() => {
+    console.log('=== ProductDetailScreen Debug ===');
+    console.log('isAuthenticated:', isAuthenticated);
+    console.log('product:', product ? product.name : 'null');
+    console.log('product.shop:', product?.shop);
+  }, [isAuthenticated, product]);
+
+  const handleMessageSeller = async () => {
+    if (!isAuthenticated) {
+      Alert.alert('Login Required', 'Please login to message the seller.');
+      return;
+    }
+
+    if (!product) return;
+
+    try {
+      const conversations = await messagingService.getConversations();
+      let conversation = conversations.find((conv) => conv.seller === product.shop);
+
+      if (!conversation) {
+        conversation = await messagingService.createConversation(product.shop);
+      }
+
+      await messagingService.sendMessage(
+        conversation.id,
+        `I'm interested in ${product.name}`,
+        'product_pin',
+        product.id
+      );
+      
+      navigation.navigate('Chat' as never, { conversationId: conversation.id } as never);
+    } catch (err) {
+      safeError('Failed to message seller:', err);
+      Alert.alert('Error', 'Failed to send message. Please try again.');
+    }
+  };
 
 
   
@@ -166,7 +206,20 @@ const ProductDetailScreen = () => {
             )}
           </View>
 
-          <Text style={styles.stockInfo}>In Stock: {product.stock}</Text>
+          <View style={styles.stockContainer}>
+            <Text style={styles.stockInfo}>In Stock: {product.stock}</Text>
+            {console.log('Rendering message button')}
+            <TouchableOpacity 
+              onPress={() => {
+                console.log('Message button clicked');
+                handleMessageSeller();
+              }} 
+              style={styles.messageButton}
+            >
+              <Ionicons name="chatbubble-outline" size={24} color="#667eea" />
+              <Text style={styles.messageText}>Message Seller</Text>
+            </TouchableOpacity>
+          </View>
 
           <Text style={styles.descriptionTitle}>Description:</Text>
           <Text style={styles.productDescription}>{product.description}</Text>
@@ -325,10 +378,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: 'bold',
   },
+  stockContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
   stockInfo: {
     fontSize: 16,
     color: colors.textPrimary,
-    marginBottom: 20,
+    fontWeight: '600',
+  },
+  messageButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F0EBFF',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  messageText: {
+    marginLeft: 6,
+    fontSize: 14,
+    color: '#667eea',
     fontWeight: '600',
   },
   descriptionTitle: {

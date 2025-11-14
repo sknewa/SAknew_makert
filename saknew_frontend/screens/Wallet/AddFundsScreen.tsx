@@ -1,82 +1,26 @@
-import React, { useState } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView } from 'react-native';
+import React, { useState, useRef } from 'react';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, SafeAreaView, Platform } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { colors } from '../../styles/globalStyles';
 import { addFunds } from '../../services/walletService';
-import { initiatePayFastPayment } from '../../services/payfastService';
-import { Linking } from 'react-native';
 import { useBadges } from '../../context/BadgeContext';
 import BackButton from '../../components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { safeLog, safeError } from '../../utils/securityUtils';
 
 const AddFundsScreen: React.FC = () => {
   const navigation = useNavigation();
   const { refreshBadges } = useBadges();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
 
-  const handleAddFunds = async () => {
-    const amt = parseFloat(amount);
-    if (isNaN(amt) || amt <= 0) {
-      Alert.alert('Invalid Amount', 'Please enter a valid amount greater than 0.');
-      return;
-    }
-    setLoading(true);
-    try {
-      safeLog('Initiating PayFast payment:', amt);
-      const result = await initiatePayFastPayment(amt);
-      safeLog('PayFast payment initiated:', result);
-      safeLog('Payment data:', result.payment_data);
-      
-      // Redirect to PayFast payment
-      if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        const form = document.createElement('form');
-        form.method = 'POST';
-        form.action = result.payment_url;
-        
-        Object.entries(result.payment_data).forEach(([key, value]) => {
-          const input = document.createElement('input');
-          input.type = 'hidden';
-          input.name = key;
-          input.value = String(value);
-          form.appendChild(input);
-        });
-        
-        document.body.appendChild(form);
-        form.submit();
-      }
-      
-      setLoading(false);
-      return;
+  const handleCardPayment = () => {
+    navigation.navigate('CardPayment' as never);
+  };
 
-    } catch (err: any) {
-      safeError('Error adding funds:', err);
-      
-      // Handle different error types
-      let errorMessage = 'Could not add funds. Please try again.';
-      
-      if (!err.response && err.code === 'ERR_NETWORK') {
-        errorMessage = 'Network error. Please check your internet connection and try again.';
-      } else if (err.response?.status === 500) {
-        errorMessage = 'Server error. Please try again later.';
-      } else if (err.response?.data?.detail) {
-        errorMessage = err.response.data.detail;
-      } else if (err.response?.data?.amount?.[0]) {
-        errorMessage = err.response.data.amount[0];
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-      
-      // Safely show alert
-      try {
-        Alert.alert('Error Adding Funds', errorMessage, [{ text: 'OK' }]);
-      } catch (alertError) {
-        safeError('Failed to show alert:', alertError);
-      }
-    } finally {
-      setLoading(false);
-    }
+  const handleVoucherRedeem = () => {
+    navigation.navigate('RedeemVoucher' as never);
   };
 
   return (
@@ -88,26 +32,24 @@ const AddFundsScreen: React.FC = () => {
             <Ionicons name="wallet" size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>Add Funds</Text>
-          <Text style={styles.subtitle}>Enter amount to add to your wallet</Text>
+          <Text style={styles.subtitle}>Pay securely with card or EFT</Text>
         </View>
+        
         <View style={styles.card}>
-          <Text style={styles.inputLabel}>Amount (R)</Text>
-          <TextInput
-            style={styles.input}
-            placeholder="0.00"
-            keyboardType="numeric"
-            value={amount}
-            onChangeText={setAmount}
-            placeholderTextColor={colors.textSecondary}
-          />
-          <TouchableOpacity style={[styles.button, loading && styles.buttonDisabled]} onPress={handleAddFunds} disabled={loading}>
-            {loading ? <ActivityIndicator color={colors.white} /> : (
-              <>
-                <Ionicons name="add-circle" size={18} color={colors.white} />
-                <Text style={styles.buttonText}>Add Funds</Text>
-              </>
-            )}
+          <TouchableOpacity style={styles.button} onPress={handleCardPayment}>
+            <Ionicons name="card" size={18} color={colors.white} />
+            <Text style={styles.buttonText}>Pay with Card</Text>
           </TouchableOpacity>
+          
+          <TouchableOpacity style={[styles.button, { backgroundColor: colors.success, marginTop: 12 }]} onPress={handleVoucherRedeem}>
+            <Ionicons name="ticket" size={18} color={colors.white} />
+            <Text style={styles.buttonText}>Redeem Voucher</Text>
+          </TouchableOpacity>
+          
+          <View style={[styles.infoBox, { marginTop: 16 }]}>
+            <Ionicons name="shield-checkmark" size={20} color={colors.success} />
+            <Text style={styles.infoText}>Secure payments powered by Yoco. Your card details are never stored.</Text>
+          </View>
         </View>
       </View>
     </SafeAreaView>
@@ -127,6 +69,8 @@ const styles = StyleSheet.create({
   button: { backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 4, alignItems: 'center', flexDirection: 'row', justifyContent: 'center', gap: 6 },
   buttonText: { color: colors.white, fontWeight: '600', fontSize: 14 },
   buttonDisabled: { opacity: 0.6 },
+  infoBox: { flexDirection: 'row', gap: 8, backgroundColor: '#E8F5E9', padding: 12, borderRadius: 4, marginBottom: 16 },
+  infoText: { flex: 1, fontSize: 11, color: colors.textPrimary },
 });
 
 export default AddFundsScreen;

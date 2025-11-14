@@ -34,6 +34,14 @@ const PurchaseDetailScreen: React.FC = () => {
   const [comment, setComment] = useState('');
   const [showDeliveryCode, setShowDeliveryCode] = useState(false);
 
+  const canCancelOrder = () => {
+    if (!order || order.order_status !== 'pending') return false;
+    const orderTime = new Date(order.order_date).getTime();
+    const currentTime = new Date().getTime();
+    const hoursSinceOrder = (currentTime - orderTime) / (1000 * 60 * 60);
+    return hoursSinceOrder <= 12;
+  };
+
   useEffect(() => {
     fetchOrderDetail();
   }, [orderId]);
@@ -67,6 +75,29 @@ const PurchaseDetailScreen: React.FC = () => {
     } catch (error) {
       Alert.alert('Error', 'Failed to get delivery code');
     }
+  };
+
+  const handleCancelOrder = async () => {
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await updateOrderStatus(orderId, 'cancelled');
+              Alert.alert('Success', 'Order cancelled successfully');
+              fetchOrderDetail();
+            } catch (error) {
+              Alert.alert('Error', 'Failed to cancel order');
+            }
+          }
+        }
+      ]
+    );
   };
 
   const submitReview = async () => {
@@ -189,6 +220,16 @@ const PurchaseDetailScreen: React.FC = () => {
           ))}
         </View>
 
+        {canCancelOrder() && (
+          <TouchableOpacity 
+            style={styles.cancelOrderBtn}
+            onPress={handleCancelOrder}
+          >
+            <Ionicons name="close-circle" size={18} color={colors.card} />
+            <Text style={styles.cancelOrderText}>Cancel Order</Text>
+          </TouchableOpacity>
+        )}
+
         {order.order_status === 'processing' && (
           <TouchableOpacity 
             style={styles.requestCodeBtn}
@@ -299,6 +340,8 @@ const styles = StyleSheet.create({
   deliveryCode: { fontSize: 28, fontWeight: '700', color: colors.primary, letterSpacing: 4, marginBottom: 6 },
   codeNote: { fontSize: 11, color: colors.textSecondary, textAlign: 'center' },
   
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.error, padding: 16, marginBottom: 12, borderRadius: 12 },
+  cancelOrderText: { color: colors.card, fontSize: 14, fontWeight: '600', marginLeft: 8 },
   requestCodeBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, padding: 16, marginBottom: 12, borderRadius: 12 },
   requestCodeText: { color: colors.card, fontSize: 14, fontWeight: '600', marginLeft: 8 },
   completedCard: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.success + '08', padding: 16, marginBottom: 12, borderRadius: 12, borderWidth: 1, borderColor: colors.success + '20' },

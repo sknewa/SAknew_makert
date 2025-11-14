@@ -1,5 +1,6 @@
 safeLog('🚀 WalletDashboardScreen v2.0 - Enhanced transactions loaded');
 import React, { useState, useEffect, useCallback } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -185,14 +186,25 @@ const WalletDashboardScreen: React.FC = () => {
     }, [authLoading, isAuthenticated, fetchWalletData])
   );
 
-  // Also refresh when screen gains focus (e.g., returning from AddFundsScreen)
+  // Check pending payments on focus
   useFocusEffect(
     useCallback(() => {
-      if (isAuthenticated && !authLoading) {
-        safeLog('Screen focused, refreshing wallet data');
-        fetchWalletData();
-      }
-    }, [isAuthenticated, authLoading, fetchWalletData])
+      const checkPending = async () => {
+        if (isAuthenticated && !authLoading) {
+          try {
+            const token = await AsyncStorage.getItem('access_token');
+            await fetch('https://saknew-makert-e7ac1361decc.herokuapp.com/api/wallet/check-pending/', {
+              headers: { 'Authorization': `Bearer ${token}` }
+            });
+            await refreshBadges();
+          } catch (err) {
+            safeError('Check pending failed:', err);
+          }
+          fetchWalletData();
+        }
+      };
+      checkPending();
+    }, [isAuthenticated, authLoading, fetchWalletData, refreshBadges])
   );
 
   const onRefresh = useCallback(() => {
@@ -206,9 +218,8 @@ const WalletDashboardScreen: React.FC = () => {
   };
 
   const handleWithdrawFunds = () => {
-    // In a real app, this would navigate to a "Withdraw Funds" screen
-    Alert.alert("Withdraw Funds", "This would open a screen to withdraw funds from your wallet.");
-    // Example: navigation.navigate('WithdrawFundsScreen');
+    // @ts-ignore
+    navigation.navigate('WithdrawScreen');
   };
 
   // Render logic for different states

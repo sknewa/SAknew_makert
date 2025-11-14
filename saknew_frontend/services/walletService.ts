@@ -62,12 +62,17 @@ export const getMyTransactions = async (): Promise<Transaction[]> => {
 };
 
 
-// Add funds to wallet
+// Add funds to wallet via bank transfer
 export const addFunds = async (amount: number): Promise<any> => {
-  safeLog('Calling deposit API with amount:', amount);
+  safeLog('💰 WALLET API: Initiating deposit for R' + amount);
   const response = await apiClient.post('/api/wallet/deposit/', { amount });
-  safeLog('Deposit API response:', response.data);
+  safeLog('💰 WALLET API: Response received:', response.data);
   return response.data;
+};
+
+export const getYocoPublicKey = async (): Promise<string> => {
+  const response = await apiClient.get('/api/wallet/yoco-public-key/');
+  return response.data.public_key;
 };
 
 // Force refresh wallet (clears any cache)

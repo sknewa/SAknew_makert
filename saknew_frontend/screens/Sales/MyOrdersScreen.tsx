@@ -20,6 +20,7 @@ import { useAuth } from '../../context/AuthContext.minimal';
 import { getMyOrders, updateOrderStatus, Order, createReview } from '../../services/salesService';
 import { colors } from '../../styles/globalStyles';
 import { SecurityUtils } from '../../utils/securityUtils';
+import { messagingService } from '../../services/messagingService';
 
 const formatCurrency = (amount: string | number): string => {
   const num = typeof amount === 'string' ? parseFloat(amount) : amount;
@@ -437,6 +438,41 @@ const MyOrdersScreen: React.FC = () => {
                     <Text style={styles.linkText}>Order #{String(order.id).slice(-8)}</Text>
                   </View>
 
+                  <TouchableOpacity
+                    style={styles.messageSellerButton}
+                    onPress={async () => {
+                      try {
+                        console.log('=== MESSAGE SELLER DEBUG ===');
+                        console.log('Order:', JSON.stringify(order, null, 2));
+                        console.log('Shop:', order.shop);
+                        console.log('Items:', order.items);
+                        
+                        const shopId = order.shop?.id || order.items?.[0]?.product?.shop;
+                        console.log('Resolved Shop ID:', shopId);
+                        
+                        if (!shopId) {
+                          Alert.alert('Error', 'Shop information not available');
+                          return;
+                        }
+                        
+                        const conversation = await messagingService.createConversation(shopId);
+                        console.log('Conversation created:', conversation);
+                        
+                        console.log('Navigating to Chat with:', { conversationId: conversation.id, orderId: order.id });
+                        navigation.navigate('Chat' as never, { 
+                          conversationId: conversation.id,
+                          orderId: order.id
+                        } as never);
+                      } catch (error) {
+                        console.error('Message seller error:', error);
+                        Alert.alert('Error', 'Failed to open chat');
+                      }
+                    }}
+                  >
+                    <Ionicons name="chatbubble-outline" size={14} color={colors.white} />
+                    <Text style={styles.messageSellerText}>Message</Text>
+                  </TouchableOpacity>
+
                   {order.order_status === 'processing' && (
                     <TouchableOpacity
                       style={styles.quickActionButton}
@@ -709,6 +745,8 @@ const styles = StyleSheet.create({
   quickActionText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   reviewLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.warningAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
   reviewLinkText: { color: colors.warningAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  messageSellerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
+  messageSellerText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   mainActions: { marginTop: 12 },
   markReceivedButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 4, marginBottom: 8 },

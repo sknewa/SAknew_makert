@@ -11,7 +11,7 @@ import * as Location from 'expo-location';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - (spacing.md * 4)) / 3 + 3;
+const productCardWidth = (screenWidth - 8) / 3;
 
 interface ProductCardProps {
   product: Product;
@@ -62,32 +62,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
   
   useEffect(() => {
     const calculateDistance = async () => {
-      safeLog('📍 [ProductCard] Distance calculation START for product:', product.id);
-      safeLog('📍 [ProductCard] shopLatitude:', shopLatitude);
-      safeLog('📍 [ProductCard] shopLongitude:', shopLongitude);
-      
-      if (!shopLatitude || !shopLongitude) {
-        safeLog('❌ [ProductCard] No shop coordinates provided');
-        return;
-      }
+      if (!shopLatitude || !shopLongitude) return;
       
       try {
-        safeLog('📍 [ProductCard] Requesting location permission...');
         const { status } = await Location.requestForegroundPermissionsAsync();
-        safeLog('📍 [ProductCard] Permission status:', status);
+        if (status !== 'granted') return;
         
-        if (status !== 'granted') {
-          safeLog('❌ [ProductCard] Location permission not granted');
-          return;
-        }
-        
-        safeLog('📍 [ProductCard] Getting current position...');
         const location = await Location.getCurrentPositionAsync({});
-        safeLog('📍 [ProductCard] User location:', location.coords.latitude, location.coords.longitude);
-        
         const shopLat = parseFloat(shopLatitude);
         const shopLon = parseFloat(shopLongitude);
-        safeLog('📍 [ProductCard] Shop coordinates:', shopLat, shopLon);
         
         const R = 6371;
         const dLat = (shopLat - location.coords.latitude) * Math.PI / 180;
@@ -99,30 +82,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
         const d = R * c;
         
         const distanceText = d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`;
-        safeLog('✅ [ProductCard] Distance calculated:', distanceText);
         setDistance(distanceText);
       } catch (error) {
-        safeLog('❌ [ProductCard] Distance calculation error:', error);
+        // Silent fail
       }
     };
     
     calculateDistance();
   }, [shopLatitude, shopLongitude, product.id]);
-  
-  safeLog('🎴 ProductCard - Rendering product:', product.id, product.name);
-  safeLog('🎴 ProductCard - Has promotion:', !!product.promotion);
-  if (product.promotion) {
-    safeLog('🎴 ProductCard - Promotion details:', {
-      id: product.promotion.id,
-      discount: product.promotion.discount_percentage,
-      start: product.promotion.start_date,
-      end: product.promotion.end_date
-    });
-  }
-  safeLog('🎴 ProductCard - Prices:', {
-    price: product.price,
-    display_price: product.display_price
-  });
   
   if (!product) return null;
   
@@ -170,15 +137,11 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const confirmDelete = async () => {
     setShowDeleteModal(false);
     try {
-      safeLog('🗑️ Deleting product:', product.id, product.name);
       await shopService.deleteProduct(product.id);
-      safeLog('✅ Product deleted successfully');
       if (onProductDeleted) {
-        safeLog('🔄 Calling onProductDeleted callback');
         onProductDeleted();
       }
     } catch (err: any) {
-      safeError('❌ Failed to delete product:', err);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to delete product');
     }
   };
@@ -244,7 +207,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         )}
         
-        {/* Show placeholder when image fails to load */}
         {imageError && allImages.length > 0 && (
           <View style={[styles.placeholderContainer, { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 }]}>
             <Ionicons name="image-outline" size={40} color={colors.textSecondary} />
@@ -264,17 +226,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
         )}
         
         <View style={styles.stockBadge}>
-          <Text style={[
-            styles.stockBadgeText,
-            product.stock === 0 ? styles.outOfStockText : 
-            product.stock <= 5 ? styles.lowStockText : 
-            styles.inStockText
-          ]}>
-            {product.stock === 0 ? 'Out' : 
-             product.stock <= 5 ? 'Low' : 
-             'Stock'}
+          <Text style={styles.stockBadgeText}>
+            {product.stock === 0 ? 'Out' : product.stock <= 5 ? 'Low' : 'Stock'}
           </Text>
         </View>
+        
+        {!isShopOwner && (
+          <View style={styles.shopNameBadge}>
+            <TouchableOpacity 
+              onPress={(e) => {
+                e.stopPropagation();
+                const shopSlug = product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+                navigation?.navigate('PublicShop', { shopSlug });
+              }}
+            >
+              <Text style={styles.shopNameTop} numberOfLines={1}>{product.shop_name}</Text>
+            </TouchableOpacity>
+          </View>
+        )}
         
         {product.promotion && (
           <View style={styles.discountBadge}>
@@ -283,44 +252,30 @@ const ProductCard: React.FC<ProductCardProps> = ({
             </Text>
           </View>
         )}
+        
+        <View style={styles.bottomInfo}>
+          {distance && (
+            <View style={styles.distanceBadge}>
+              <Ionicons name="location-outline" size={8} color="#FFFFFF" />
+              <Text style={styles.distanceText}>{distance}</Text>
+            </View>
+          )}
+          <View style={styles.ratingBadge}>
+            <Ionicons name="star" size={8} color="#FFD700" />
+            <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
+          </View>
+        </View>
+        
       </View>
       
-      <View style={styles.productDetails}>
-        {!isShopOwner && (
-          <TouchableOpacity 
-            onPress={(e) => {
-              e.stopPropagation();
-              const shopSlug = product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
-              navigation?.navigate('PublicShop', { shopSlug });
-            }}
-          >
-            <Text style={styles.shopName} numberOfLines={1}>{product.shop_name}</Text>
-          </TouchableOpacity>
-        )}
-        {isShopOwner ? (
-          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-        ) : (
-          <View style={styles.infoRow}>
-            {distance && (
-              <View style={styles.distanceBadge}>
-                <Ionicons name="location-outline" size={10} color={colors.textSecondary} />
-                <Text style={styles.distanceText}>{distance} away</Text>
-              </View>
+      {!isShopOwner && (
+        <View style={styles.priceRow}>
+          <View style={styles.priceContainer}>
+            <Text style={styles.productPrice}>R{product.display_price}</Text>
+            {product.promotion && product.price !== product.display_price && (
+              <Text style={styles.originalPrice}>R{product.price}</Text>
             )}
-            <View style={styles.ratingBadge}>
-              <Ionicons name="star" size={10} color="#FFD700" />
-              <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
-            </View>
           </View>
-        )}
-        
-        <View style={styles.priceContainer}>
-          <Text style={styles.productPrice}>R{product.display_price}</Text>
-          {product.promotion && product.price !== product.display_price && (
-            <Text style={styles.originalPrice}>R{product.price}</Text>
-          )}
-        </View>
-        {!isShopOwner && (
           <TouchableOpacity
             style={[styles.addToCartIcon, product.stock <= 0 && styles.disabledIcon]}
             onPress={handleAddToCart}
@@ -329,14 +284,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
             {addingToCart ? (
               <ActivityIndicator size="small" color="#10B981" />
             ) : product.stock <= 0 ? (
-              <Ionicons name="close-circle" size={17} color="#999" />
+              <Ionicons name="close-circle" size={14} color="#999" />
             ) : (
-              <FontAwesome5 name="cart-plus" size={18} color="#10B981" light />
+              <FontAwesome5 name="cart-plus" size={14} color="#10B981" light />
             )}
           </TouchableOpacity>
-        )}
-        
-        {isShopOwner && (
+        </View>
+      )}
+      
+      {isShopOwner && (
+        <View style={styles.productDetails}>
+          <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
           <View style={styles.ownerActions}>
             <TouchableOpacity
               style={styles.editButton}
@@ -347,7 +305,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
             >
               <Ionicons name="create-outline" size={16} color="#3B82F6" />
             </TouchableOpacity>
-            
             <TouchableOpacity
               style={styles.deleteButton}
               onPress={handleDeleteProduct}
@@ -357,8 +314,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
               <Ionicons name="trash-outline" size={16} color="#FF4444" />
             </TouchableOpacity>
           </View>
-        )}
-      </View>
+        </View>
+      )}
+
     </TouchableOpacity>
 
     <Modal
@@ -499,14 +457,14 @@ const styles = StyleSheet.create({
     width: productCardWidth,
     backgroundColor: '#fff',
     borderRadius: 0,
-    marginBottom: 8,
-    marginHorizontal: spacing.xs,
-    overflow: 'hidden',
+    marginBottom: 2,
+    marginHorizontal: 1,
+    overflow: 'visible',
   },
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: 140,
+    height: productCardWidth * 1.1,
     backgroundColor: '#F8F8F8',
   },
   imageScroller: {
@@ -515,18 +473,18 @@ const styles = StyleSheet.create({
   },
   productImage: {
     width: productCardWidth,
-    height: 140,
+    height: '100%',
     backgroundColor: '#F8F8F8',
   },
   placeholderContainer: {
     width: '100%',
-    height: 140,
+    height: '100%',
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#F8F8F8',
   },
   placeholderText: {
-    fontSize: 10,
+    fontSize: 11.5,
     color: '#BDBDBD',
     marginTop: 4,
     fontWeight: '400',
@@ -554,92 +512,113 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: 4,
     left: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
   },
   stockBadgeText: {
-    fontSize: 8,
-    fontWeight: '900',
-  },
-  inStockText: { 
-    color: '#4CAF50',
-  },
-  lowStockText: { 
-    color: '#FF9800',
-  },
-  outOfStockText: { 
-    color: '#F44336',
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
   },
   discountBadge: {
     position: 'absolute',
     top: 4,
     right: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
   },
   discountBadgeText: {
-    color: '#FF4444',
-    fontSize: 8,
-    fontWeight: '900',
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  shopNameBadge: {
+    position: 'absolute',
+    top: 4,
+    left: '50%',
+    transform: [{ translateX: -50 }],
+  },
+  shopNameTop: {
+    fontSize: 12,
+    color: '#FFFFFF',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
+  },
+  bottomInfo: {
+    position: 'absolute',
+    bottom: 4,
+    left: 4,
+    right: 4,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  priceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+    backgroundColor: '#fff',
   },
   productDetails: {
-    padding: 6,
-    paddingTop: 8,
+    padding: 4,
+    backgroundColor: '#fff',
   },
   productName: {
-    fontSize: 11,
+    fontSize: 12.5,
     fontWeight: '400',
     color: '#222',
     marginBottom: 4,
-    lineHeight: 15,
+    lineHeight: 16.5,
   },
-  shopName: {
-    fontSize: 11,
-    color: '#000',
-    marginBottom: 4,
-    fontWeight: '500',
-    textDecorationLine: 'underline',
-  },
-  infoRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
+
   distanceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
   },
   distanceText: {
-    fontSize: 10,
-    color: '#8B4513',
+    fontSize: 11,
+    color: '#FFFFFF',
     marginLeft: 2,
     fontWeight: '600',
   },
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    paddingHorizontal: 3,
+    paddingVertical: 1,
   },
   ratingText: {
-    fontSize: 10,
-    color: '#999',
+    fontSize: 11,
+    color: '#FFFFFF',
     marginLeft: 2,
+    fontWeight: '700',
   },
   priceContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 4,
+    gap: 4,
   },
   productPrice: {
-    fontSize: 16,
+    fontSize: 12.5,
     fontWeight: '700',
-    color: '#222',
+    color: '#10B981',
   },
   originalPrice: {
-    fontSize: 12,
-    color: '#FF4444',
+    fontSize: 10.5,
+    color: '#FF0000',
     textDecorationLine: 'line-through',
+    fontWeight: '700',
   },
   ownerActions: {
     flexDirection: 'row',
@@ -653,8 +632,8 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addToCartIcon: {
-    padding: 4,
-    alignSelf: 'flex-end',
+    padding: 2,
+    backgroundColor: 'transparent',
   },
   disabledIcon: {
     opacity: 0.5,

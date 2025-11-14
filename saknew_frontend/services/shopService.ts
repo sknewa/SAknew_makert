@@ -284,21 +284,30 @@ const ShopService = {
   },
 
   /**
-   * Fetches a list of recommended products.
+   * Fetches a list of recommended products (location-based if coordinates provided).
    * @param page Optional page number for pagination (default: 1)
    * @param pageSize Optional number of items per page (default: 10)
+   * @param userLat Optional user latitude for location-based sorting
+   * @param userLon Optional user longitude for location-based sorting
    * @returns Promise<PaginatedResponse<Product>> A paginated response of recommended product objects.
    */
-  async getRecommendedProducts(page: number = 1, pageSize: number = 10): Promise<PaginatedResponse<Product>> {
+  async getRecommendedProducts(page: number = 1, pageSize: number = 10, userLat?: number, userLon?: number): Promise<PaginatedResponse<Product>> {
     try {
-      console.log(`ShopService: Fetching all products (page ${page})...`);
-      // Use publicApiClient for this public endpoint
-      const response = await publicApiClient.get<PaginatedResponse<Product>>(`/api/products/?page=${page}&page_size=${pageSize}`);
-      console.log('Products fetched successfully', `Count: ${response.data.count}`);
+      console.log(`ShopService: Fetching recommended products (page ${page})...`);
+      let url = `/api/products/recommended/?page=${page}&page_size=${pageSize}`;
+      if (userLat !== undefined && userLon !== undefined) {
+        url += `&user_lat=${userLat}&user_lon=${userLon}`;
+      }
+      const response = await publicApiClient.get<PaginatedResponse<Product>>(url);
+      console.log('Products fetched successfully', `Count: ${response.data?.count || response.data?.length || 0}`);
+      
+      // Handle both paginated and non-paginated responses
+      if (Array.isArray(response.data)) {
+        return { count: response.data.length, next: null, previous: null, results: response.data };
+      }
       return response.data;
     } catch (error: any) {
       console.error('Error fetching products', error.response?.status || 'Network error');
-      // Return empty results instead of throwing
       return { count: 0, next: null, previous: null, results: [] };
     }
   },
@@ -513,6 +522,49 @@ const ShopService = {
     } catch (error: any) {
       console.error(`ShopService: Failed to delete promotion ${promotionId} for product ${productId}:`, error.response?.data || error.message);
       throw error;
+    }
+  },
+
+  /**
+   * Fetches personalized product recommendations for the authenticated user.
+   * @returns Promise<Product[]> An array of recommended products.
+   */
+  async getForYouProducts(): Promise<Product[]> {
+    try {
+      const response = await apiClient.get<Product[]>('/api/products/for_you/');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching for you products:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Fetches recently viewed products for the authenticated user.
+   * @returns Promise<Product[]> An array of recently viewed products.
+   */
+  async getRecentlyViewedProducts(): Promise<Product[]> {
+    try {
+      const response = await apiClient.get<Product[]>('/api/products/recently_viewed/');
+      return response.data;
+    } catch (error: any) {
+      console.error('Error fetching recently viewed products:', error);
+      return [];
+    }
+  },
+
+  /**
+   * Fetches related products for a specific product.
+   * @param productId The ID of the product.
+   * @returns Promise<Product[]> An array of related products.
+   */
+  async getRelatedProducts(productId: number): Promise<Product[]> {
+    try {
+      const response = await publicApiClient.get<Product[]>(`/api/products/${productId}/related/`);
+      return response.data;
+    } catch (error: any) {
+      console.error(`Error fetching related products for ${productId}:`, error);
+      return [];
     }
   },
 };
