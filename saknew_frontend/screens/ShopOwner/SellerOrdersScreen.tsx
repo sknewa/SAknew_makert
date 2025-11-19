@@ -164,13 +164,13 @@ const SellerOrdersScreen: React.FC = () => {
         return;
       }
       
-      await apiClient.patch(`/api/orders/${selectedOrder.id}/`, {
+      await apiClient.patch(`/api/orders/${selectedOrder.id}/status-update/`, {
         action_type: 'cancel_order',
         cancellation_reason: cancelReason.trim()
       });
       
       setCancelModalVisible(false);
-      Alert.alert('Order Cancelled', 'The order has been cancelled successfully.');
+      Alert.alert('Order Cancelled', 'The order has been cancelled and refunded to customer\'s wallet.');
       fetchOrders();
     } catch (error: any) {
       Alert.alert('Error', error.response?.data?.detail || 'Failed to cancel order');
@@ -195,21 +195,21 @@ const SellerOrdersScreen: React.FC = () => {
         return;
       }
       
-      safeLog('Making API request to:', `/api/orders/${selectedOrder.id}/`);
+      safeLog('Making API request to:', `/api/orders/${selectedOrder.id}/status-update/`);
       safeLog('Request payload:', {
         action_type: 'confirm_delivery',
-        verification_code: deliveryCode.trim()
+        delivery_code: deliveryCode.trim().toUpperCase()
       });
       
-      const response = await apiClient.patch(`/api/orders/${selectedOrder.id}/`, {
+      const response = await apiClient.patch(`/api/orders/${selectedOrder.id}/status-update/`, {
         action_type: 'confirm_delivery',
-        verification_code: deliveryCode.trim()
+        delivery_code: deliveryCode.trim().toUpperCase()
       });
       
       safeLog('API Response:', response);
       safeLog('Response data:', response?.data);
-      safeLog('Response order_status:', response?.data?.order_status);
-      safeLog('Response delivery_verified:', response?.data?.delivery_verified);
+      safeLog('Response order_status:', response?.data?.order?.order_status);
+      safeLog('Response delivery_verified:', response?.data?.order?.delivery_verified);
       
       if (!response || !response.data) {
         safeLog('Invalid response received');

@@ -257,6 +257,7 @@ const ShippingScreen: React.FC = () => {
                 value={contactName}
                 onChangeText={setContactName}
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="name"
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -268,6 +269,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setContactPhone}
                 keyboardType="phone-pad"
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="tel"
               />
             </View>
           </View>
@@ -280,6 +282,7 @@ const ShippingScreen: React.FC = () => {
             value={street}
             onChangeText={setStreet}
             placeholderTextColor={colors.textSecondary}
+            autoComplete="street-address"
           />
           
           <View style={styles.row}>
@@ -291,6 +294,7 @@ const ShippingScreen: React.FC = () => {
                 value={town}
                 onChangeText={setTown}
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="address-level2"
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -301,6 +305,7 @@ const ShippingScreen: React.FC = () => {
                 value={province}
                 onChangeText={setProvince}
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="address-level1"
               />
             </View>
           </View>
@@ -315,6 +320,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setZip}
                 keyboardType="number-pad"
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="postal-code"
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -325,6 +331,7 @@ const ShippingScreen: React.FC = () => {
                 value={country}
                 onChangeText={setCountry}
                 placeholderTextColor={colors.textSecondary}
+                autoComplete="country"
               />
             </View>
           </View>

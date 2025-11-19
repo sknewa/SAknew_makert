@@ -75,6 +75,7 @@ export interface Order {
   delivery_verified: boolean;
   delivery_verified_at: string | null;
   order_status: string;
+  cancellation_reason?: string;
   order_status_display: string; // Human-readable status
   tracking_info: TrackingInfo | null;
   created_at: string;
@@ -237,9 +238,9 @@ const getMyOrders = async (): Promise<Order[]> => {
   }
 };
 
-const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string | { code?: string; item_id?: number; reason?: string }): Promise<{ detail: string; order: Order; delivery_verification_code?: string; delivery_code?: string }> => {
+const updateOrderStatus = async (orderId: string, actionType: string, verificationCodeOrReason?: string | { code?: string; item_id?: number; cancellation_reason?: string }): Promise<{ detail: string; order: Order; delivery_verification_code?: string; delivery_code?: string }> => {
   try {
-    const payload: { action_type: string; verification_code?: string; cancellation_reason?: string; item_id?: number; code?: string; reason?: string } = { action_type: actionType };
+    const payload: { action_type: string; verification_code?: string; cancellation_reason?: string; item_id?: number; code?: string } = { action_type: actionType };
     
     if (verificationCodeOrReason) {
       if (typeof verificationCodeOrReason === 'string') {
@@ -251,7 +252,7 @@ const updateOrderStatus = async (orderId: string, actionType: string, verificati
       } else {
         // Handle object payload for per-item operations
         if (verificationCodeOrReason.code) payload.verification_code = verificationCodeOrReason.code;
-        if (verificationCodeOrReason.reason) payload.cancellation_reason = verificationCodeOrReason.reason;
+        if (verificationCodeOrReason.cancellation_reason) payload.cancellation_reason = verificationCodeOrReason.cancellation_reason;
         if (verificationCodeOrReason.item_id) payload.item_id = verificationCodeOrReason.item_id;
       }
     }

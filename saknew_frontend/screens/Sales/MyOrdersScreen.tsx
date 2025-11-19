@@ -200,7 +200,7 @@ const MyOrdersScreen: React.FC = () => {
     try {
       const action = cancelModal.itemId ? 'cancel_item' : 'cancel_order';
       const payload = cancelModal.itemId 
-        ? { reason: cancelReason, item_id: cancelModal.itemId }
+        ? { item_id: cancelModal.itemId, cancellation_reason: cancelReason }
         : cancelReason;
       
       await updateOrderStatus(cancelModal.orderId, action, payload);
@@ -350,14 +350,7 @@ const MyOrdersScreen: React.FC = () => {
                 : 'Your completed purchases will appear here'
               }
             </Text>
-            {activeTab === 'pending' && (
-              <TouchableOpacity
-                style={styles.shopButton}
-                onPress={() => navigation.navigate('BottomTabs')}
-              >
-                <Text style={styles.buttonText}>Start Shopping</Text>
-              </TouchableOpacity>
-            )}
+
           </View>
           ) : (
             filteredOrders.map((order) => (
@@ -391,6 +384,16 @@ const MyOrdersScreen: React.FC = () => {
                   <Text style={styles.orderTotal}>{formatCurrency(order.total_price)}</Text>
                 </View>
               </View>
+
+              {order.order_status === 'cancelled' && order.cancellation_reason && (
+                <View style={styles.cancellationBox}>
+                  <View style={styles.cancellationHeader}>
+                    <Ionicons name="information-circle" size={14} color={colors.dangerAction} />
+                    <Text style={styles.cancellationLabel}>Cancellation Reason</Text>
+                  </View>
+                  <Text style={styles.cancellationText}>{order.cancellation_reason}</Text>
+                </View>
+              )}
 
               <View style={styles.itemsContainer}>
                 {order.items.map((item) => (
@@ -439,67 +442,46 @@ const MyOrdersScreen: React.FC = () => {
                   </View>
 
                   <TouchableOpacity
-                    style={styles.messageSellerButton}
+                    style={styles.messageButton}
                     onPress={async () => {
                       try {
-                        console.log('=== MESSAGE SELLER DEBUG ===');
-                        console.log('Order:', JSON.stringify(order, null, 2));
-                        console.log('Shop:', order.shop);
-                        console.log('Items:', order.items);
-                        
                         const shopId = order.shop?.id || order.items?.[0]?.product?.shop;
-                        console.log('Resolved Shop ID:', shopId);
-                        
                         if (!shopId) {
                           Alert.alert('Error', 'Shop information not available');
                           return;
                         }
-                        
                         const conversation = await messagingService.createConversation(shopId);
-                        console.log('Conversation created:', conversation);
-                        
-                        console.log('Navigating to Chat with:', { conversationId: conversation.id, orderId: order.id });
                         navigation.navigate('Chat' as never, { 
                           conversationId: conversation.id,
                           orderId: order.id
                         } as never);
                       } catch (error) {
-                        console.error('Message seller error:', error);
                         Alert.alert('Error', 'Failed to open chat');
                       }
                     }}
                   >
-                    <Ionicons name="chatbubble-outline" size={14} color={colors.white} />
-                    <Text style={styles.messageSellerText}>Message</Text>
+                      <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
+                      <Text style={styles.messageButtonText}>Message</Text>
                   </TouchableOpacity>
 
-                  {order.order_status === 'processing' && (
-                    <TouchableOpacity
-                      style={styles.quickActionButton}
-                      onPress={() => handleRequestCode(order.id)}
-                    >
-                      <Ionicons name="code-outline" size={14} color={colors.white} />
-                      <Text style={styles.quickActionText}>Request Code</Text>
-                    </TouchableOpacity>
-                  )}
 
-                  {(order.order_status === 'pending' || order.order_status === 'processing') && (
+
+                  {(order.order_status === 'pending' || order.order_status === 'processing') && 
+                   (new Date().getTime() - new Date(order.order_date).getTime()) / (1000 * 60 * 60) <= 12 && (
                     <TouchableOpacity
-                      style={styles.cancelActionButton}
+                      style={styles.cancelTextButton}
                       onPress={() => handleCancelOrder(order.id, order.order_date)}
                     >
-                      <Ionicons name="close-circle-outline" size={14} color={colors.white} />
-                      <Text style={styles.cancelActionText}>Cancel</Text>
+                      <Text style={styles.cancelTextButtonText}>Cancel</Text>
                     </TouchableOpacity>
                   )}
 
                   {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
                     <TouchableOpacity
-                      style={styles.reviewLink}
+                      style={[styles.iconButton, { backgroundColor: colors.warningAction }]}
                       onPress={() => openReviewModal(order.items[0].product, order.id)}
                     >
-                      <Ionicons name="star-outline" size={14} color={colors.warningAction} />
-                      <Text style={styles.reviewLinkText}>Add Review</Text>
+                      <Ionicons name="star-outline" size={20} color={colors.warningAction} />
                     </TouchableOpacity>
                   )}
                 </View>
@@ -507,11 +489,11 @@ const MyOrdersScreen: React.FC = () => {
                 <View style={styles.mainActions}>
                   {order.order_status === 'processing' && (
                     <TouchableOpacity
-                      style={styles.markReceivedButton}
+                      style={styles.compactButton}
                       onPress={() => handleRequestCode(order.id)}
                     >
-                      <Ionicons name="code-outline" size={16} color={colors.white} />
-                      <Text style={styles.mainActionText}>Request Delivery Code</Text>
+                      <Ionicons name="code-outline" size={14} color={colors.white} />
+                      <Text style={styles.compactButtonText}>Request Code</Text>
                     </TouchableOpacity>
                   )}
 
@@ -524,11 +506,11 @@ const MyOrdersScreen: React.FC = () => {
                       </View>
                       {order.items.length === 1 && (
                         <TouchableOpacity
-                          style={styles.markReceivedButton}
+                          style={styles.compactButton}
                           onPress={() => handleMarkAsReceived(order.id)}
                         >
-                          <Ionicons name="checkmark-circle" size={16} color={colors.white} />
-                          <Text style={styles.mainActionText}>Mark as Received</Text>
+                          <Ionicons name="checkmark-circle" size={14} color={colors.white} />
+                          <Text style={styles.compactButtonText}>Mark Received</Text>
                         </TouchableOpacity>
                       )}
                     </View>
@@ -536,11 +518,11 @@ const MyOrdersScreen: React.FC = () => {
 
                   {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
                     <TouchableOpacity
-                      style={styles.addReviewButton}
+                      style={[styles.compactButton, { backgroundColor: colors.warningAction }]}
                       onPress={() => openReviewModal(order.items[0].product, order.id)}
                     >
-                      <Ionicons name="star-outline" size={16} color={colors.white} />
-                      <Text style={styles.mainActionText}>Add Review</Text>
+                      <Ionicons name="star-outline" size={14} color={colors.white} />
+                      <Text style={styles.compactButtonText}>Review</Text>
                     </TouchableOpacity>
                   )}
 
@@ -701,17 +683,17 @@ const MyOrdersScreen: React.FC = () => {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.background },
-  scrollContent: { flexGrow: 1, padding: 16, paddingBottom: 30 },
+  scrollContent: { flexGrow: 1, paddingBottom: 30 },
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 10 },
+  loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 12 },
   
-  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16, textAlign: 'center' },
+  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16, textAlign: 'center', paddingHorizontal: 16 },
   
-  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center', paddingVertical: 60 },
-  emptyTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginTop: 16, marginBottom: 8 },
+  emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 20, backgroundColor: colors.card, borderRadius: 20, marginHorizontal: 16, marginTop: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
+  emptyTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginTop: 12, marginBottom: 8 },
   emptySubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, textAlign: 'center' },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 4, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
+  orderCard: { backgroundColor: colors.card, borderRadius: 0, padding: 12, marginBottom: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
   
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   orderDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
@@ -731,27 +713,26 @@ const styles = StyleSheet.create({
   productImage: { width: 60, height: 60, borderRadius: 4, marginRight: 10, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: colors.border },
   itemDetails: { flex: 1 },
   itemCancelButton: { padding: 4, marginLeft: 8 },
-  itemMarkReceivedButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary + '10', paddingVertical: 4, paddingHorizontal: 8, borderRadius: 4, marginTop: 4, marginLeft: 70 },
-  itemMarkReceivedText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginLeft: 4 },
+
   productNameItem: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
   itemQuantity: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
   itemPrice: { fontSize: 12, fontWeight: '700', color: colors.primary },
   
   actionButtons: { marginTop: 12 },
-  quickActions: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
-  detailsLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.infoAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
+  quickActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  detailsLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.infoAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 12 },
   linkText: { color: colors.infoAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  quickActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  quickActionText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  reviewLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.warningAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  reviewLinkText: { color: colors.warningAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  messageSellerButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  messageSellerText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  iconButton: { padding: 4, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
+  messageButton: { alignItems: 'center', marginRight: 3 },
+  messageButtonText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginTop: 2 },
+  iconGroup: { flexDirection: 'row' },
+  cancelTextButton: { paddingVertical: 4, paddingHorizontal: 8 },
+  cancelTextButtonText: { fontSize: 12, fontWeight: '600', color: colors.dangerAction },
+  itemIconButton: { backgroundColor: colors.primary + '10', padding: 6, borderRadius: 16, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   
-  mainActions: { marginTop: 12 },
-  markReceivedButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 10, borderRadius: 4, marginBottom: 8 },
-  addReviewButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FF9800', paddingVertical: 10, borderRadius: 4, marginBottom: 8 },
-  mainActionText: { color: colors.white, fontSize: 13, fontWeight: '600', marginLeft: 6 },
+  mainActions: { marginTop: 8 },
+  compactButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+  compactButtonText: { color: colors.white, fontSize: 12, fontWeight: '600', marginLeft: 4 },
   
   verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10', paddingVertical: 8, borderRadius: 6 },
   verifiedText: { fontSize: 12, color: colors.primary, fontWeight: '600', marginLeft: 4 },
@@ -760,14 +741,13 @@ const styles = StyleSheet.create({
   deliveryCode: { fontSize: 20, fontWeight: 'bold', color: colors.primary, letterSpacing: 2, marginBottom: 4 },
   codeInstruction: { fontSize: 11, color: colors.textSecondary, textAlign: 'center' },
   
-  tabContainer: { flexDirection: 'row', marginBottom: 12, backgroundColor: colors.border, borderRadius: 4, padding: 3 },
+  tabContainer: { flexDirection: 'row', marginBottom: 12, backgroundColor: colors.border, borderRadius: 4, padding: 3, marginHorizontal: 16 },
   tab: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 3 },
   activeTab: { backgroundColor: colors.primary },
   tabText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
   activeTabText: { color: colors.white },
   
-  cancelActionButton: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.dangerAction, paddingVertical: 6, paddingHorizontal: 8, borderRadius: 4 },
-  cancelActionText: { color: colors.white, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+
   
   modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 },
   productNameModal: { fontSize: 16, fontWeight: '600', color: colors.textPrimary, marginBottom: 16 },
@@ -776,20 +756,25 @@ const styles = StyleSheet.create({
   commentLabel: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 8 },
   commentInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 12, textAlignVertical: 'top', marginBottom: 20 },
   
-  loginButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
-  shopButton: { backgroundColor: colors.primary, paddingVertical: 10, paddingHorizontal: 20, borderRadius: 4 },
+  loginButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 16, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
+  shopButton: { backgroundColor: colors.primary, paddingVertical: 12, paddingHorizontal: 24, borderRadius: 16, shadowColor: colors.primary, shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 6 },
   buttonText: { color: colors.white, fontSize: 14, fontWeight: '600' },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
-  modalContent: { backgroundColor: colors.card, borderRadius: 8, padding: 20, width: '90%', maxWidth: 400, borderWidth: 1, borderColor: colors.border },
+  modalContent: { backgroundColor: colors.card, borderRadius: 20, padding: 24, width: '90%', maxWidth: 400, shadowColor: '#000', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.15, shadowRadius: 16, elevation: 8 },
   modalTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, textAlign: 'center', marginBottom: 8 },
   modalSubtitle: { fontSize: 13, color: colors.textSecondary, textAlign: 'center', marginBottom: 16 },
   codeInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 4, padding: 10, fontSize: 14, marginBottom: 16, textAlign: 'center' },
   reasonInput: { borderWidth: 1, borderColor: colors.border, borderRadius: 4, padding: 10, fontSize: 13, marginBottom: 16, minHeight: 70, textAlignVertical: 'top' },
   modalButtons: { flexDirection: 'row', justifyContent: 'space-between' },
-  cancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 10, borderRadius: 4, marginRight: 6, alignItems: 'center' },
+  cancelButton: { flex: 1, backgroundColor: colors.border, paddingVertical: 12, borderRadius: 12, marginRight: 6, alignItems: 'center' },
   cancelButtonText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
-  confirmButton: { flex: 1, backgroundColor: '#FF9800', paddingVertical: 10, borderRadius: 4, marginLeft: 6, alignItems: 'center' },
+  confirmButton: { flex: 1, backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 12, marginLeft: 6, alignItems: 'center', shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+  
+  cancellationBox: { marginBottom: 12, padding: 10, backgroundColor: '#FEE2E2', borderRadius: 4, borderWidth: 1, borderColor: '#FCA5A5' },
+  cancellationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
+  cancellationLabel: { fontSize: 12, fontWeight: '700', color: colors.dangerAction, marginLeft: 4 },
+  cancellationText: { fontSize: 11, color: '#991B1B', lineHeight: 16, fontWeight: '500' },
 });
 
 export default MyOrdersScreen;
