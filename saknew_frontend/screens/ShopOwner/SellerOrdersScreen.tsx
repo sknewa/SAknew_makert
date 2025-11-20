@@ -35,6 +35,8 @@ interface OrderItem {
   quantity: number;
   subtotal: string;
   size?: string;
+  delivered?: boolean;
+  delivered_at?: string;
 }
 
 interface Order {
@@ -153,6 +155,23 @@ const SellerOrdersScreen: React.FC = () => {
     setSelectedOrder(order);
     setCancelReason('');
     setCancelModalVisible(true);
+  };
+
+  const handleMessageCustomer = async (order: Order) => {
+    try {
+      const shopResponse = await apiClient.get('/api/shops/my_shop/');
+      const shopId = shopResponse.data.id;
+      
+      const { messagingService } = await import('../../services/messagingService');
+      const conversation = await messagingService.createConversation(shopId);
+      navigation.navigate('Chat' as never, { 
+        conversationId: conversation.id,
+        orderId: order.id,
+        shopId: shopId
+      } as never);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open chat');
+    }
   };
 
   const executeCancelOrder = async () => {
@@ -297,6 +316,17 @@ const SellerOrdersScreen: React.FC = () => {
     }
     
     return filtered;
+  };
+
+  const hasUndeliveredItems = (order: Order) => {
+    const userShopSlug = user?.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+    const shopItems = order.items.filter((item: OrderItem) => {
+      const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+      return itemShopName === userShopSlug;
+    });
+    
+    // Check if any of the seller's items are not delivered
+    return shopItems.some((item: any) => !item.delivered);
   };
 
   const renderOrderCard = (order: Order) => {
@@ -504,8 +534,15 @@ const SellerOrdersScreen: React.FC = () => {
         </View>
 
         <View style={styles.actionButtons}>
-          {['processing', 'ready_for_delivery', 'approved'].includes(order.order_status) && (
+          {['processing', 'ready_for_delivery', 'approved'].includes(order.order_status) && hasUndeliveredItems(order) && (
             <>
+              <TouchableOpacity 
+                style={styles.messageBtn}
+                onPress={() => handleMessageCustomer(order)}
+              >
+                <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
+                <Text style={styles.messageBtnText}>Message</Text>
+              </TouchableOpacity>
               <TouchableOpacity 
                 style={styles.cancelOrderBtn}
                 onPress={() => handleCancelOrder(order)}
@@ -521,6 +558,13 @@ const SellerOrdersScreen: React.FC = () => {
                 <Text style={styles.actionBtnText}>Mark Delivered</Text>
               </TouchableOpacity>
             </>
+          )}
+          
+          {['processing', 'ready_for_delivery', 'approved'].includes(order.order_status) && !hasUndeliveredItems(order) && (
+            <View style={styles.completedBadge}>
+              <Ionicons name="checkmark-circle" size={14} color={colors.primary} />
+              <Text style={styles.completedText}>Already Delivered</Text>
+            </View>
           )}
           
           {order.order_status === 'completed' && (
@@ -765,6 +809,8 @@ const styles = StyleSheet.create({
   expandButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6, marginBottom: 8, backgroundColor: '#F0F9FF', borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' },
   expandButtonText: { fontSize: 11, fontWeight: '600', color: colors.primary, marginHorizontal: 6 },
   
+  messageBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.primary, marginRight: 8 },
+  messageBtnText: { color: colors.primary, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.error, marginRight: 8 },
   cancelOrderBtnText: { color: colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 },
   

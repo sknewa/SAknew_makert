@@ -14,7 +14,7 @@ const ChatScreen = () => {
   const route = useRoute();
   const navigation = useNavigation();
   const { user } = useAuth();
-  const { conversationId, orderId, pinnedProduct } = route.params as { conversationId: number; orderId?: number | string; pinnedProduct?: any };
+  const { conversationId, orderId, shopId, pinnedProduct } = route.params as { conversationId: number; orderId?: number | string; shopId?: number; pinnedProduct?: any };
   
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState(pinnedProduct ? `I'm interested in ${pinnedProduct.name}` : '');
@@ -225,7 +225,7 @@ const ChatScreen = () => {
                     Order #{String(item.order.id).slice(-8)}
                   </Text>
                 </View>
-                {item.order.items?.map((orderItem: any, idx: number) => (
+                {item.order.items?.filter((orderItem: any) => !shopId || orderItem.product.shop === shopId).map((orderItem: any, idx: number) => (
                   <View key={idx} style={styles.orderItemRow}>
                     <Image 
                       source={{ uri: getFullImageUrl(orderItem.product.main_image_url) as string }} 
@@ -241,9 +241,7 @@ const ChatScreen = () => {
                     </View>
                   </View>
                 ))}
-                <Text style={[styles.orderTotal, isMyMessage && { color: 'white' }]}>
-                  Total: R{item.order.total_price}
-                </Text>
+
                 <Ionicons name="chevron-forward" size={16} color={isMyMessage ? 'rgba(255,255,255,0.7)' : colors.textSecondary} style={{ alignSelf: 'flex-end' }} />
               </View>
             ) : (
@@ -408,7 +406,7 @@ const ChatScreen = () => {
                 </Text>
                 
                 <View style={styles.orderItemsSection}>
-                  {selectedOrder.items?.map((orderItem: any, idx: number) => (
+                  {selectedOrder.items?.filter((orderItem: any) => !shopId || orderItem.product.shop === shopId).map((orderItem: any, idx: number) => (
                     <View key={idx} style={styles.orderModalItem}>
                       <Image 
                         source={{ uri: getFullImageUrl(orderItem.product.main_image_url) as string }} 

@@ -19,7 +19,7 @@ import { MainNavigationProp } from '../../navigation/types';
 import { useAuth } from '../../context/AuthContext.minimal';
 import { getMyOrders, updateOrderStatus, Order, createReview } from '../../services/salesService';
 import { colors } from '../../styles/globalStyles';
-import { SecurityUtils } from '../../utils/securityUtils';
+import { SecurityUtils, safeLog, safeError } from '../../utils/securityUtils';
 import { messagingService } from '../../services/messagingService';
 
 const formatCurrency = (amount: string | number): string => {
@@ -72,6 +72,12 @@ const MyOrdersScreen: React.FC = () => {
     itemId?: number;
     itemName?: string;
   }>({ visible: false, orderId: '', orderDate: '', itemId: undefined, itemName: undefined });
+  
+  const [shopSelectionModal, setShopSelectionModal] = useState<{
+    visible: boolean;
+    orderId: string;
+    shops: Array<{ id: number; name: string; items: any[] }>;
+  }>({ visible: false, orderId: '', shops: [] });
   
   const [cancelReason, setCancelReason] = useState('');
   const [cancelling, setCancelling] = useState(false);
@@ -135,39 +141,30 @@ const MyOrdersScreen: React.FC = () => {
   };
 
   const handleRequestCode = async (orderId: string) => {
-    safeLog('🔍 DEBUG: === REQUEST CODE START ===');
-    safeLog('🔍 DEBUG: Order ID:', orderId);
-    
+    console.log('🔍 DEBUG: Request Code button pressed for order:', orderId);
     try {
-      safeLog('🔍 DEBUG: Calling updateOrderStatus with action: request_code');
+      console.log('🔍 DEBUG: Calling updateOrderStatus with request_code action');
       const response = await updateOrderStatus(orderId, 'request_code');
-      safeLog('🔍 DEBUG: Full response:', JSON.stringify(response, null, 2));
-      safeLog('🔍 DEBUG: Response keys:', Object.keys(response));
-      safeLog('🔍 DEBUG: Delivery code from response:', response.delivery_verification_code);
-      safeLog('🔍 DEBUG: Delivery code from order:', response.order?.delivery_verification_code);
+      console.log('🔍 DEBUG: Response received:', response);
       
       const deliveryCode = response.delivery_verification_code || response.order?.delivery_verification_code || response.delivery_code;
+      console.log('🔍 DEBUG: Extracted delivery code:', deliveryCode);
       
       if (!deliveryCode) {
-        safeError('🔍 DEBUG: No delivery code found in response!');
+        console.log('🔍 DEBUG: No delivery code found in response');
         Alert.alert('Error', 'Failed to retrieve delivery code. Please try again.');
         return;
       }
       
+      console.log('🔍 DEBUG: Showing delivery code to user');
       Alert.alert(
         'Delivery Code',
         `Your delivery code is: ${deliveryCode}\n\nShow this code to the seller when they deliver your order.`,
-        [{ text: 'OK', onPress: () => {
-          safeLog('🔍 DEBUG: Refreshing orders after code request');
-          fetchOrders();
-        }}]
+        [{ text: 'OK', onPress: () => fetchOrders() }]
       );
-      safeLog('🔍 DEBUG: === REQUEST CODE SUCCESS ===');
     } catch (err: any) {
-      safeError('🔍 DEBUG: === REQUEST CODE ERROR ===');
-      safeError('🔍 DEBUG: Error:', err);
-      safeError('🔍 DEBUG: Error response:', err?.response);
-      safeError('🔍 DEBUG: Error data:', err?.response?.data);
+      console.log('🔍 DEBUG: Error occurred:', err);
+      console.log('🔍 DEBUG: Error response:', err?.response?.data);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to get delivery code.');
     }
   };
@@ -231,6 +228,51 @@ const MyOrdersScreen: React.FC = () => {
       rating: 5,
       comment: ''
     });
+  };
+
+  const handleMessageSeller = (order: Order) => {
+    // Group items by shop
+    const shopGroups = order.items.reduce((groups, item) => {
+      const shopId = item.product.shop;
+      const shopName = item.product.shop_name;
+      
+      if (!groups[shopId]) {
+        groups[shopId] = {
+          id: shopId,
+          name: shopName,
+          items: []
+        };
+      }
+      groups[shopId].items.push(item);
+      return groups;
+    }, {} as Record<number, { id: number; name: string; items: any[] }>);
+
+    const shops = Object.values(shopGroups);
+    
+    if (shops.length === 1) {
+      // Single shop - go directly to chat
+      openChatWithShop(shops[0].id, order.id);
+    } else {
+      // Multiple shops - show selection modal
+      setShopSelectionModal({
+        visible: true,
+        orderId: order.id,
+        shops
+      });
+    }
+  };
+
+  const openChatWithShop = async (shopId: number, orderId: string) => {
+    try {
+      const conversation = await messagingService.createConversation(shopId);
+      navigation.navigate('Chat' as never, { 
+        conversationId: conversation.id,
+        orderId: orderId,
+        shopId: shopId
+      } as never);
+    } catch (error) {
+      Alert.alert('Error', 'Failed to open chat');
+    }
   };
 
   const submitReview = async () => {
@@ -411,8 +453,16 @@ const MyOrdersScreen: React.FC = () => {
                         </Text>
                         <Text style={styles.itemQuantity}>Qty: {item.quantity}</Text>
                         <Text style={styles.itemPrice}>{formatCurrency(item.price)}</Text>
+                        {item.delivered && (
+                          <View style={styles.deliveredBadge}>
+                            <Ionicons name="checkmark-circle" size={12} color={colors.primary} />
+                            <Text style={styles.deliveredText}>Delivered</Text>
+                          </View>
+                        )}
                       </View>
-                      {(order.order_status === 'pending' || order.order_status === 'processing') && order.items.length > 1 && (
+                      {(order.order_status === 'pending' || order.order_status === 'processing') && 
+                       order.items.length > 1 && 
+                       !item.delivered && (
                         <TouchableOpacity
                           style={styles.itemCancelButton}
                           onPress={() => handleCancelOrder(order.id, order.order_date, item.id, item.product.name)}
@@ -421,7 +471,10 @@ const MyOrdersScreen: React.FC = () => {
                         </TouchableOpacity>
                       )}
                     </View>
-                    {order.order_status === 'ready_for_delivery' && order.delivery_verification_code && order.items.length > 1 && (
+                    {order.order_status === 'ready_for_delivery' && 
+                     order.delivery_verification_code && 
+                     order.items.length > 1 && 
+                     !item.delivered && (
                       <TouchableOpacity
                         style={styles.itemMarkReceivedButton}
                         onPress={() => handleMarkAsReceived(order.id, item.id, item.product.name)}
@@ -443,22 +496,7 @@ const MyOrdersScreen: React.FC = () => {
 
                   <TouchableOpacity
                     style={styles.messageButton}
-                    onPress={async () => {
-                      try {
-                        const shopId = order.shop?.id || order.items?.[0]?.product?.shop;
-                        if (!shopId) {
-                          Alert.alert('Error', 'Shop information not available');
-                          return;
-                        }
-                        const conversation = await messagingService.createConversation(shopId);
-                        navigation.navigate('Chat' as never, { 
-                          conversationId: conversation.id,
-                          orderId: order.id
-                        } as never);
-                      } catch (error) {
-                        Alert.alert('Error', 'Failed to open chat');
-                      }
-                    }}
+                    onPress={() => handleMessageSeller(order)}
                   >
                       <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
                       <Text style={styles.messageButtonText}>Message</Text>
@@ -677,6 +715,61 @@ const MyOrdersScreen: React.FC = () => {
           </View>
         </View>
       </Modal>
+
+      <Modal
+        visible={shopSelectionModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setShopSelectionModal({ visible: false, orderId: '', shops: [] })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Shop to Message</Text>
+            <Text style={styles.modalSubtitle}>
+              This order contains items from multiple shops. Choose which seller to message:
+            </Text>
+            
+            {shopSelectionModal.shops.map((shop) => (
+              <TouchableOpacity
+                key={shop.id}
+                style={styles.shopSelectionItem}
+                onPress={() => {
+                  setShopSelectionModal({ visible: false, orderId: '', shops: [] });
+                  openChatWithShop(shop.id, shopSelectionModal.orderId);
+                }}
+              >
+                <View style={styles.shopInfo}>
+                  <Text style={styles.shopName}>{shop.name}</Text>
+                  <Text style={styles.shopItemCount}>
+                    {shop.items.length} item{shop.items.length !== 1 ? 's' : ''}
+                  </Text>
+                </View>
+                <View style={styles.shopItems}>
+                  {shop.items.map((item, index) => (
+                    <View key={item.id} style={styles.shopItemRow}>
+                      <Image
+                        source={{ uri: item.product.main_image_url || 'https://via.placeholder.com/30x30?text=No+Image' }}
+                        style={styles.shopItemImage}
+                      />
+                      <Text style={styles.shopItemName} numberOfLines={1}>
+                        {item.product.name}
+                      </Text>
+                    </View>
+                  ))}
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setShopSelectionModal({ visible: false, orderId: '', shops: [] })}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 };
@@ -717,6 +810,8 @@ const styles = StyleSheet.create({
   productNameItem: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
   itemQuantity: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
   itemPrice: { fontSize: 12, fontWeight: '700', color: colors.primary },
+  deliveredBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: colors.primary + '10', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
+  deliveredText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginLeft: 2 },
   
   actionButtons: { marginTop: 12 },
   quickActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
@@ -775,6 +870,15 @@ const styles = StyleSheet.create({
   cancellationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
   cancellationLabel: { fontSize: 12, fontWeight: '700', color: colors.dangerAction, marginLeft: 4 },
   cancellationText: { fontSize: 11, color: '#991B1B', lineHeight: 16, fontWeight: '500' },
+  
+  shopSelectionItem: { backgroundColor: colors.background, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
+  shopInfo: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+  shopName: { fontSize: 14, fontWeight: '600', color: colors.textPrimary },
+  shopItemCount: { fontSize: 12, color: colors.textSecondary },
+  shopItems: { marginBottom: 4 },
+  shopItemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
+  shopItemImage: { width: 30, height: 30, borderRadius: 4, marginRight: 8, backgroundColor: colors.border },
+  shopItemName: { fontSize: 11, color: colors.textSecondary, flex: 1 },
 });
 
 export default MyOrdersScreen;

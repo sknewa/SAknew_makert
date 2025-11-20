@@ -3,6 +3,13 @@ import apiClient from './apiClient'; // Assuming apiClient is configured with th
 import { safeLog } from '../utils/secureLogger';
 import { Product } from './shop.types'; // Import Product interface from shop.types
 
+// Extended Product interface with shop information for orders
+export interface ProductWithShop extends Product {
+  shop: number;
+  shop_name: string;
+  shop_slug: string;
+}
+
 // --- Interfaces for Data Types (matching Django Serializers) ---
 
 // Cart and CartItem Interfaces
@@ -26,10 +33,12 @@ export interface Cart {
 // Order and OrderItem Interfaces
 export interface OrderItem {
   id: number;
-  product: Product;
+  product: ProductWithShop;
   quantity: number;
   price: string; // Price at time of order
   subtotal: string;
+  delivered?: boolean;
+  delivered_at?: string;
   created_at: string;
   updated_at: string;
 }
