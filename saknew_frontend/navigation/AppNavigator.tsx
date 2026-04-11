@@ -5,7 +5,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { View, ActivityIndicator, Text, StyleSheet } from 'react-native';
 
 // Import AuthContext
-import { useAuth } from '../context/AuthContext.minimal';
+import { useAuth } from '../context/AuthContext';
 
 // Import Navigators and Screens
 import LoginScreen from '../screens/Auth/LoginScreen';

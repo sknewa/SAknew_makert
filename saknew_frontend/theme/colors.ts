@@ -23,4 +23,5 @@ export default {
   accent: '#FFD700',
   error: '#DC3545',
   iconColor: '#6C757D',
+  starColor: '#FFC107',
 };

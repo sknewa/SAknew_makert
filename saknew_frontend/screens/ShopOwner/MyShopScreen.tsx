@@ -16,7 +16,7 @@ import {
   Modal,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShopOwnerStackParamList } from '../../navigation/ShopOwnerNavigator';
@@ -234,7 +234,7 @@ const MyShopScreen: React.FC = () => {
     safeLog('Shop data:', { slug: shop?.slug, name: shop?.name });
     
     if (shop?.slug) {
-      const webUrl = `https://saknew-makert.netlify.app/PublicShop/${shop.slug}`;
+      const webUrl = `https://samakert.netlify.app/PublicShop/${shop.slug}`;
       const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
       
       safeLog('Share message:', shareMessage);

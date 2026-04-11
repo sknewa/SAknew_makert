@@ -4,7 +4,7 @@ import { NavigatorScreenParams } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Platform, View, Text, StyleSheet } from 'react-native';
 
-import { useAuth } from '../context/AuthContext.minimal';
+import { useAuth } from '../context/AuthContext';
 import { useBadges } from '../context/BadgeContext';
 import CustomAlert from '../components/CustomAlert';
 

@@ -15,7 +15,7 @@ import {
   Image,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { AuthNavigationProp } from '../../navigation/types';
 import { globalStyles, colors, spacing } from '../../styles/globalStyles';

@@ -22,7 +22,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { Product } from '../../types';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { getReviewsByProduct, Review, addCartItem } from '../../services/salesService';
 import BackButton from '../../components/BackButton';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
@@ -66,8 +66,7 @@ const ProductDetailScreen = () => {
   
   const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
   
-  safeLog('Category Name:', product?.category_name);
-  safeLog('Category Name (lowercase):', product?.category_name?.toLowerCase());
+
   
   const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
                           product?.category_name?.toLowerCase().includes('apparel') ||
@@ -97,10 +96,18 @@ const ProductDetailScreen = () => {
       
       // Fetch shop data for location
       try {
-        const shop = await shopService.getShopBySlug(fetchedProduct.shop_name.toLowerCase().replace(/\s+/g, '-'));
+        // Properly decode HTML entities and create slug
+        const decodedShopName = fetchedProduct.shop_name
+          .replace(/&#39;/g, "'")
+          .replace(/&quot;/g, '"')
+          .replace(/&amp;/g, '&')
+          .replace(/&lt;/g, '<')
+          .replace(/&gt;/g, '>');
+        const shopSlug = decodedShopName.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+        const shop = await shopService.getShopBySlug(shopSlug);
         setShopData(shop);
       } catch (err) {
-        safeLog('Could not fetch shop data');
+        // Shop data not critical for product display
       }
       
       // Fetch reviews for this product
@@ -110,7 +117,6 @@ const ProductDetailScreen = () => {
         setReviews(productReviews);
       } catch (reviewErr: any) {
         safeError(`Error fetching reviews for product ${productId}:`, reviewErr.response?.data || reviewErr.message);
-        // Don't set error state for reviews - we'll just show empty state
       } finally {
         setReviewsLoading(false);
       }
@@ -151,7 +157,7 @@ const ProductDetailScreen = () => {
         
         setDistance(d < 1 ? `${Math.round(d * 1000)}m` : `${d.toFixed(1)}km`);
       } catch (error) {
-        safeLog('Distance calculation error:', error);
+        // Distance calculation failed
       }
     };
     
@@ -160,18 +166,8 @@ const ProductDetailScreen = () => {
 
   // Handle add to cart
   const handleAddToCart = async (skipSizeCheck: boolean = false) => {
-    safeLog('=== ADD TO CART DEBUG START ===');
-    safeLog('Product:', product);
-    safeLog('Product ID:', product?.id);
-    safeLog('Product Category:', product?.category_name);
-    safeLog('Is Owner:', isOwner);
-    safeLog('Is Fashion Product:', isFashionProduct);
-    safeLog('Selected Size:', selectedSize);
-    safeLog('Skip Size Check:', skipSizeCheck);
-    
     // Check if user is authenticated
     if (!isAuthenticated) {
-      safeLog('User not authenticated');
       Alert.alert('Login Required', 'Please login to add items to cart', [
         { text: 'Cancel', style: 'cancel' },
         { text: 'Login', onPress: () => navigation.navigate('Login' as any) }
@@ -182,47 +178,27 @@ const ProductDetailScreen = () => {
     if (product) {
       // Check if user is the owner of the product
       if (isOwner) {
-        safeLog('User is owner - cannot add to cart');
         showAlert('Cannot Add to Cart', 'Sellers cannot buy their own product.');
         return;
       }
       
       // Show size modal for fashion products (only if not skipping check)
       if (!skipSizeCheck && isFashionProduct && !selectedSize) {
-        safeLog('Fashion product - showing size modal');
         setSizeModalVisible(true);
         return;
       }
       
       try {
-        // Show loading indicator
-        safeLog('Setting addingToCart to true');
         setAddingToCart(true);
-        
-        // Call API to add item to cart
-        safeLog('Calling addCartItem API with product ID:', product.id, 'Size:', selectedSize);
-        const response = await addCartItem(product.id, 1, selectedSize || undefined);
-        safeLog('API Response:', response);
-        
-        // Show success message
-        safeLog('Item added successfully');
+        await addCartItem(product.id, 1, selectedSize || undefined);
         showAlert('Success', `Added "${product.name}" to your cart!`);
-        setSelectedSize(null); // Reset size selection
+        setSelectedSize(null);
       } catch (err: any) {
-        // Show error message
-        safeError('Error adding to cart:', err);
-        safeError('Error response:', err.response);
-        safeError('Error response data:', err.response?.data);
-        safeError('Error message:', err.message);
         const errorMessage = err.message || err.response?.data?.detail || 'Failed to add item to cart. Please try again.';
         showAlert('Error', errorMessage);
       } finally {
-        safeLog('Setting addingToCart to false');
         setAddingToCart(false);
-        safeLog('=== ADD TO CART DEBUG END ===');
       }
-    } else {
-      safeLog('No product available');
     }
   };
 
@@ -243,24 +219,12 @@ const ProductDetailScreen = () => {
     if (!product) return;
 
     try {
-      console.log('=== MESSAGE SELLER DEBUG ===');
-      console.log('Product:', { id: product.id, name: product.name, shop: product.shop, main_image_url: product.main_image_url, display_price: product.display_price });
-      
       const conversations = await messagingService.getConversations();
       let conversation = conversations.find((conv) => conv.seller === product.shop);
 
       if (!conversation) {
-        console.log('Creating new conversation for shop:', product.shop);
         conversation = await messagingService.createConversation(product.shop);
       }
-      
-      console.log('Conversation found/created:', conversation.id);
-      console.log('Navigating with pinnedProduct:', {
-        id: product.id,
-        name: product.name,
-        image: product.main_image_url,
-        price: product.display_price
-      });
       
       navigation.navigate('Chat' as never, { 
         conversationId: conversation.id,
@@ -272,8 +236,6 @@ const ProductDetailScreen = () => {
         }
       } as never);
     } catch (err) {
-      console.error('Failed to message seller:', err);
-      safeError('Failed to message seller:', err);
       showAlert('Error', 'Failed to open chat. Please try again.');
     }
   };
@@ -392,7 +354,7 @@ const ProductDetailScreen = () => {
                 key={`product-${product.id}-gallery-${index}`}
                 source={getFullImageUrl(image.image) ? { uri: getFullImageUrl(image.image) as string } : undefined}
                 style={styles.productImage}
-                onError={() => safeLog(`Additional image ${index} failed to load`)}
+                onError={() => {}}
                 accessibilityLabel={product?.name ? `${product.name} image ${index+1}` : `Product image ${index+1}`}
               />
             ))}
@@ -525,7 +487,6 @@ const ProductDetailScreen = () => {
         {/* Reviews Section */}
         <View style={styles.reviewsCard}>
           <Text style={styles.sectionTitle}>Customer Reviews</Text>
-          
           {reviewsLoading ? (
             <View style={styles.reviewsLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -549,7 +510,7 @@ const ProductDetailScreen = () => {
                 {reviews.map(review => (
                   <View key={review.id} style={styles.reviewItem}>
                     <View style={styles.reviewHeader}>
-                      <Text style={styles.reviewerName}>{review.user.username}</Text>
+                      <Text style={styles.reviewerName}>{review.user?.username || 'Anonymous'}</Text>
                       <Text style={styles.reviewDate}>
                         {new Date(review.created_at).toLocaleDateString()}
                       </Text>

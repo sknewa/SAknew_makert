@@ -217,7 +217,8 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
   // Fetch cart from backend
   const fetchCart = async () => {
     safeLog('🔄 [CartScreen.fetchCart] START - Fetching cart from backend');
-    setLoading(true);
+    // Only show full loading indicator on first mount, use refreshing for subsequent updates
+    if (!cart) setLoading(true);
     setError(null);
     try {
       safeLog('📤 [CartScreen.fetchCart] Calling salesService.getMyCart');
@@ -227,6 +228,7 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
       
       setCart(backendCart);
       safeLog('✅ [CartScreen.fetchCart] Cart state updated');
+      safeLog(`🛒 [CartScreen.fetchCart] Summary: ${backendCart?.items?.length || 0} items, Total: ${backendCart?.total}`);
       
       // Refresh badges when cart is updated
       safeLog('🔄 [CartScreen.fetchCart] Refreshing badges');

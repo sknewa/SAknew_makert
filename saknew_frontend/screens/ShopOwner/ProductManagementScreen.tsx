@@ -4,11 +4,11 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { getReviewsByProduct, Review } from '../../services/salesService';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { getFullImageUrl } from '../../utils/imageHelper';
 import colors from '../../theme/colors';
 import typography from '../../theme/typography';
-import { Product } from '../../types';
+import { Product } from '../../services/shop.types';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 const screenWidth = Dimensions.get('window').width;
@@ -46,10 +46,14 @@ const ProductManagementScreen = () => {
       setProduct(fetchedProduct);
       setReviewsLoading(true);
       try {
+        safeLog('🔍 ProductManagement - Fetching reviews for product ID:', productId);
         const productReviews = await getReviewsByProduct(productId);
+        safeLog('✅ ProductManagement - Reviews fetched:', productReviews.length, 'reviews');
+        safeLog('📋 ProductManagement - Reviews data:', productReviews);
         setReviews(productReviews);
       } catch (reviewErr) {
-        // Ignore review errors
+        safeError('❌ ProductManagement - Failed to fetch reviews:', reviewErr);
+        setReviews([]);
       } finally {
         setReviewsLoading(false);
       }
@@ -69,7 +73,7 @@ const ProductManagementScreen = () => {
 
   const handleEditProduct = () => {
     if (product) {
-      navigation.navigate('EditProduct' as any, { productId: product.id });
+      (navigation as any).navigate('EditProduct', { productId: product.id });
     }
   };
 
@@ -92,6 +96,23 @@ const ProductManagementScreen = () => {
         ]
       );
     }
+  };
+
+  // Render star rating
+  const renderStars = (rating: number) => {
+    const stars = [];
+    for (let i = 1; i <= 5; i++) {
+      stars.push(
+        <Ionicons 
+          key={i} 
+          name={i <= rating ? "star" : "star-outline"} 
+          size={14} 
+          color={colors.starColor} 
+          style={{marginRight: 1}}
+        />
+      );
+    }
+    return <View style={{flexDirection: 'row'}}>{stars}</View>;
   };
 
   if (loading) {
@@ -153,7 +174,7 @@ const ProductManagementScreen = () => {
             {!imageError && product?.main_image_url ? (
               <Image
                 source={getFullImageUrl(product.main_image_url) ? { uri: getFullImageUrl(product.main_image_url) as string } : undefined}
-                style={StyleSheet.flatten([styles.productImage])}
+                style={styles.productImage}
                 onError={() => setImageError(true)}
                 accessibilityLabel={product?.name || 'Product image'}
               />
@@ -168,7 +189,7 @@ const ProductManagementScreen = () => {
               <Image
                 key={`additional-image-${image.id || index}`}
                 source={getFullImageUrl(image.image) ? { uri: getFullImageUrl(image.image) as string } : undefined}
-                style={StyleSheet.flatten([styles.productImage])}
+                style={styles.productImage}
                 onError={() => {}}
                 accessibilityLabel={product?.name ? `${product.name} image ${index+1}` : `Product image ${index+1}`}
               />
@@ -233,60 +254,67 @@ const ProductManagementScreen = () => {
             <Text style={styles.productDescription}>{product?.description || 'No description provided.'}</Text>
           </View>
           {/* Owner Actions */}
-          <View style={[styles.ownerActions, { marginTop: 0, marginBottom: 10 }]}> 
-            <View style={[styles.actionButtonsRow, { justifyContent: 'flex-start', marginBottom: 8 }]}> 
-              <TouchableOpacity style={[styles.actionButton, styles.editButton]} onPress={handleEditProduct}>
-                <Ionicons name="create-outline" size={16} color="#3B82F6" />
+          <View style={styles.ownerActions}>
+            <View style={styles.iconButtonContainer}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleEditProduct}>
+                <Ionicons name="create-outline" size={24} color={colors.infoAction} />
               </TouchableOpacity>
-              <TouchableOpacity style={[styles.actionButton, styles.deleteButton]} onPress={handleDeleteProduct}>
-                <Ionicons name="trash-outline" size={16} color="#FF4444" />
+              <Text style={styles.iconLabel}>Edit</Text>
+            </View>
+            <View style={styles.iconButtonContainer}>
+              <TouchableOpacity style={styles.iconButton} onPress={handleDeleteProduct}>
+                <Ionicons name="trash-outline" size={24} color={colors.dangerAction} />
               </TouchableOpacity>
+              <Text style={styles.iconLabel}>Delete</Text>
             </View>
             {product.promotion ? (
-              <TouchableOpacity
-                style={[styles.actionButton, { minWidth: 160, minHeight: 44, marginTop: 0, backgroundColor: colors.dangerAction, borderWidth: 2, borderColor: colors.dangerAction }]}
-                onPress={() => {
-                  Alert.alert(
-                    'Remove Promotion',
-                    `Remove ${product.promotion.discount_percentage}% discount?`,
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      { 
-                        text: 'Remove', 
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            await shopService.deleteProductPromotion(product.id, product.promotion.id);
-                            Alert.alert('Success', 'Promotion removed successfully');
-                            fetchProductDetails();
-                          } catch (err: any) {
-                            Alert.alert('Error', 'Failed to remove promotion');
+              <View style={styles.iconButtonContainer}>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Remove Promotion',
+                      `Remove ${product.promotion?.discount_percentage}% discount?`,
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { 
+                          text: 'Remove', 
+                          style: 'destructive',
+                          onPress: async () => {
+                            try {
+                              await shopService.deleteProductPromotion(product.id, product.promotion?.id || 0);
+                              Alert.alert('Success', 'Promotion removed successfully');
+                              fetchProductDetails();
+                            } catch (err: any) {
+                              Alert.alert('Error', 'Failed to remove promotion');
+                            }
                           }
                         }
-                      }
-                    ]
-                  );
-                }}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="close-circle" size={22} color={colors.white} style={{ marginRight: 8 }} />
-                <Text style={[styles.actionButtonText, { fontWeight: 'bold', fontSize: 16 }]}>Remove Promotion</Text>
-              </TouchableOpacity>
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="close-circle" size={24} color={colors.dangerAction} />
+                </TouchableOpacity>
+                <Text style={styles.iconLabel}>Remove</Text>
+              </View>
             ) : (
-              <TouchableOpacity
-                style={[styles.actionButton, styles.promotionButton, { minWidth: 160, minHeight: 44, marginTop: 0, borderWidth: 2, borderColor: colors.warningAction, shadowColor: colors.warningAction, shadowOpacity: 0.25, shadowRadius: 8, elevation: 4 }]}
-                onPress={() => navigation.navigate('AddPromotion' as any, { productId: product?.id })}
-                activeOpacity={0.85}
-              >
-                <Ionicons name="pricetag" size={22} color={colors.warningAction} style={{ marginRight: 8 }} />
-                <Text style={[styles.actionButtonText, { color: colors.warningAction, fontWeight: 'bold', fontSize: 16 }]}>Add Promotion</Text>
-              </TouchableOpacity>
+              <View style={styles.iconButtonContainer}>
+                <TouchableOpacity
+                  style={styles.iconButton}
+                  onPress={() => (navigation as any).navigate('AddPromotion', { productId: product?.id })}
+                >
+                  <Ionicons name="pricetag" size={24} color={colors.warningAction} />
+                </TouchableOpacity>
+                <Text style={styles.iconLabel}>Promote</Text>
+              </View>
             )}
           </View>
         </View>
         {/* Reviews Section */}
         <View style={styles.reviewsCard}>
-          <Text style={styles.sectionTitle}>Customer Reviews</Text>
+          <Text style={styles.sectionTitle}>Customer Reviews ({reviews.length})</Text>
+          <Text style={styles.debugText}>Debug: reviewsLoading={reviewsLoading.toString()}, reviews.length={reviews.length}</Text>
           {reviewsLoading ? (
             <View style={styles.reviewsLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -294,31 +322,30 @@ const ProductManagementScreen = () => {
             </View>
           ) : reviews.length > 0 ? (
             <>
+              <Text style={styles.debugText}>✅ Rendering {reviews.length} reviews</Text>
               <View style={styles.reviewsSummary}>
                 <View style={styles.averageRating}>
                   <Text style={styles.ratingNumber}>
-                    {reviews.length > 0 ? (reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length).toFixed(1) : '0.0'}
+                    {reviews.length > 0 ? ((reviews.reduce((sum, review) => sum + (review.rating || 0), 0) / reviews.length) || 0).toFixed(1) : '0.0'}
                   </Text>
                   <View style={styles.starsContainer}>
-                    {/* Render stars */}
-                    {[1,2,3,4,5].map(i => (
-                      <Ionicons key={i} name={i <= Math.round(reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) ? "star" : "star-outline"} size={14} color={colors.accent} style={{marginRight: 1}} />
-                    ))}
+                    {renderStars(reviews.length > 0 ? Math.round(reviews.reduce((sum, review) => sum + review.rating, 0) / reviews.length) : 0)}
                   </View>
                   <Text style={styles.reviewCount}>{reviews.length} reviews</Text>
                 </View>
               </View>
+              
               <View style={styles.reviewsList}>
                 {reviews.map(review => (
                   <View key={review.id} style={styles.reviewItem}>
                     <View style={styles.reviewHeader}>
-                      <Text style={styles.reviewerName}>{review.user.username}</Text>
-                      <Text style={styles.reviewDate}>{new Date(review.created_at).toLocaleDateString()}</Text>
+                      <Text style={styles.reviewerName}>{review.user?.username || 'Anonymous'}</Text>
+                      <Text style={styles.reviewDate}>
+                        {new Date(review.created_at).toLocaleDateString()}
+                      </Text>
                     </View>
                     <View style={styles.reviewRating}>
-                      {[1,2,3,4,5].map(i => (
-                        <Ionicons key={i} name={i <= review.rating ? "star" : "star-outline"} size={14} color={colors.accent} style={{marginRight: 1}} />
-                      ))}
+                      {renderStars(review.rating)}
                     </View>
                     <Text style={styles.reviewComment}>{review.comment}</Text>
                   </View>
@@ -326,7 +353,10 @@ const ProductManagementScreen = () => {
               </View>
             </>
           ) : (
-            <Text style={styles.noReviewsText}>No reviews yet. Be the first to review this product!</Text>
+            <View>
+              <Text style={styles.debugText}>❌ No reviews - Array: {JSON.stringify(reviews)}</Text>
+              <Text style={styles.noReviewsText}>No reviews yet. Be the first to review this product!</Text>
+            </View>
           )}
         </View>
       </ScrollView>
@@ -375,7 +405,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontSize: typography.fontSizeHeader,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.textPrimary,
     marginBottom: 12,
     textAlign: 'center',
@@ -389,7 +419,7 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     letterSpacing: 0.2,
     fontFamily: typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: '500' as '500',
   },
   messageText: {
     fontSize: typography.fontSizeL,
@@ -413,12 +443,14 @@ const styles = StyleSheet.create({
     elevation: 6,
   },
   buttonText: {
-    color: colors.white,
+    color: colors.buttonText,
     fontSize: typography.fontSizeL,
-    fontWeight: '500',
+    fontWeight: '500' as '500',
     letterSpacing: 0.5,
     fontFamily: typography.fontFamily,
   },
+  
+  // Image Section
   imageContainer: {
     position: 'relative',
     width: '100%',
@@ -440,9 +472,8 @@ const styles = StyleSheet.create({
   productImage: {
     width: screenWidth,
     height: 300,
-    resizeMode: 'contain',
     backgroundColor: '#F8F8F8',
-  },
+  } as any,
   placeholderImage: {
     width: screenWidth,
     height: 300,
@@ -494,7 +525,7 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(231, 76, 60, 0.9)',
   },
   stockBadgeText: {
-    color: colors.white,
+    color: colors.buttonText,
     fontSize: 10,
     fontWeight: 'bold',
   },
@@ -513,10 +544,12 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   discountBadgeText: {
-    color: colors.white,
+    color: colors.buttonText,
     fontSize: 10,
     fontWeight: 'bold',
   },
+  
+  // Product Info Card
   productInfoCard: {
     backgroundColor: colors.card,
     borderRadius: 10,
@@ -534,7 +567,7 @@ const styles = StyleSheet.create({
   },
   productName: {
     fontSize: typography.fontSizeXL,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.textPrimary,
     marginBottom: 6,
     fontFamily: typography.fontFamily,
@@ -551,6 +584,8 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     fontFamily: typography.fontFamily,
   },
+  
+  // Price Section
   priceSection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -566,7 +601,7 @@ const styles = StyleSheet.create({
   },
   productPrice: {
     fontSize: typography.fontSizeXXL,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.primary,
     marginRight: 8,
     fontFamily: typography.fontFamily,
@@ -577,7 +612,7 @@ const styles = StyleSheet.create({
     textDecorationLine: 'line-through',
     opacity: 0.7,
     fontFamily: typography.fontFamily,
-    fontWeight: '500',
+    fontWeight: '500' as '500',
   },
   stockInfo: {
     flexDirection: 'row',
@@ -591,9 +626,11 @@ const styles = StyleSheet.create({
     fontSize: typography.fontSizeS,
     color: colors.textSecondary,
     marginLeft: 5,
-    fontWeight: '500',
+    fontWeight: '500' as '500',
     fontFamily: typography.fontFamily,
   },
+  
+  // Description Section
   descriptionSection: {
     marginBottom: 25,
     backgroundColor: '#F8F9FA',
@@ -602,7 +639,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: typography.fontSizeL,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.textPrimary,
     marginBottom: 8,
     fontFamily: typography.fontFamily,
@@ -613,50 +650,48 @@ const styles = StyleSheet.create({
     lineHeight: 20,
     fontFamily: typography.fontFamily,
   },
+  
+  // Action Buttons
   ownerActions: {
+    flexDirection: 'row',
+    justifyContent: 'flex-end',
+    alignItems: 'flex-start',
     marginTop: 15,
+    paddingTop: 15,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(189, 195, 199, 0.3)',
   },
-  actionButtonsRow: {
-    flexDirection: 'row',
+  iconButtonContainer: {
     alignItems: 'center',
-    justifyContent: 'flex-start',
-    marginBottom: 0,
+    marginLeft: 8,
   },
-  actionButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
+  iconButton: {
+    padding: 12,
     borderRadius: 8,
-    marginHorizontal: 2,
+    backgroundColor: colors.background,
+    shadowColor: colors.shadowColor,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
-  actionButtonText: {
-    color: colors.white,
-    fontSize: typography.fontSizeM,
-    fontWeight: '500',
-    marginLeft: 4,
+  iconLabel: {
+    fontSize: typography.fontSizeS,
+    color: colors.textSecondary,
+    marginTop: 4,
     fontFamily: typography.fontFamily,
   },
-  editButton: {
+  debugText: {
+    fontSize: typography.fontSizeS,
+    color: colors.dangerAction,
+    marginBottom: 8,
+    fontFamily: typography.fontFamily,
+    backgroundColor: '#FFF3CD',
     padding: 4,
+    borderRadius: 4,
   },
-  deleteButton: {
-    padding: 4,
-  },
-  promotionButton: {
-    backgroundColor: colors.white,
-    borderColor: colors.warningAction,
-    borderWidth: 2,
-    shadowColor: colors.warningAction,
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 4,
-    marginTop: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    minHeight: 44,
-    minWidth: 160,
-  },
+  
+  // Reviews Section
   reviewsCard: {
     backgroundColor: colors.card,
     borderRadius: 10,
@@ -681,7 +716,7 @@ const styles = StyleSheet.create({
   },
   ratingNumber: {
     fontSize: typography.fontSizeTitle,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.textPrimary,
     fontFamily: typography.fontFamily,
   },
@@ -711,7 +746,7 @@ const styles = StyleSheet.create({
   },
   reviewerName: {
     fontSize: typography.fontSizeM,
-    fontWeight: 'bold',
+    fontWeight: 'bold' as 'bold',
     color: colors.textPrimary,
     fontFamily: typography.fontFamily,
   },

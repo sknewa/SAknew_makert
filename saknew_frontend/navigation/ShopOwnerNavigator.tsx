@@ -4,7 +4,7 @@ import React from 'react';
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { View, Text, TouchableOpacity, Image, StyleSheet, SafeAreaView, Platform, StatusBar } from 'react-native';
 import { useNavigation, RouteProp } from '@react-navigation/native'; // Import RouteProp
-import { useAuth } from '../context/AuthContext.minimal';
+import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../services/apiClient';
 

@@ -15,7 +15,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { colors, spacing } from '../styles/globalStyles';
-import { useAuth } from '../context/AuthContext.minimal';
+import { useAuth } from '../context/AuthContext';
 import { submitFeedback } from '../services/feedbackService';
 
 const FeedbackScreen = () => {

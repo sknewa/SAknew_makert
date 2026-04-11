@@ -6,12 +6,13 @@ import Constants from 'expo-constants';
 // Example app.config.js: { "expo": { "extra": { "SERVER_IP": "192.168.0.101" } } }
 const extra = Constants.expoConfig?.extra ?? {};
 
-export const SERVER_IP = extra.SERVER_IP || 'saknew-makert-e7ac1361decc.herokuapp.com';
+// New Heroku Backend with Business Email
+export const SERVER_IP = extra.SERVER_IP || 'saknew-market-backend-f8738ecec7fa.herokuapp.com';
 export const SERVER_PORT = extra.SERVER_PORT || '443';
 
-export const API_BASE_URL = extra.API_BASE_URL || 'https://saknew-makert-e7ac1361decc.herokuapp.com/';
-export const IMAGE_BASE_URL = extra.IMAGE_BASE_URL || 'https://saknew-makert-e7ac1361decc.herokuapp.com';
-export const DJOSER_FRONTEND_DOMAIN = extra.DJOSER_FRONTEND_DOMAIN || 'saknew-makert.netlify.app';
+export const API_BASE_URL = extra.API_BASE_URL || 'https://saknew-market-backend-f8738ecec7fa.herokuapp.com/';
+export const IMAGE_BASE_URL = extra.IMAGE_BASE_URL || 'https://saknew-market-backend-f8738ecec7fa.herokuapp.com';
+export const DJOSER_FRONTEND_DOMAIN = extra.DJOSER_FRONTEND_DOMAIN || 'samakert.netlify.app';
 
 export const DEBUG = __DEV__;
 export const APP_ENV = DEBUG ? 'development' : 'production';

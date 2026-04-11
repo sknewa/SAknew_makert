@@ -4,9 +4,9 @@
 Saknew Market is a full-stack hybrid e-commerce platform that connects buyers and sellers in South Africa. Built with React Native (Expo) for mobile/web and Django REST Framework for the backend.
 
 ## 🚀 Live Deployments
-- **Frontend (Web)**: https://saknew-makert.netlify.app
-- **Backend API**: https://saknew-makert-e7ac1361decc.herokuapp.com
-- **Admin Panel**: https://saknew-makert-e7ac1361decc.herokuapp.com/admin
+- **Frontend (Web)**: https://samakert.netlify.app
+- **Backend API**: https://saknew-market-backend-f8738ecec7fa.herokuapp.com
+- **Admin Panel**: https://saknew-market-backend-f8738ecec7fa.herokuapp.com/admin
 
 ## 📱 Key Features
 
@@ -127,10 +127,12 @@ python manage.py runserver
 
 **Frontend (.env)**
 ```
-SERVER_IP=saknew-makert-e7ac1361decc.herokuapp.com
+SERVER_IP=saknew-market-backend-f8738ecec7fa.herokuapp.com
 SERVER_PORT=443
-API_BASE_URL=https://saknew-makert-e7ac1361decc.herokuapp.com/
-IMAGE_BASE_URL=https://saknew-makert-e7ac1361decc.herokuapp.com
+
+# API configuration - New Heroku Backend
+API_BASE_URL=https://saknew-market-backend-f8738ecec7fa.herokuapp.com/
+IMAGE_BASE_URL=https://saknew-market-backend-f8738ecec7fa.herokuapp.com
 DEBUG=false
 APP_ENV=production
 ```

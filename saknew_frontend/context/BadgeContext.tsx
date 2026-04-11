@@ -2,7 +2,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getMyCart, getMyOrders } from '../services/salesService';
 import { getMyWallet, refreshWallet } from '../services/walletService';
-import { useAuth } from './AuthContext.minimal';
+import { useAuth } from './AuthContext';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
 
 interface BadgeContextType {

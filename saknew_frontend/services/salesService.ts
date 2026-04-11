@@ -1,5 +1,6 @@
 // saknew_frontend/services/salesService.ts
 import apiClient from './apiClient'; // Assuming apiClient is configured with the base URL
+import publicApiClient from './publicApiClient';
 import { safeLog } from '../utils/secureLogger';
 import { Product } from './shop.types'; // Import Product interface from shop.types
 
@@ -124,15 +125,9 @@ export interface Review {
 
 const getMyCart = async (): Promise<Cart> => {
   try {
-    safeLog('🔧 [salesService.getMyCart] START - Making GET request to /api/carts/my_cart/');
     const response = await apiClient.get('/api/carts/my_cart/');
-    safeLog('✅ [salesService.getMyCart] Response received');
-    safeLog('✅ [salesService.getMyCart] Cart items count:', response.data?.items?.length || 0);
-    safeLog('✅ [salesService.getMyCart] Cart total:', response.data?.total);
-    safeLog('✅ [salesService.getMyCart] END - Returning cart data');
     return response.data;
   } catch (error: any) {
-    safeLog('❌ [salesService.getMyCart] ERROR:', error.response?.data || error.message);
     console.error('Error fetching cart:', error.response?.data || error.message);
     throw error;
   }
@@ -175,27 +170,9 @@ const updateCartItemQuantity = async (productId: number, quantity: number): Prom
 
 const removeCartItem = async (productId: number): Promise<Cart> => {
   try {
-    safeLog('🔧 [salesService.removeCartItem] START - Called with productId:', productId);
-    safeLog('🔧 [salesService.removeCartItem] Product ID type:', typeof productId);
-    safeLog('🔧 [salesService.removeCartItem] Payload:', JSON.stringify({ product_id: productId }));
-    safeLog('🔧 [salesService.removeCartItem] Making POST request to /api/carts/remove/');
-    
     const response = await apiClient.post('/api/carts/remove/', { product_id: productId });
-    
-    safeLog('✅ [salesService.removeCartItem] Response received');
-    safeLog('✅ [salesService.removeCartItem] Response status:', response.status);
-    safeLog('✅ [salesService.removeCartItem] Response data:', JSON.stringify(response.data, null, 2));
-    safeLog('✅ [salesService.removeCartItem] Cart from response:', response.data.cart);
-    safeLog('✅ [salesService.removeCartItem] END - Returning cart');
-    
-    return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
+    return response.data.cart;
   } catch (error: any) {
-    safeLog('❌ [salesService.removeCartItem] ERROR occurred');
-    safeLog('❌ [salesService.removeCartItem] Error object:', error);
-    safeLog('❌ [salesService.removeCartItem] Error message:', error?.message);
-    safeLog('❌ [salesService.removeCartItem] Error response:', error.response);
-    safeLog('❌ [salesService.removeCartItem] Error response status:', error.response?.status);
-    safeLog('❌ [salesService.removeCartItem] Error response data:', JSON.stringify(error.response?.data, null, 2));
     console.error('Error removing item from cart:', error.response?.data || error.message);
     throw error;
   }
@@ -203,13 +180,9 @@ const removeCartItem = async (productId: number): Promise<Cart> => {
 
 const clearCart = async (): Promise<Cart> => {
   try {
-    safeLog('🔧 [salesService.clearCart] START - Making POST request to /api/carts/clear/');
     const response = await apiClient.post('/api/carts/clear/');
-    safeLog('✅ [salesService.clearCart] Response received:', JSON.stringify(response.data, null, 2));
-    safeLog('✅ [salesService.clearCart] END - Returning cart');
-    return response.data.cart; // Backend returns {"detail": ..., "cart": CartData}
+    return response.data.cart;
   } catch (error: any) {
-    safeLog('❌ [salesService.clearCart] ERROR:', error.response?.data || error.message);
     console.error('Error clearing cart:', error.response?.data || error.message);
     throw error;
   }
@@ -354,11 +327,11 @@ const deleteReview = async (reviewId: number): Promise<void> => {
 
 const getReviewsByProduct = async (productId: number): Promise<Review[]> => {
   try {
-    const response = await apiClient.get(`/api/reviews/?product_id=${productId}`);
-    return response.data.results || []; // Assuming pagination, so results array
+    const response = await publicApiClient.get(`/api/reviews/?product_id=${productId}`);
+    return response.data.results || response.data || [];
   } catch (error: any) {
     console.error(`Error fetching reviews for product ${productId}:`, error.response?.data || error.message);
-    throw error;
+    return [];
   }
 };
 

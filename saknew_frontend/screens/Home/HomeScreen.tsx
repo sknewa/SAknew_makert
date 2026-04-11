@@ -1,4 +1,4 @@
-﻿import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import ProductCard from '../../components/ProductCard';
 import {
   View,
@@ -17,7 +17,7 @@ import {
 import { globalStyles, colors, spacing } from '../../styles/globalStyles';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { Product as AppProduct } from '../../types';
 import { Product as ServiceProduct } from '../../services/shop.types';
 import { PaginatedResponse } from '../../types/api.types';
@@ -79,11 +79,6 @@ const HomeScreen = () => {
   const [priceFilter, setPriceFilter] = useState<'low' | 'high' | null>(null);
   const [showSearchInput, setShowSearchInput] = useState(false);
 
-  // Memoize the category data structure for the FlatList to prevent re-renders
-  const categorySections = useMemo(() => 
-    Object.entries(groupedProducts), 
-  [groupedProducts]);
-
   const handleStatusPress = (userStatus: any) => {
     navigation.navigate('StatusViewer', { userStatus });
   };
@@ -107,9 +102,39 @@ const HomeScreen = () => {
       const categoryList = Array.isArray(response) ? response : response.results || [];
       setCategories([{ id: 0, name: 'All', slug: 'all' }, ...categoryList]);
     } catch (err) {
-      safeError('Error fetching categories:', err);
+      // Categories not critical
     }
   }, []);
+
+  // Apply filters to products
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+    
+    // Distance filter: <5km
+    if (distanceFilter === 5 && userLocation) {
+      filtered = filtered.filter(product => {
+        if ((product as any).shop_latitude && (product as any).shop_longitude) {
+          const distance = calculateDistance(
+            userLocation.latitude, 
+            userLocation.longitude, 
+            (product as any).shop_latitude, 
+            (product as any).shop_longitude
+          );
+          return distance < 5;
+        }
+        return false;
+      });
+    }
+    
+    // Price filter
+    if (priceFilter === 'low') {
+      filtered = filtered.filter(product => parseFloat(product.display_price || product.price) < 1500);
+    } else if (priceFilter === 'high') {
+      filtered = filtered.filter(product => parseFloat(product.display_price || product.price) >= 1500);
+    }
+    
+    return filtered;
+  }, [products, distanceFilter, priceFilter, userLocation]);
 
   // Filter and sort categories based on product count from all products, not filtered
   const visibleCategories = useMemo(() => {
@@ -124,6 +149,23 @@ const HomeScreen = () => {
     return [allCategoryName, ...categoriesWithCount];
   }, [categories, allProducts]);
 
+  // Memoize the category data structure for the FlatList to prevent re-renders
+  const categorySections = useMemo(() => {
+    // Use filtered products if filters are active, otherwise use grouped products
+    if (distanceFilter || priceFilter) {
+      const grouped = filteredProducts.reduce((acc, product) => {
+        const categoryName = product.category_name || 'Other';
+        if (!acc[categoryName]) acc[categoryName] = [];
+        acc[categoryName].push(product);
+        return acc;
+      }, {} as {[key: string]: AppProduct[]});
+      
+      return Object.entries(grouped);
+    }
+    
+    return Object.entries(groupedProducts);
+  }, [filteredProducts, groupedProducts, distanceFilter, priceFilter]);
+
   useEffect(() => {
     (async () => {
       try {
@@ -133,21 +175,27 @@ const HomeScreen = () => {
           setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
         }
       } catch (err) {
-        safeError('Error getting location:', err);
+        // Location permission denied or unavailable
       }
     })();
   }, []);
 
   const enrichProductWithShopData = useCallback(async (product: ServiceProduct) => {
     try {
-      const shopData = await shopService.getShopBySlug(product.shop_name.toLowerCase().replace(/\s+/g, '-'));
+      const decodedShopName = product.shop_name
+        .replace(/&#39;/g, "'")
+        .replace(/&quot;/g, '"')
+        .replace(/&amp;/g, '&')
+        .replace(/&lt;/g, '<')
+        .replace(/&gt;/g, '>');
+      const shopSlug = decodedShopName.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
+      const shopData = await shopService.getShopBySlug(shopSlug);
       return {
         ...product,
         shop_latitude: shopData?.latitude,
         shop_longitude: shopData?.longitude
       };
     } catch (err) {
-      safeError('Error enriching product with shop data:', err);
       return product;
     }
   }, []);
@@ -273,7 +321,7 @@ const HomeScreen = () => {
       const total = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
       setUnreadMessages(total);
     } catch (err) {
-      safeError('Error fetching unread messages:', err);
+      // Messages not critical
     }
   }, [isAuthenticated]);
 
@@ -292,7 +340,7 @@ const HomeScreen = () => {
       const trendingResults = Array.isArray(trending) ? trending : trending.results || [];
       setTrendingProducts(trendingResults.slice(0, 8).map(convertServiceProduct));
     } catch (err) {
-      safeError('Error fetching recommendations:', err);
+      // Recommendations not critical
     }
   }, [isAuthenticated, userLocation]);
 
@@ -552,7 +600,7 @@ const HomeScreen = () => {
                 )}
                 {trendingProducts.length > 0 && (
                   <CategorySection
-                    categoryName="🔥 Trending Now"
+                    categoryName="?? Trending Now"
                     products={trendingProducts}
                     navigation={navigation}
                   />

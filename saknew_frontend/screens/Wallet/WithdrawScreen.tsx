@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import apiClient from '../../services/apiClient';
 import { colors } from '../../styles/globalStyles';
 
 const WithdrawScreen: React.FC = () => {
@@ -37,29 +37,17 @@ const WithdrawScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const token = await AsyncStorage.getItem('access_token');
-      const response = await fetch('https://saknew-makert-e7ac1361decc.herokuapp.com/api/wallet/withdraw/', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          amount: amountNum,
-          bank_name: bankName,
-          bank_account: accountNumber,
-          account_holder: accountHolder,
-        }),
+      const response = await apiClient.post('api/wallet/withdraw/', {
+        amount: amountNum,
+        bank_name: bankName,
+        bank_account: accountNumber,
+        account_holder: accountHolder,
       });
 
-      const data = await response.json();
+      const data = response.data;
 
-      if (response.ok) {
-        Alert.alert('Success', data.detail || 'Withdrawal request submitted successfully');
-        navigation.goBack();
-      } else {
-        Alert.alert('Error', data.detail || 'Withdrawal failed');
-      }
+      Alert.alert('Success', data.detail || 'Withdrawal request submitted successfully');
+      navigation.goBack();
     } catch (err) {
       Alert.alert('Error', 'Failed to process withdrawal');
     } finally {

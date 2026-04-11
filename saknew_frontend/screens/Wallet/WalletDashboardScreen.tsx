@@ -1,6 +1,5 @@
 safeLog('🚀 WalletDashboardScreen v2.0 - Enhanced transactions loaded');
 import React, { useState, useEffect, useCallback } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   View,
   Text,
@@ -9,15 +8,16 @@ import {
   SafeAreaView,
   TouchableOpacity,
   ActivityIndicator,
-  Alert, // For mock actions
+  Alert,
   RefreshControl,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { useBadges } from '../../context/BadgeContext';
 import { getMyWallet, getMyTransactions, Wallet, Transaction } from '../../services/walletService';
+import apiClient from '../../services/apiClient';
 
 import { colors } from '../../styles/globalStyles';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
@@ -192,10 +192,7 @@ const WalletDashboardScreen: React.FC = () => {
       const checkPending = async () => {
         if (isAuthenticated && !authLoading) {
           try {
-            const token = await AsyncStorage.getItem('access_token');
-            await fetch('https://saknew-makert-e7ac1361decc.herokuapp.com/api/wallet/check-pending/', {
-              headers: { 'Authorization': `Bearer ${token}` }
-            });
+            await apiClient.get('api/wallet/check-pending/');
             await refreshBadges();
           } catch (err) {
             safeError('Check pending failed:', err);

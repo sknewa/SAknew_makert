@@ -41,19 +41,18 @@ const apiClient = axios.create({
     'Content-Type': 'application/json',
     'Accept': 'application/json',
   },
-  timeout: 30000,
+  timeout: 60000,
   withCredentials: false,
-  maxRedirects: 0, // Disable redirects for security
+  maxRedirects: 5,
   validateStatus: (status) => status >= 200 && status < 300,
 });
 
 // Force log the actual URL being used
 safeLog('ACTUAL API URL BEING USED:', API_BASE_URL);
 
-// Test the main API health check endpoint
+// Wake up the Heroku dyno on app start (cold start can take 8-10s)
 axios.get(`${API_BASE_URL}api/health-check/`, { 
-  timeout: 5000,
-  maxRedirects: 0,
+  timeout: 15000,
   validateStatus: (status) => status >= 200 && status < 300,
 })
   .then(response => {

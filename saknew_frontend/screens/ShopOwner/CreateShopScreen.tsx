@@ -19,7 +19,7 @@ import {
 import { useNavigation } from '@react-navigation/native';
 import ShopService from '../../services/shopService';
 import { CreateShopData } from '../../services/shop.types';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';

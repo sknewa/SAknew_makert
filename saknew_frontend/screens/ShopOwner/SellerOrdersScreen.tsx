@@ -1,10 +1,11 @@
 import React, { useState, useCallback } from 'react';
 import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Alert, TextInput, Modal, RefreshControl, Image, Linking } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import apiClient from '../../services/apiClient';
+import messagingService from '../../services/messagingService';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 interface ShippingAddress {
@@ -162,7 +163,6 @@ const SellerOrdersScreen: React.FC = () => {
       const shopResponse = await apiClient.get('/api/shops/my_shop/');
       const shopId = shopResponse.data.id;
       
-      const { messagingService } = await import('../../services/messagingService');
       const conversation = await messagingService.createConversation(shopId);
       navigation.navigate('Chat' as never, { 
         conversationId: conversation.id,
@@ -217,12 +217,12 @@ const SellerOrdersScreen: React.FC = () => {
       safeLog('Making API request to:', `/api/orders/${selectedOrder.id}/status-update/`);
       safeLog('Request payload:', {
         action_type: 'confirm_delivery',
-        delivery_code: deliveryCode.trim().toUpperCase()
+        verification_code: deliveryCode.trim().toUpperCase()
       });
       
       const response = await apiClient.patch(`/api/orders/${selectedOrder.id}/status-update/`, {
         action_type: 'confirm_delivery',
-        delivery_code: deliveryCode.trim().toUpperCase()
+        verification_code: deliveryCode.trim().toUpperCase()
       });
       
       safeLog('API Response:', response);

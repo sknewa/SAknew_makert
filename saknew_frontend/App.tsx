@@ -1,9 +1,8 @@
-import './expo-fix';
 import React from 'react';
-import { View, Text } from 'react-native';
+import { View } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import ErrorBoundary from './components/ErrorBoundary';
-import { AuthProvider } from './context/AuthContext.minimal';
+import { AuthProvider } from './context/AuthContext';
 import { BadgeProvider } from './context/BadgeContext';
 import AppNavigator from './navigation/AppNavigator';
 

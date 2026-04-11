@@ -26,7 +26,7 @@ import statusService from '../../services/statusService';
 import { UserStatus } from '../../services/status.types';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 import { useBadges } from '../../context/BadgeContext';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {

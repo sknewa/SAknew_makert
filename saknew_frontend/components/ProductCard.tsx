@@ -5,7 +5,7 @@ import { Ionicons, FontAwesome5 } from '@expo/vector-icons';
 import { getFullImageUrl } from '../utils/imageHelper';
 import { MainNavigationProp } from '../navigation/types';
 import shopService from '../services/shopService';
-import { addCartItem } from '../services/salesService';
+import { addCartItem, getReviewsByProduct } from '../services/salesService';
 import { colors, spacing } from '../styles/globalStyles';
 import * as Location from 'expo-location';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
@@ -43,6 +43,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [sizeModalVisible, setSizeModalVisible] = useState(false);
   const [alertVisible, setAlertVisible] = useState(false);
   const [alertConfig, setAlertConfig] = useState<{title: string; message: string; onConfirm?: () => void}>({title: '', message: ''});
+  const [averageRating, setAverageRating] = useState<number>(0);
   
   const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
   const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
@@ -88,7 +89,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
       }
     };
     
+    const fetchRating = async () => {
+      try {
+        const reviews = await getReviewsByProduct(product.id);
+        if (reviews.length > 0) {
+          const total = reviews.reduce((sum, review) => sum + review.rating, 0);
+          setAverageRating(total / reviews.length);
+        }
+      } catch (error) {
+        // Silent fail
+      }
+    };
+    
     calculateDistance();
+    fetchRating();
   }, [shopLatitude, shopLongitude, product.id]);
   
   if (!product) return null;
@@ -262,7 +276,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           )}
           <View style={styles.ratingBadge}>
             <Ionicons name="star" size={8} color="#FFD700" />
-            <Text style={styles.ratingText}>{(product as any).average_rating ? (product as any).average_rating.toFixed(1) : '0.0'}</Text>
+            <Text style={styles.ratingText}>{averageRating > 0 ? averageRating.toFixed(1) : '0.0'}</Text>
           </View>
         </View>
         

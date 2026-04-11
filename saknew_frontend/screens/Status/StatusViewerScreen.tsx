@@ -6,7 +6,7 @@ import { useRoute, useNavigation } from '@react-navigation/native';
 import { UserStatus, Status } from '../../services/status.types';
 import statusService from '../../services/statusService';
 import { IMAGE_BASE_URL } from '../../config';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import shopService from '../../services/shopService';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 

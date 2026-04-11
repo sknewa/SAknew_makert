@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
-import { useAuth } from '../context/AuthContext.minimal';
+import { useAuth } from '../context/AuthContext';
 import statusService from '../services/statusService';
 import { UserStatus } from '../services/status.types';
 import StatusItem from './StatusItem';

@@ -2,7 +2,7 @@
 import React, { useEffect } from 'react';
 import { View, Text, StyleSheet, ActivityIndicator, SafeAreaView } from 'react-native';
 import { useNavigation, CommonActions } from '@react-navigation/native';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 
 const ShopRedirectScreen = () => {
   const { user, loading: authLoading } = useAuth();

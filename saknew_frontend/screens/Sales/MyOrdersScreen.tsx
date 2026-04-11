@@ -16,7 +16,7 @@ import {
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
-import { useAuth } from '../../context/AuthContext.minimal';
+import { useAuth } from '../../context/AuthContext';
 import { getMyOrders, updateOrderStatus, Order, createReview } from '../../services/salesService';
 import { colors } from '../../styles/globalStyles';
 import { SecurityUtils, safeLog, safeError } from '../../utils/securityUtils';
@@ -63,7 +63,13 @@ const MyOrdersScreen: React.FC = () => {
     comment: string;
   }>({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
   
-  const [reviewedProducts, setReviewedProducts] = useState<Set<number>>(new Set());
+  const [productSelectionModal, setProductSelectionModal] = useState<{
+    visible: boolean;
+    orderId: string;
+    products: any[];
+  }>({ visible: false, orderId: '', products: [] });
+  
+  const [reviewedProducts, setReviewedProducts] = useState<Set<string>>(new Set());
   
   const [cancelModal, setCancelModal] = useState<{
     visible: boolean;
@@ -230,6 +236,22 @@ const MyOrdersScreen: React.FC = () => {
     });
   };
 
+  const handleReviewPress = (order: Order) => {
+    const availableProducts = order.items.filter(item => 
+      !reviewedProducts.has(`${order.id}-${item.product.id}`)
+    );
+    
+    if (availableProducts.length === 1) {
+      openReviewModal(availableProducts[0].product, order.id);
+    } else if (availableProducts.length > 1) {
+      setProductSelectionModal({
+        visible: true,
+        orderId: order.id,
+        products: availableProducts.map(item => item.product)
+      });
+    }
+  };
+
   const handleMessageSeller = (order: Order) => {
     // Group items by shop
     const shopGroups = order.items.reduce((groups, item) => {
@@ -283,14 +305,14 @@ const MyOrdersScreen: React.FC = () => {
         rating: reviewModal.rating,
         comment: reviewModal.comment
       });
-      setReviewedProducts(prev => new Set(prev).add(reviewModal.product.id));
+      setReviewedProducts(prev => new Set(prev).add(`${reviewModal.orderId}-${reviewModal.product.id}`));
       Alert.alert('Success', 'Review submitted successfully!');
       setReviewModal({ visible: false, product: null, orderId: '', rating: 5, comment: '' });
     } catch (error: any) {
       const errorMsg = error?.response?.data?.detail || 'Failed to submit review';
       if (errorMsg.includes('already reviewed')) {
-        setReviewedProducts(prev => new Set(prev).add(reviewModal.product.id));
-        Alert.alert('Already Reviewed', 'You have already reviewed this product.');
+        setReviewedProducts(prev => new Set(prev).add(`${reviewModal.orderId}-${reviewModal.product.id}`));
+        Alert.alert('Already Reviewed', 'You have already reviewed this product for this order.');
       } else {
         Alert.alert('Error', errorMsg);
       }
@@ -514,10 +536,11 @@ const MyOrdersScreen: React.FC = () => {
                     </TouchableOpacity>
                   )}
 
-                  {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
+                  {(order.order_status === 'completed' || order.delivery_verified) && 
+                   order.items.some(item => !reviewedProducts.has(`${order.id}-${item.product.id}`)) && (
                     <TouchableOpacity
                       style={[styles.iconButton, { backgroundColor: colors.warningAction }]}
-                      onPress={() => openReviewModal(order.items[0].product, order.id)}
+                      onPress={() => handleReviewPress(order)}
                     >
                       <Ionicons name="star-outline" size={20} color={colors.warningAction} />
                     </TouchableOpacity>
@@ -554,10 +577,11 @@ const MyOrdersScreen: React.FC = () => {
                     </View>
                   )}
 
-                  {(order.order_status === 'completed' || order.delivery_verified) && !reviewedProducts.has(order.items[0].product.id) && (
+                  {(order.order_status === 'completed' || order.delivery_verified) && 
+                   order.items.some(item => !reviewedProducts.has(`${order.id}-${item.product.id}`)) && (
                     <TouchableOpacity
                       style={[styles.compactButton, { backgroundColor: colors.warningAction }]}
-                      onPress={() => openReviewModal(order.items[0].product, order.id)}
+                      onPress={() => handleReviewPress(order)}
                     >
                       <Ionicons name="star-outline" size={14} color={colors.white} />
                       <Text style={styles.compactButtonText}>Review</Text>
@@ -712,6 +736,54 @@ const MyOrdersScreen: React.FC = () => {
                 <Text style={styles.buttonText}>Submit Review</Text>
               </TouchableOpacity>
             </View>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
+        visible={productSelectionModal.visible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setProductSelectionModal({ visible: false, orderId: '', products: [] })}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <Text style={styles.modalTitle}>Select Product to Review</Text>
+            <Text style={styles.modalSubtitle}>
+              Choose which product you'd like to review:
+            </Text>
+            
+            {productSelectionModal.products.map((product) => (
+              <TouchableOpacity
+                key={product.id}
+                style={styles.productSelectionItem}
+                onPress={() => {
+                  setProductSelectionModal({ visible: false, orderId: '', products: [] });
+                  openReviewModal(product, productSelectionModal.orderId);
+                }}
+              >
+                <Image
+                  source={{ uri: product.main_image_url || 'https://via.placeholder.com/50x50?text=No+Image' }}
+                  style={styles.productSelectionImage}
+                />
+                <View style={styles.productSelectionInfo}>
+                  <Text style={styles.productSelectionName} numberOfLines={2}>
+                    {product.name}
+                  </Text>
+                  <Text style={styles.productSelectionPrice}>
+                    {formatCurrency(product.display_price || product.price)}
+                  </Text>
+                </View>
+                <Ionicons name="chevron-forward" size={20} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ))}
+            
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={() => setProductSelectionModal({ visible: false, orderId: '', products: [] })}
+            >
+              <Text style={styles.cancelButtonText}>Cancel</Text>
+            </TouchableOpacity>
           </View>
         </View>
       </Modal>
@@ -879,6 +951,12 @@ const styles = StyleSheet.create({
   shopItemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   shopItemImage: { width: 30, height: 30, borderRadius: 4, marginRight: 8, backgroundColor: colors.border },
   shopItemName: { fontSize: 11, color: colors.textSecondary, flex: 1 },
+  
+  productSelectionItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.background, borderRadius: 8, padding: 12, marginBottom: 8, borderWidth: 1, borderColor: colors.border },
+  productSelectionImage: { width: 50, height: 50, borderRadius: 4, marginRight: 12, backgroundColor: colors.border },
+  productSelectionInfo: { flex: 1 },
+  productSelectionName: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 4 },
+  productSelectionPrice: { fontSize: 12, color: colors.primary, fontWeight: '600' },
 });
 
 export default MyOrdersScreen;

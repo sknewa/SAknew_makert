@@ -1,124 +1,146 @@
-// saknew_frontend/context/AuthContext.tsx
-import React, {
-  createContext,
-  useState,
-  useEffect,
-  useContext,
-  useCallback,
-  ReactNode,
-} from 'react';
+import React, { createContext, useState, useContext, ReactNode, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
-// Temporarily disable imports to isolate PlatformConstants error
-// import AuthService from '../services/authService';
-// import { setOnUnauthorizedCallback } from '../services/apiClient';
-// import { User } from '../types';
-// import { refreshTokenIfNeeded, getTokenRemainingTime } from '../utils/tokenManager';
+import { API_BASE_URL } from '../config';
+import { safeLog, safeError } from '../utils/securityUtils';
 
-// Temporary mock types
 interface User {
   id: number;
-  profile?: { is_seller?: boolean };
+  email: string;
+  first_name: string;
+  last_name: string;
+  is_active: boolean;
+  profile: {
+    email_verified: boolean;
+    is_seller: boolean;
+    shop_slug: string | null;
+  };
 }
 
-// Define the shape of the AuthContext
 interface AuthContextType {
   user: User | null;
   isAuthenticated: boolean;
-  loading: boolean; // Indicates if authentication state is currently being loaded/re-verified
+  loading: boolean;
   login: (email: string, password: string) => Promise<void>;
   logout: () => Promise<void>;
   refreshUserProfile: () => Promise<void>;
-  tokenExpiryTime: number; // Time in seconds until token expires
+  handleUnauthorized: () => Promise<boolean>;
+  tokenExpiryTime: number;
 }
 
-// Create the context with a default undefined value
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// AuthProvider component props
-interface AuthProviderProps {
-  children: ReactNode;
-}
-
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [user, setUser] = useState<User | null>(null);
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(false);
-  const [loading, setLoading] = useState<boolean>(true); // Initial loading state for auth check
-  const [tokenExpiryTime, setTokenExpiryTime] = useState<number>(0);
-
-  // Temporary mock function
-  const refreshUserProfile = useCallback(async () => {
-    safeLog('AuthContext: Mock refreshUserProfile called.');
-    setUser({ id: 1 });
-    setIsAuthenticated(false); // Keep false for now
-  }, []); // Empty dependency array means this function is stable and won't re-create unnecessarily
-
-  // Temporary mock function
-  const loadUser = useCallback(async () => {
-    safeLog('AuthContext: Mock loadUser called.');
-    setLoading(true);
-    setTimeout(() => {
-      setUser(null);
-      setIsAuthenticated(false);
-      setLoading(false);
-    }, 1000);
-  }, []); // Dependency on refreshUserProfile ensures loadUser is updated if refreshUserProfile changes
-
-  // Initial load of user data
-  useEffect(() => {
-    loadUser();
-  }, [loadUser]); // Dependency on loadUser ensures it runs once and re-runs if loadUser itself changes (due to its dependencies)
-
-  // Log state changes for debugging
-  useEffect(() => {
-    safeLog('AuthContext: >>> User or isAuthenticated state changed <<<');
-    safeLog('AuthContext: Current user:', user);
-    safeLog('AuthContext: Current isAuthenticated:', isAuthenticated);
-    safeLog('AuthContext: Current user.profile?.is_seller:', user?.profile?.is_seller);
-  }, [user, isAuthenticated]); // Log whenever user or isAuthenticated state changes
-
-
-  const login = useCallback(async (email: string, password: string) => {
-    safeLog(`AuthContext: Mock login for: ${email}`);
-    setLoading(false);
-  }, []); // Dependency on refreshUserProfile
-
-  const logout = useCallback(async () => {
-    safeLog('AuthContext: Mock logout');
-    setUser(null);
-    setIsAuthenticated(false);
-    setLoading(false);
-  }, []); // No dependencies, as it doesn't rely on external state/props
-
-  // Temporarily disabled
-  // React.useEffect(() => {
-  //   setOnUnauthorizedCallback(() => {
-  //     safeLog('AuthContext: Unauthorized callback triggered, logging out user');
-  //     logout();
-  //   });
-  // }, [logout]);
-
-  // The context value provided to consumers
-  const value = {
-    user,
-    isAuthenticated,
-    loading,
-    login,
-    logout,
-    refreshUserProfile,
-    tokenExpiryTime,
-  };
-
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+const apiFetch = async (path: string, options: RequestInit = {}) => {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    ...options,
+    headers: { 'Content-Type': 'application/json', ...options.headers },
+  });
+  if (!response.ok) {
+    const err = await response.json().catch(() => ({}));
+    throw new Error(err.detail || `Request failed: ${response.status}`);
+  }
+  return response.json();
 };
 
-// Custom hook to consume the AuthContext
+export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+  const [user, setUser] = useState<User | null>(null);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loading, setLoading] = useState(true);
+
+  const fetchProfile = async (accessToken: string): Promise<User> =>
+    apiFetch('api/accounts/me/', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+
+  useEffect(() => {
+    const checkAuthState = async () => {
+      try {
+        const accessToken = await AsyncStorage.getItem('access_token');
+        if (accessToken) {
+          try {
+            const profile = await fetchProfile(accessToken);
+            setUser(profile);
+            setIsAuthenticated(true);
+            safeLog('Restored authentication from stored token');
+          } catch {
+            safeLog('Token validation failed, clearing auth state');
+            await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+          }
+        } else {
+          safeLog('No stored token found');
+        }
+      } catch (error) {
+        safeError('Error checking auth state:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    checkAuthState();
+  }, []);
+
+  const login = async (email: string, password: string) => {
+    setLoading(true);
+    try {
+      const { access, refresh } = await apiFetch('api/accounts/login/', {
+        method: 'POST',
+        body: JSON.stringify({ email, password }),
+      });
+      await AsyncStorage.setItem('access_token', access);
+      await AsyncStorage.setItem('refresh_token', refresh);
+      const profile = await fetchProfile(access);
+      setUser(profile);
+      setIsAuthenticated(true);
+    } catch (error: any) {
+      throw new Error(error.message || 'Login failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const logout = async () => {
+    await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
+    setUser(null);
+    setIsAuthenticated(false);
+  };
+
+  const handleUnauthorized = async (): Promise<boolean> => {
+    const refreshToken = await AsyncStorage.getItem('refresh_token');
+    if (!refreshToken) { await logout(); return false; }
+    try {
+      const { access } = await apiFetch('api/auth/jwt/refresh/', {
+        method: 'POST',
+        body: JSON.stringify({ refresh: refreshToken }),
+      });
+      await AsyncStorage.setItem('access_token', access);
+      return true;
+    } catch {
+      await logout();
+      return false;
+    }
+  };
+
+  const refreshUserProfile = async () => {
+    const accessToken = await AsyncStorage.getItem('access_token');
+    if (!accessToken) return;
+    try {
+      const profile = await fetchProfile(accessToken);
+      setUser(profile);
+    } catch {
+      await handleUnauthorized();
+    }
+  };
+
+  return (
+    <AuthContext.Provider value={{
+      user, isAuthenticated, loading, login, logout,
+      handleUnauthorized, refreshUserProfile, tokenExpiryTime: 0,
+    }}>
+      {children}
+    </AuthContext.Provider>
+  );
+};
+
 export const useAuth = () => {
   const context = useContext(AuthContext);
-  if (context === undefined) {
-    // This error indicates that useAuth was called outside of an AuthProvider.
-    // Ensure your App.tsx or root component is wrapped with <AuthProvider>.
-    throw new Error('useAuth must be used within an AuthProvider');
-  }
+  if (!context) throw new Error('useAuth must be used within AuthProvider');
   return context;
 };
