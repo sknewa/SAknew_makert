@@ -103,14 +103,24 @@ const SellerOrdersScreen: React.FC = () => {
         safeLog('Total orders:', allOrders.length);
         
         const sellerOrders = allOrders.filter((order: Order) => {
-        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
-        // Skip own orders (for registered users only)
+        // Accept any casing of payment status
+        const payStatus = (order.payment_status || '').toLowerCase();
+        if (payStatus !== 'paid' && payStatus !== 'completed') return false;
+        // Skip own registered-user orders (but keep guest orders where user is null)
         if (order.user && order.user.email === user.email) return false;
         
         const hasSellerItems = order.items?.some((item: OrderItem) => {
-          const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+          // Compare by shop_slug directly if available, else fall back to name normalisation
+          const itemShopSlug = (item.product as any)?.shop_slug;
+          const itemShopName = (item.product as any)?.shop_name;
           const userShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
-          return itemShopName === userShopSlug;
+
+          if (itemShopSlug) {
+            return itemShopSlug.toLowerCase() === userShopSlug;
+          }
+          // fallback: normalise shop name to slug
+          const normalisedName = itemShopName?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+          return normalisedName === userShopSlug;
         });
         
         return hasSellerItems;
@@ -337,19 +347,21 @@ const SellerOrdersScreen: React.FC = () => {
   const hasUndeliveredItems = (order: Order) => {
     const userShopSlug = user?.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
     const shopItems = order.items.filter((item: OrderItem) => {
-      const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
-      return itemShopName === userShopSlug;
+      const itemShopSlug = (item.product as any)?.shop_slug;
+      const itemShopName = (item.product as any)?.shop_name;
+      if (itemShopSlug) return itemShopSlug.toLowerCase() === userShopSlug;
+      return itemShopName?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-') === userShopSlug;
     });
-    
-    // Check if any of the seller's items are not delivered
     return shopItems.some((item: any) => !item.delivered);
   };
 
   const renderOrderCard = (order: Order) => {
     const userShopSlug = user?.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
     const shopItems = order.items.filter((item: OrderItem) => {
-      const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
-      return itemShopName === userShopSlug;
+      const itemShopSlug = (item.product as any)?.shop_slug;
+      const itemShopName = (item.product as any)?.shop_name;
+      if (itemShopSlug) return itemShopSlug.toLowerCase() === userShopSlug;
+      return itemShopName?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-') === userShopSlug;
     });
     
     safeLog('=== ORDER ITEMS DEBUG ===');

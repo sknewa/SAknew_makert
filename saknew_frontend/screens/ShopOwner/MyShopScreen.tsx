@@ -175,16 +175,17 @@ const MyShopScreen: React.FC = () => {
       const myShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
 
       const sellerOrders = allOrders.filter((order: any) => {
-        // Only paid orders
-        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
+        // Accept any casing of payment status
+        const payStatus = (order.payment_status || '').toLowerCase();
+        if (payStatus !== 'paid' && payStatus !== 'completed') return false;
         // Skip own registered-user orders
         if (order.user && order.user.email === user.email) return false;
         // Check if any item belongs to this seller's shop
         return order.items?.some((item: any) => {
-          const itemShopSlug = item.product?.shop_name
-            ? shopNameToSlug(item.product.shop_name)
-            : null;
-          return itemShopSlug === myShopSlug;
+          const itemShopSlug = item.product?.shop_slug;
+          const itemShopName = item.product?.shop_name;
+          if (itemShopSlug) return itemShopSlug.toLowerCase() === myShopSlug;
+          return shopNameToSlug(itemShopName || '') === myShopSlug;
         });
       });
 
