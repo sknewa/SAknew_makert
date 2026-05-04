@@ -560,15 +560,37 @@ const PublicShopScreen = () => {
         />
       )}
 
-      {/* Floating "Main Market" button — bottom centre */}
-      <TouchableOpacity
-        style={styles.floatingBtn}
-        onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
-        activeOpacity={0.85}
-      >
-        <Ionicons name="storefront" size={16} color="#fff" />
-        <Text style={styles.floatingBtnText}>Main Market</Text>
-      </TouchableOpacity>
+      {/* Floating buttons — bottom centre */}
+      <View style={styles.floatingRow}>
+        <TouchableOpacity
+          style={styles.floatingBtn}
+          onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="storefront" size={16} color="#fff" />
+          <Text style={styles.floatingBtnText}>Main Market</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={[styles.floatingBtn, styles.floatingCartBtn]}
+          onPress={() => {
+            if (!isAuthenticated) {
+              navigation.navigate('Login' as any);
+            } else {
+              navigation.navigate('MainTabs', { screen: 'CartTab' });
+            }
+          }}
+          activeOpacity={0.85}
+        >
+          <Ionicons name="cart" size={16} color="#fff" />
+          <Text style={styles.floatingBtnText}>Cart</Text>
+          {isAuthenticated && cartCount > 0 && (
+            <View style={styles.floatingBadge}>
+              <Text style={styles.floatingBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
+            </View>
+          )}
+        </TouchableOpacity>
+      </View>
     </SafeAreaView>
   );
 };
@@ -959,14 +981,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-  // Floating Main Market button
-  floatingBtn: {
+  // Floating buttons row
+  floatingRow: {
     position: 'absolute',
     bottom: 24,
-    alignSelf: 'center',
-    left: '50%',
-    transform: [{ translateX: -80 }],
-    width: 160,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+    paddingHorizontal: 20,
+  },
+  floatingBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -981,11 +1008,30 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 10,
   },
+  floatingCartBtn: {
+    backgroundColor: '#1A1A2E',
+    shadowColor: '#000',
+  },
   floatingBtnText: {
     color: '#fff',
     fontSize: 13,
     fontFamily: 'Poppins-SemiBold',
     letterSpacing: 0.3,
+  },
+  floatingBadge: {
+    backgroundColor: '#E74C3C',
+    borderRadius: 10,
+    minWidth: 18,
+    height: 18,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 4,
+    marginLeft: 2,
+  },
+  floatingBadgeText: {
+    color: '#fff',
+    fontSize: 10,
+    fontFamily: 'Inter-Bold',
   },
 });
 
