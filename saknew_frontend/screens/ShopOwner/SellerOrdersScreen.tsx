@@ -95,43 +95,36 @@ const SellerOrdersScreen: React.FC = () => {
     }
     
     try {
-      const response = await apiClient.get('/api/orders/');
-      const allOrders: Order[] = response.data.results || response.data || [];
-      
-        safeLog('=== FETCH ORDERS DEBUG ===');
-        safeLog('User shop_slug:', user.profile?.shop_slug);
-        safeLog('Total orders:', allOrders.length);
-        
-        const sellerOrders = allOrders.filter((order: Order) => {
-        // Accept any casing of payment status
+      // Fetch all pages to ensure we get every order for this seller
+      let allOrders: Order[] = [];
+      let nextUrl: string | null = '/api/orders/?page_size=100';
+
+      while (nextUrl) {
+        const response = await apiClient.get(nextUrl);
+        const data = response.data;
+        const pageOrders: Order[] = data.results || (Array.isArray(data) ? data : []);
+        allOrders = [...allOrders, ...pageOrders];
+        // Follow pagination if present
+        nextUrl = data.next
+          ? data.next.replace(/^https?:\/\/[^/]+/, '') // strip host, keep path+query
+          : null;
+      }
+
+      const myShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+
+      const sellerOrders = allOrders.filter((order: Order) => {
         const payStatus = (order.payment_status || '').toLowerCase();
         if (payStatus !== 'paid' && payStatus !== 'completed') return false;
-        // Skip own registered-user orders (but keep guest orders where user is null)
+        // Skip own registered-user orders
         if (order.user && order.user.email === user.email) return false;
         
-        const hasSellerItems = order.items?.some((item: OrderItem) => {
-          // Compare by shop_slug directly if available, else fall back to name normalisation
+        return order.items?.some((item: OrderItem) => {
           const itemShopSlug = (item.product as any)?.shop_slug;
           const itemShopName = (item.product as any)?.shop_name;
-          const userShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
-
-          if (itemShopSlug) {
-            return itemShopSlug.toLowerCase() === userShopSlug;
-          }
-          // fallback: normalise shop name to slug
-          const normalisedName = itemShopName?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
-          return normalisedName === userShopSlug;
+          if (itemShopSlug) return itemShopSlug.toLowerCase() === myShopSlug;
+          return itemShopName?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-') === myShopSlug;
         });
-        
-        return hasSellerItems;
       }).sort((a: Order, b: Order) => new Date(b.order_date).getTime() - new Date(a.order_date).getTime());
-      
-      sellerOrders.forEach(order => {
-        safeLog(`Order ${order.id.slice(-8)}: status=${order.order_status}, payment=${order.payment_status}`);
-      });
-      
-      safeLog('Filtered seller orders:', sellerOrders.length);
-      safeLog('=== END FETCH ORDERS DEBUG ===');
       
       setOrders(sellerOrders);
     } catch (error: any) {
