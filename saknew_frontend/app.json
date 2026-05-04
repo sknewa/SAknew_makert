@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/weblog.jpg",
     "userInterfaceStyle": "light",
     "newArchEnabled": false,
     "jsEngine": "hermes",
@@ -28,7 +28,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/weblog.jpg",
         "backgroundColor": "#667eea"
       },
       "package": "com.saknew.market",
@@ -43,7 +43,7 @@
       ]
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/weblog.jpg"
     },
     "extra": {
       "SERVER_IP": "saknew-market-backend-f8738ecec7fa.herokuapp.com",

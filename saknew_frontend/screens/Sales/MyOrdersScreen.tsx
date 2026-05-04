@@ -376,17 +376,22 @@ const MyOrdersScreen: React.FC = () => {
         }
       >
         <Text style={styles.pageTitle}>My Purchase History</Text>
+        <View style={styles.flagStripe}>
+          {['#007A4D','#000000','#DE3831','#FFB81C','#002395','#FFFFFF'].map((c, i) => (
+            <View key={i} style={[styles.flagStripeSegment, { backgroundColor: c }]} />
+          ))}
+        </View>
 
         {/* Tab Navigation */}
         <View style={styles.tabContainer}>
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'pending' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'pending' && styles.activeTabPending]}
             onPress={() => setActiveTab('pending')}
           >
             <Text style={[styles.tabText, activeTab === 'pending' && styles.activeTabText]}>Pending</Text>
           </TouchableOpacity>
           <TouchableOpacity 
-            style={[styles.tab, activeTab === 'received' && styles.activeTab]}
+            style={[styles.tab, activeTab === 'received' && styles.activeTabReceived]}
             onPress={() => setActiveTab('received')}
           >
             <Text style={[styles.tabText, activeTab === 'received' && styles.activeTabText]}>Received</Text>
@@ -512,7 +517,7 @@ const MyOrdersScreen: React.FC = () => {
               <View style={styles.actionButtons}>
                 <View style={styles.quickActions}>
                   <View style={styles.detailsLink}>
-                    <Ionicons name="eye-outline" size={14} color={colors.infoAction} />
+                    <Ionicons name="eye-outline" size={14} color="#B8860B" />
                     <Text style={styles.linkText}>Order #{String(order.id).slice(-8)}</Text>
                   </View>
 
@@ -520,7 +525,7 @@ const MyOrdersScreen: React.FC = () => {
                     style={styles.messageButton}
                     onPress={() => handleMessageSeller(order)}
                   >
-                      <Ionicons name="chatbubble-outline" size={20} color={colors.primary} />
+                      <Ionicons name="chatbubble-outline" size={20} color="#FFB81C" />
                       <Text style={styles.messageButtonText}>Message</Text>
                   </TouchableOpacity>
 
@@ -852,13 +857,15 @@ const styles = StyleSheet.create({
   loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { fontSize: 16, color: colors.textSecondary, marginTop: 12 },
   
-  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 16, textAlign: 'center', paddingHorizontal: 16 },
+  pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 4, textAlign: 'center', paddingHorizontal: 16 },
+  flagStripe: { flexDirection: 'row', height: 3, width: '50%', borderRadius: 2, overflow: 'hidden', alignSelf: 'center', marginBottom: 14 },
+  flagStripeSegment: { flex: 1 },
   
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 60, paddingHorizontal: 20, backgroundColor: colors.card, borderRadius: 20, marginHorizontal: 16, marginTop: 20, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 12, elevation: 4 },
   emptyTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginTop: 12, marginBottom: 8 },
   emptySubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, textAlign: 'center' },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, marginHorizontal: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: colors.border },
+  orderCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, marginHorizontal: 16, shadowColor: '#C8A96E', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.18, shadowRadius: 14, elevation: 4, borderWidth: 1, borderColor: colors.border },
   
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
   orderDate: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
@@ -866,39 +873,39 @@ const styles = StyleSheet.create({
   orderStatus: { alignItems: 'flex-end' },
   statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' },
   statusPending: { backgroundColor: '#FEF3C7', color: '#92400E' },
-  statusProcessing: { backgroundColor: '#DBEAFE', color: '#1E40AF' },
+  statusProcessing: { backgroundColor: '#002395', color: '#FFFFFF' },
   statusShipped: { backgroundColor: '#D1FAE5', color: '#065F46' },
   statusDelivered: { backgroundColor: '#D1FAE5', color: '#065F46' },
   statusCompleted: { backgroundColor: '#D1FAE5', color: '#065F46' },
   statusCancelled: { backgroundColor: '#FEE2E2', color: '#991B1B' },
-  orderTotal: { fontSize: 16, fontWeight: '800', color: colors.primary },
+  orderTotal: { fontSize: 16, fontWeight: '800', color: '#111' },
   
   itemsContainer: { marginBottom: 12 },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
   productImage: { width: 64, height: 64, borderRadius: 12, marginRight: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: colors.border },
   itemDetails: { flex: 1 },
-  itemCancelButton: { padding: 4, marginLeft: 8 },
+  itemCancelButton: { padding: 2, marginLeft: 6 },
 
   productNameItem: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
-  itemQuantity: { fontSize: 11, color: colors.textSecondary, marginBottom: 2 },
+  itemQuantity: { fontSize: 11, color: '#555', fontWeight: '600', marginBottom: 2 },
   itemPrice: { fontSize: 12, fontWeight: '700', color: colors.primary },
   deliveredBadge: { flexDirection: 'row', alignItems: 'center', marginTop: 4, backgroundColor: colors.primary + '10', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, alignSelf: 'flex-start' },
   deliveredText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginLeft: 2 },
   
   actionButtons: { marginTop: 12 },
   quickActions: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-  detailsLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.infoAction + '10', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 12 },
-  linkText: { color: colors.infoAction, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  detailsLink: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FFB81C20', paddingVertical: 6, paddingHorizontal: 8, borderRadius: 12 },
+  linkText: { color: '#B8860B', fontSize: 11, fontWeight: '600', marginLeft: 4 },
   iconButton: { padding: 4, alignItems: 'center', justifyContent: 'center', marginLeft: 4 },
   messageButton: { alignItems: 'center', marginRight: 3 },
-  messageButtonText: { fontSize: 10, color: colors.primary, fontWeight: '600', marginTop: 2 },
+  messageButtonText: { fontSize: 10, color: '#FFB81C', fontWeight: '600', marginTop: 2 },
   iconGroup: { flexDirection: 'row' },
   cancelTextButton: { paddingVertical: 4, paddingHorizontal: 8 },
   cancelTextButtonText: { fontSize: 12, fontWeight: '600', color: colors.dangerAction },
   itemIconButton: { backgroundColor: colors.primary + '10', padding: 6, borderRadius: 16, width: 28, height: 28, alignItems: 'center', justifyContent: 'center' },
   
   mainActions: { marginTop: 8 },
-  compactButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, shadowColor: colors.primary, shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
+  compactButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#007A4D', paddingVertical: 8, paddingHorizontal: 16, borderRadius: 12, marginBottom: 8, shadowColor: '#007A4D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.2, shadowRadius: 4, elevation: 3 },
   compactButtonText: { color: colors.white, fontSize: 12, fontWeight: '600', marginLeft: 4 },
   
   verifiedContainer: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '10', paddingVertical: 8, borderRadius: 6 },
@@ -910,9 +917,10 @@ const styles = StyleSheet.create({
   
   tabContainer: { flexDirection: 'row', marginBottom: 12, backgroundColor: colors.border, borderRadius: 4, padding: 3, marginHorizontal: 16 },
   tab: { flex: 1, paddingVertical: 6, alignItems: 'center', borderRadius: 3 },
-  activeTab: { backgroundColor: colors.primary },
+  activeTabPending: { backgroundColor: '#002395' },
+  activeTabReceived: { backgroundColor: '#007A4D' },
   tabText: { fontSize: 12, fontWeight: '600', color: colors.textSecondary },
-  activeTabText: { color: colors.white },
+  activeTabText: { color: '#FFFFFF' },
   
 
   

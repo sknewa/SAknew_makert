@@ -39,7 +39,7 @@ const formatTransactionDescription = (txn: Transaction): { title: string; subtit
     const orderMatch = desc.match(/Order #(\d+)/);
     const orderId = orderMatch ? orderMatch[1] : '';
     return {
-      title: '💰 Sale Earnings',
+      title: 'Sale Earnings',
       subtitle: orderId ? `Order #${orderId} completed` : 'Product sale completed'
     };
   }
@@ -49,7 +49,7 @@ const formatTransactionDescription = (txn: Transaction): { title: string; subtit
     const orderMatch = desc.match(/Order #(\d+)/);
     const orderId = orderMatch ? orderMatch[1] : '';
     return {
-      title: '🛍️ Purchase',
+      title: 'Purchase',
       subtitle: orderId ? `Order #${orderId}` : 'Product purchase'
     };
   }
@@ -59,7 +59,7 @@ const formatTransactionDescription = (txn: Transaction): { title: string; subtit
     const orderMatch = desc.match(/Order #(\d+)/);
     const orderId = orderMatch ? orderMatch[1] : '';
     return {
-      title: '↩️ Refund',
+      title: 'Refund',
       subtitle: orderId ? `Order #${orderId} cancelled` : 'Order refund'
     };
   }
@@ -67,7 +67,7 @@ const formatTransactionDescription = (txn: Transaction): { title: string; subtit
   // Handle deposits
   if (txn.transaction_type.toUpperCase() === 'DEPOSIT') {
     return {
-      title: '💵 Funds Added',
+      title: 'Funds Added',
       subtitle: 'Wallet deposit'
     };
   }
@@ -75,7 +75,7 @@ const formatTransactionDescription = (txn: Transaction): { title: string; subtit
   // Handle withdrawals
   if (txn.transaction_type.toUpperCase() === 'WITHDRAWAL') {
     return {
-      title: '🏦 Withdrawal',
+      title: 'Withdrawal',
       subtitle: 'Funds withdrawn'
     };
   }
@@ -100,16 +100,26 @@ const getTransactionIcon = (type: string) => {
   }
 };
 
+// SA flag palette
+const SA = {
+  green:  '#007A4D',
+  blue:   '#002395',
+  red:    '#DE3831',
+  gold:   '#FFB81C',
+  black:  '#111111',
+  white:  '#FFFFFF',
+};
+
 // Helper to get transaction color
 const getTransactionColor = (type: string) => {
   const upperType = type.toUpperCase();
   switch (upperType) {
-    case 'DEPOSIT': return colors.successText;
-    case 'REFUND': return colors.infoAction;
-    case 'WITHDRAWAL': return colors.dangerAction;
-    case 'PAYMENT': return colors.dangerAction;
-    case 'ESCROW_RELEASE': return colors.accent;
-    default: return colors.textSecondary;
+    case 'DEPOSIT':        return SA.green;
+    case 'REFUND':         return SA.blue;
+    case 'WITHDRAWAL':     return SA.blue;
+    case 'PAYMENT':        return SA.red;
+    case 'ESCROW_RELEASE': return SA.gold;
+    default:               return colors.textSecondary;
   }
 };
 
@@ -285,21 +295,21 @@ const WalletDashboardScreen: React.FC = () => {
         }
       >
         <View style={styles.container}>
+          {/* SA flag stripe */}
+          <View style={styles.flagStripe}>
+            {['#007A4D','#000000','#DE3831','#FFB81C','#002395','#FFFFFF'].map((c, i) => (
+              <View key={i} style={[styles.flagStripeSegment, { backgroundColor: c }]} />
+            ))}
+          </View>
+
           <View style={styles.headerContainer}>
             <Text style={styles.pageTitle}>My Wallet</Text>
             <TouchableOpacity 
               style={styles.refreshButton} 
-              onPress={() => {
-                safeLog('Manual refresh triggered');
-                fetchWalletData();
-              }}
+              onPress={() => { safeLog('Manual refresh triggered'); fetchWalletData(); }}
               disabled={loading}
             >
-              <Ionicons 
-                name="refresh" 
-                size={24} 
-                color={loading ? colors.textSecondary : colors.primary} 
-              />
+              <Ionicons name="refresh" size={24} color={loading ? colors.textSecondary : '#333'} />
             </TouchableOpacity>
           </View>
 
@@ -308,13 +318,13 @@ const WalletDashboardScreen: React.FC = () => {
             <Text style={styles.balanceLabel}>Current Balance</Text>
             <Text style={styles.balanceValue}>{formatCurrency(walletData?.balance ?? walletBalance)}</Text>
             <View style={styles.balanceActions}>
-              <TouchableOpacity style={styles.actionButton} onPress={handleAddFunds}>
-                <Ionicons name="add-circle-outline" size={24} color={colors.infoAction} />
-                <Text style={styles.actionButtonText}>Add Funds</Text>
+              <TouchableOpacity style={styles.actionButtonAdd} onPress={handleAddFunds}>
+                <Ionicons name="add-circle-outline" size={26} color="#007A4D" />
+                <Text style={[styles.actionButtonText, { color: '#007A4D' }]}>Add Funds</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.actionButton} onPress={handleWithdrawFunds}>
-                <Ionicons name="wallet-outline" size={24} color={colors.dangerAction} />
-                <Text style={styles.actionButtonText}>Withdraw</Text>
+              <TouchableOpacity style={styles.actionButtonWithdraw} onPress={handleWithdrawFunds}>
+                <Ionicons name="wallet-outline" size={26} color="#002395" />
+                <Text style={[styles.actionButtonText, { color: '#002395' }]}>Withdraw</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -322,6 +332,7 @@ const WalletDashboardScreen: React.FC = () => {
           {/* Transaction History */}
           <View style={styles.transactionsSection}>
             <Text style={styles.sectionTitle}>Transactions</Text>
+            <View style={styles.sectionDivider} />
             {transactions.length === 0 ? (
               <View style={styles.noTransactionsContainer}>
                 <Ionicons name="swap-horizontal-outline" size={60} color={colors.textSecondary} />
@@ -414,24 +425,50 @@ const styles = StyleSheet.create({
   pageTitle: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, flex: 1, textAlign: 'center' },
   refreshButton: { padding: 8 },
 
+  flagStripe: { flexDirection: 'row', height: 3, borderRadius: 2, overflow: 'hidden', marginBottom: 14 },
+  flagStripeSegment: { flex: 1 },
+
   // Wallet Balance Card
-  balanceCard: { backgroundColor: colors.card, borderRadius: 4, padding: 16, marginBottom: 16, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
-  balanceLabel: { fontSize: 14, color: colors.textSecondary, marginBottom: 8, fontWeight: '600' },
-  balanceValue: { fontSize: 32, fontWeight: '700', color: colors.primary, marginBottom: 16 },
-  balanceActions: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 8 },
-  actionButton: { flexDirection: 'column', alignItems: 'center', padding: 10, borderRadius: 4, backgroundColor: colors.background, width: '45%', borderWidth: 1, borderColor: colors.border },
-  actionButtonText: { fontSize: 12, fontWeight: '600', color: colors.textPrimary, marginTop: 4 },
+  balanceCard: {
+    backgroundColor: colors.card,
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 16,
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: '#FFB81C',
+    shadowColor: '#FFB81C',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.18,
+    shadowRadius: 12,
+    elevation: 4,
+  },
+  balanceLabel: { fontSize: 13, color: colors.textSecondary, marginBottom: 6, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 1 },
+  balanceValue: { fontSize: 36, fontWeight: '800', color: '#111', marginBottom: 16 },
+  balanceActions: { flexDirection: 'row', justifyContent: 'space-around', width: '100%', marginTop: 4, gap: 12 },
+  actionButtonAdd: {
+    flexDirection: 'column', alignItems: 'center', padding: 12, borderRadius: 12,
+    backgroundColor: '#F0FBF5', width: '45%', borderWidth: 1.5, borderColor: '#007A4D',
+    shadowColor: '#007A4D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
+  },
+  actionButtonWithdraw: {
+    flexDirection: 'column', alignItems: 'center', padding: 12, borderRadius: 12,
+    backgroundColor: '#F0F4FF', width: '45%', borderWidth: 1.5, borderColor: '#002395',
+    shadowColor: '#002395', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 6, elevation: 2,
+  },
+  actionButtonText: { fontSize: 12, fontWeight: '700', marginTop: 4 },
 
   // Transactions Section
-  transactionsSection: { backgroundColor: colors.card, borderRadius: 4, padding: 12, borderWidth: 1, borderColor: colors.border },
-  sectionTitle: { fontSize: 16, fontWeight: '700', color: colors.textPrimary, marginBottom: 12 },
+  transactionsSection: { backgroundColor: colors.card, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border },
+  sectionTitle: { fontSize: 17, fontWeight: '800', color: '#111', marginBottom: 4 },
+  sectionDivider: { height: 2, backgroundColor: '#FFB81C', width: 40, borderRadius: 1, marginBottom: 12 },
   noTransactionsContainer: { alignItems: 'center', paddingVertical: 20 },
   noTransactionsMessage: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, marginTop: 12, marginBottom: 4 },
   noTransactionsSubMessage: { fontSize: 12, color: colors.textSecondary, textAlign: 'center' },
   transactionsList: {},
   transactionItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 10, paddingHorizontal: 8, borderBottomWidth: 1, borderBottomColor: colors.border, marginBottom: 8 },
   transactionItemEarning: { backgroundColor: '#FFF9E6', borderLeftWidth: 3, borderLeftColor: colors.accent },
-  transactionIconContainer: { width: 40, height: 40, borderRadius: 20, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center', marginRight: 10 },
+  transactionIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: '#F5F5F5', justifyContent: 'center', alignItems: 'center', marginRight: 10 },
   transactionIconContainerEarning: { backgroundColor: '#FFF3CD' },
   transactionDetails: { flex: 1, marginRight: 8 },
   transactionTitle: { fontSize: 13, color: colors.textPrimary, fontWeight: '600', marginBottom: 2 },
@@ -440,10 +477,10 @@ const styles = StyleSheet.create({
   transactionDate: { fontSize: 10, color: colors.textSecondary },
   transactionAmountContainer: { alignItems: 'flex-end' },
   transactionAmount: { fontSize: 14, fontWeight: '700', marginBottom: 3 },
-  amountPositive: { color: colors.successText },
-  amountNegative: { color: colors.dangerAction },
-  amountEarning: { fontSize: 16, color: colors.accent },
-  earningBadge: { backgroundColor: colors.accent, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
+  amountPositive: { color: '#007A4D' },
+  amountNegative: { color: '#DE3831' },
+  amountEarning: { fontSize: 16, color: '#FFB81C' },
+  earningBadge: { backgroundColor: '#FFB81C', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 },
   earningBadgeText: { fontSize: 9, color: colors.white, fontWeight: '700', textTransform: 'uppercase' },
 });
 

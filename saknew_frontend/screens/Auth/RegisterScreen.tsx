@@ -2,7 +2,7 @@ import React, { useState, useCallback } from 'react';
 import {
   View, Text, TextInput, TouchableOpacity, StyleSheet,
   ActivityIndicator, SafeAreaView, KeyboardAvoidingView,
-  Platform, Keyboard, Image, ScrollView, useWindowDimensions,
+  Platform, Keyboard, Image, ScrollView, useWindowDimensions, StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AuthService from '../../services/authService';
@@ -12,17 +12,17 @@ import { Ionicons } from '@expo/vector-icons';
 
 // Centralized colors - RECOMMENDED: Move this to a separate file (e.g., ../constants/colors.ts)
 const colors = {
-  primary: '#4CAF50', // Green
-  accent: '#FFC107', // Amber
-  backgroundLight: '#F0F2F5', // Light grey for input backgrounds
-  backgroundDark: '#E0E2E5', // Slightly darker grey for input active state
+  primary: '#007A4D',
+  accent: '#FFB81C',
+  blue: '#002395',
+  backgroundLight: '#F0F2F5',
   card: '#FFFFFF',
   textPrimary: '#333333',
   textSecondary: '#666666',
   error: '#EF5350',
-  border: '#E0E0E0',
-    iconColor: '#5C6BC0',  
-  focusedBorder: '#4CAF50', // Primary color for focused border
+  border: '#E2E8F0',
+  iconColor: '#64748B',
+  focusedBorder: '#FFB81C',
 };
 
 const RegisterScreen: React.FC = () => {
@@ -38,6 +38,9 @@ const RegisterScreen: React.FC = () => {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [rePasswordError, setRePasswordError] = useState<string | null>(null);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
+  const [rePasswordFocused, setRePasswordFocused] = useState(false);
 
   const handleRegister = useCallback(async () => {
     setError(null);
@@ -111,6 +114,13 @@ const isSmallDevice = height < 700;
 
 return (
   <SafeAreaView style={styles.safeArea}>
+    <StatusBar barStyle="dark-content" backgroundColor="#F0F2F5" />
+    {/* SA flag colour bar */}
+    <View style={styles.flagBar}>
+      {['#007A4D','#FFB81C','#DE3831','#002395','#000000','#FFFFFF'].map((c, i) => (
+        <View key={i} style={[styles.flagSegment, { backgroundColor: c }]} />
+      ))}
+    </View>
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.keyboardAvoidingContainer}
@@ -137,7 +147,7 @@ return (
               style={styles.logoImage}
               // resizeMode="contain"
             />
-            <Text style={styles.logoText}>SAMakert</Text>
+            <Text style={styles.logoText}><Text style={styles.logoSA}>SA</Text>Makert</Text>
             <Text style={styles.welcomeSubtitle}>Create your account to start exploring.</Text>
           </View>
 
@@ -145,14 +155,16 @@ return (
           <View style={styles.card}>
             {/* Email Input */}
             <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={[styles.inputContainer, emailError && styles.inputError]}>
-              <Ionicons name="mail-outline" size={20} color={emailError ? colors.error : colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, emailFocused && styles.inputFocused, emailError && styles.inputError]}>
+              <Ionicons name="mail-outline" size={20} color={emailError ? colors.error : emailFocused ? colors.accent : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
                 placeholderTextColor="#B0B0B0"
                 value={email}
                 onChangeText={(t) => { setEmail(t); setEmailError(null); }}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
@@ -164,14 +176,16 @@ return (
 
             {/* Password Input */}
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={[styles.inputContainer, passwordError && styles.inputError]}>
-              <Ionicons name="lock-closed-outline" size={20} color={passwordError ? colors.error : colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, passwordFocused && styles.inputFocused, passwordError && styles.inputError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={passwordError ? colors.error : passwordFocused ? colors.accent : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="At least 8 characters"
                 placeholderTextColor="#B0B0B0"
                 value={password}
                 onChangeText={(t) => { setPassword(t); setPasswordError(null); }}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 textContentType="newPassword"
@@ -186,14 +200,16 @@ return (
 
             {/* Confirm Password Input */}
             <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={[styles.inputContainer, rePasswordError && styles.inputError]}>
-              <Ionicons name="lock-closed-outline" size={20} color={rePasswordError ? colors.error : colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, rePasswordFocused && styles.inputFocused, rePasswordError && styles.inputError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={rePasswordError ? colors.error : rePasswordFocused ? colors.accent : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Re-enter your password"
                 placeholderTextColor="#B0B0B0"
                 value={rePassword}
                 onChangeText={(t) => { setRePassword(t); setRePasswordError(null); }}
+                onFocus={() => setRePasswordFocused(true)}
+                onBlur={() => setRePasswordFocused(false)}
                 secureTextEntry={!showRePassword}
                 autoCapitalize="none"
                 textContentType="newPassword"
@@ -249,10 +265,9 @@ return (
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.backgroundLight,
-  },
+  safeArea: { flex: 1, backgroundColor: colors.backgroundLight },
+  flagBar: { flexDirection: 'row', height: 3, width: '100%' },
+  flagSegment: { flex: 1 },
   keyboardAvoidingContainer: {
     flex: 1,
   },
@@ -290,10 +305,14 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   logoText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.iconColor,
+    fontSize: 20,
+    fontWeight: '800',
+    color: '#0F172A',
+    letterSpacing: 1.5,
     marginBottom: 4,
+  },
+  logoSA: {
+    color: '#FFB81C',
   },
   welcomeTitle: {
     fontSize: 11,
@@ -309,15 +328,15 @@ const styles = StyleSheet.create({
   },
   card: {
     backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 12,
+    borderRadius: 20,
+    padding: 20,
     width: '100%',
     maxWidth: 400,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 20,
+    elevation: 4,
     marginBottom: 16,
   },
   inputLabel: {
@@ -329,13 +348,18 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
-    height: 40,
-    borderRadius: 6,
-    paddingHorizontal: 10,
+    backgroundColor: '#F8FAFF',
+    height: 48,
+    borderRadius: 12,
+    paddingHorizontal: 12,
     marginBottom: 10,
     borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderColor: '#E2E8F0',
+  },
+  inputFocused: {
+    borderColor: '#FFB81C',
+    borderWidth: 1.5,
+    backgroundColor: '#FFFDF5',
   },
 
   inputIcon: {
@@ -370,12 +394,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFF5F5',
   },
   registerButton: {
-    backgroundColor: colors.iconColor,
-    height: 40,
-    borderRadius: 6,
+    backgroundColor: '#007A4D',
+    height: 48,
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginTop: 6,
+    shadowColor: '#007A4D',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+    elevation: 4,
   },
   registerButtonText: {
     color: '#fff',
@@ -396,7 +425,7 @@ const styles = StyleSheet.create({
   },
   loginButtonText: {
     fontSize: 13,
-    color: colors.iconColor,
+    color: '#002395',
     fontWeight: '600',
     flexShrink: 1,
   },

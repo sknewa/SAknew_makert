@@ -22,16 +22,19 @@ import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 const colors = {
   background: '#F8F9FA',
   card: '#FFFFFF',
-  primary: '#28A745',
-  accent: '#FFC107',
-  info: '#17A2B8',
-  danger: '#DC3545',
-  warning: '#FFC107',
-  textPrimary: '#212529',
-  textSecondary: '#6C757D',
-  border: '#DEE2E6',
-  buttonText: '#FFFFFF',
-  shadowColor: '#000',
+  primary:   '#007A4D',
+  gold:      '#FFB81C',
+  blue:      '#002395',
+  red:       '#DE3831',
+  accent:    '#FFB81C',
+  info:      '#002395',
+  danger:    '#DE3831',
+  warning:   '#FFB81C',
+  textPrimary:   '#111111',
+  textSecondary: '#555555',
+  border:    '#E0E0E0',
+  buttonText:'#FFFFFF',
+  shadowColor: '#C8A96E',
 };
 
 type ShopStatisticsScreenProps = {
@@ -261,22 +264,30 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
       >
         <View style={styles.titleContainer}>
           <Text style={styles.shopName}>{shop.name}</Text>
+          <View style={styles.titleFlagStripe}>
+            {['#007A4D','#000000','#DE3831','#FFB81C','#002395','#FFFFFF'].map((c,i)=>(
+              <View key={i} style={[styles.flagSeg,{backgroundColor:c}]} />
+            ))}
+          </View>
           <Text style={styles.subtitle}>Shop Statistics</Text>
         </View>
 
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Text style={styles.cardTitle}>Total Revenue</Text>
-            <Ionicons name="cash-outline" size={24} color={colors.primary} />
+            <Ionicons name="cash-outline" size={24} color="#FFB81C" />
           </View>
           <Text style={styles.revenueAmount}>R{stats.totalRevenue}</Text>
           <View style={styles.revenueBreakdown}>
             <View style={styles.revenueItem}>
-              <Text style={styles.revenueLabel}>Completed</Text>
-              <Text style={styles.revenueValue}>R{stats.completedRevenue}</Text>
+              <Text style={[styles.revenueLabel,{color:'#002395',fontWeight:'700'}]}>Completed</Text>
+              <Text style={[styles.revenueValue,{color:'#002395'}]}>R{stats.completedRevenue}</Text>
             </View>
             <View style={styles.revenueItem}>
-              <Text style={styles.revenueLabel}>Pending</Text>
+              <View style={{flexDirection:'row',alignItems:'center',marginBottom:2}}>
+                <View style={styles.pendingDot}/>
+                <Text style={styles.revenueLabel}>Pending</Text>
+              </View>
               <Text style={styles.revenueValue}>R{stats.pendingRevenue}</Text>
             </View>
           </View>
@@ -285,7 +296,7 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
         <View style={styles.statsGrid}>
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <Ionicons name="receipt-outline" size={22} color={colors.info} />
+              <Ionicons name="receipt-outline" size={22} color="#002395" />
               <Text style={styles.statTitle}>Total Orders</Text>
             </View>
             <Text style={styles.statValue}>{stats.totalOrders}</Text>
@@ -294,7 +305,7 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
 
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <Ionicons name="trending-up-outline" size={22} color={colors.primary} />
+              <Ionicons name="trending-up-outline" size={22} color="#FFB81C" />
               <Text style={styles.statTitle}>Avg Order</Text>
             </View>
             <Text style={styles.statValue}>R{stats.averageOrderValue}</Text>
@@ -303,19 +314,19 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
 
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <Ionicons name="hourglass-outline" size={22} color={colors.warning} />
+              <Ionicons name="hourglass-outline" size={22} color="#DE3831" />
               <Text style={styles.statTitle}>Pending</Text>
             </View>
-            <Text style={styles.statValue}>{stats.pendingOrders}</Text>
+            <Text style={[styles.statValue,{color:'#DE3831'}]}>{stats.pendingOrders}</Text>
             <Text style={styles.statSubtext}>To fulfill</Text>
           </View>
 
           <View style={styles.statCard}>
             <View style={styles.statHeader}>
-              <Ionicons name="checkmark-done-outline" size={22} color={colors.primary} />
+              <Ionicons name="checkmark-done-outline" size={22} color="#007A4D" />
               <Text style={styles.statTitle}>Completed</Text>
             </View>
-            <Text style={styles.statValue}>{stats.completedOrders}</Text>
+            <Text style={[styles.statValue,{color:'#007A4D'}]}>{stats.completedOrders}</Text>
             <Text style={styles.statSubtext}>Delivered</Text>
           </View>
         </View>
@@ -328,30 +339,30 @@ const ShopStatisticsScreen: React.FC<ShopStatisticsScreenProps> = ({ route }) =>
               onPress={() => navigation.goBack()}
             >
               <Text style={styles.viewAllText}>View All</Text>
-              <Ionicons name="chevron-forward" size={16} color={colors.primary} />
+              <Ionicons name="chevron-forward" size={16} color="#002395" />
             </TouchableOpacity>
           </View>
 
           <View style={styles.inventoryStats}>
             <View style={styles.inventoryStat}>
-              <View style={[styles.inventoryIcon, { backgroundColor: 'rgba(40, 167, 69, 0.1)' }]}>
-                <Ionicons name="checkmark-circle" size={24} color={colors.primary} />
+              <View style={[styles.inventoryIcon,{backgroundColor:'rgba(0,122,77,0.1)'}]}>
+                <Ionicons name="checkmark-circle" size={24} color="#007A4D" />
               </View>
               <Text style={styles.inventoryValue}>{stats.inStockCount}</Text>
               <Text style={styles.inventoryLabel}>In Stock</Text>
             </View>
 
             <View style={styles.inventoryStat}>
-              <View style={[styles.inventoryIcon, { backgroundColor: 'rgba(255, 193, 7, 0.1)' }]}>
-                <Ionicons name="alert-circle" size={24} color={colors.warning} />
+              <View style={[styles.inventoryIcon,{backgroundColor:'rgba(255,184,28,0.1)'}]}>
+                <Ionicons name="alert-circle" size={24} color="#FFB81C" />
               </View>
               <Text style={styles.inventoryValue}>{stats.lowStockCount}</Text>
               <Text style={styles.inventoryLabel}>Low Stock</Text>
             </View>
 
             <View style={styles.inventoryStat}>
-              <View style={[styles.inventoryIcon, { backgroundColor: 'rgba(220, 53, 69, 0.1)' }]}>
-                <Ionicons name="close-circle" size={24} color={colors.danger} />
+              <View style={[styles.inventoryIcon,{backgroundColor:'rgba(222,56,49,0.1)'}]}>
+                <Ionicons name="close-circle" size={24} color="#DE3831" />
               </View>
               <Text style={styles.inventoryValue}>{stats.outOfStockCount}</Text>
               <Text style={styles.inventoryLabel}>Out of Stock</Text>
@@ -498,36 +509,19 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   
-  titleContainer: {
-    paddingVertical: 8,
-    paddingHorizontal: 10,
-    alignItems: 'center',
-    marginBottom: 8,
-  },
-  shopName: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 2,
-  },
-  subtitle: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
+  titleContainer: { paddingVertical:8, paddingHorizontal:10, alignItems:'center', marginBottom:8 },
+  shopName: { fontSize:18, fontWeight:'800', color:'#111', marginBottom:4 },
+  titleFlagStripe: { flexDirection:'row', height:3, width:'40%', borderRadius:2, overflow:'hidden', marginBottom:4 },
+  flagSeg: { flex:1 },
+  subtitle: { fontSize:11, color:colors.textSecondary },
+  pendingDot: { width:7, height:7, borderRadius:4, backgroundColor:'#FFB81C', marginRight:4 },
   
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 10,
-    marginHorizontal: 10,
-    marginBottom: 10,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.3)',
+    backgroundColor: colors.card, borderRadius:12, padding:10,
+    marginHorizontal:10, marginBottom:10,
+    shadowColor:'#C8A96E', shadowOffset:{width:0,height:4},
+    shadowOpacity:0.14, shadowRadius:12, elevation:3,
+    borderWidth:1, borderColor:'rgba(222,226,230,0.4)',
   },
   cardHeader: {
     flexDirection: 'row',
@@ -544,12 +538,7 @@ const styles = StyleSheet.create({
     color: colors.textPrimary,
   },
   
-  revenueAmount: {
-    fontSize: 24,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 8,
-  },
+  revenueAmount: { fontSize:28, fontWeight:'800', color:'#007A4D', marginBottom:8 },
   revenueBreakdown: {
     flexDirection: 'row',
     justifyContent: 'space-around',
@@ -579,18 +568,11 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   statCard: {
-    width: cardWidth,
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 8,
-    marginBottom: 8,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.08,
-    shadowRadius: 4,
-    elevation: 2,
-    borderWidth: 1,
-    borderColor: 'rgba(222, 226, 230, 0.3)',
+    width:cardWidth, backgroundColor:colors.card, borderRadius:12,
+    padding:8, marginBottom:8,
+    shadowColor:'#C8A96E', shadowOffset:{width:0,height:4},
+    shadowOpacity:0.12, shadowRadius:10, elevation:2,
+    borderWidth:1, borderColor:'rgba(222,226,230,0.4)',
   },
   statHeader: {
     flexDirection: 'row',
@@ -664,11 +646,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: colors.textSecondary,
   },
-  inventoryValueAmount: {
-    fontSize: 14,
-    fontWeight: '700',
-    color: colors.primary,
-  },
+  inventoryValueAmount: { fontSize:14, fontWeight:'800', color:'#111111' },
   
   lowStockItem: {
     flexDirection: 'row',
@@ -710,31 +688,16 @@ const styles = StyleSheet.create({
   },
   
   viewAllButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'rgba(40, 167, 69, 0.08)',
-    paddingVertical: 3,
-    paddingHorizontal: 8,
-    borderRadius: 10,
+    flexDirection:'row', alignItems:'center',
+    backgroundColor:'rgba(0,35,149,0.06)',
+    paddingVertical:3, paddingHorizontal:8, borderRadius:10,
   },
-  viewAllText: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '600',
-    marginRight: 2,
-  },
+  viewAllText: { fontSize:10, color:'#002395', fontWeight:'700', marginRight:2 },
   viewMoreButton: {
-    alignItems: 'center',
-    paddingVertical: 6,
-    marginTop: 6,
-    backgroundColor: 'rgba(40, 167, 69, 0.05)',
-    borderRadius: 6,
+    alignItems:'center', paddingVertical:6, marginTop:6,
+    backgroundColor:'rgba(0,35,149,0.04)', borderRadius:6,
   },
-  viewMoreText: {
-    fontSize: 10,
-    color: colors.primary,
-    fontWeight: '600',
-  },
+  viewMoreText: { fontSize:10, color:'#002395', fontWeight:'700' },
   
   orderItem: {
     flexDirection: 'row',
@@ -766,12 +729,7 @@ const styles = StyleSheet.create({
   orderDetails: {
     alignItems: 'flex-end',
   },
-  orderPrice: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: colors.primary,
-    marginBottom: 3,
-  },
+  orderPrice: { fontSize:13, fontWeight:'700', color:'#007A4D', marginBottom:3 },
   orderStatus: {
     paddingVertical: 4,
     paddingHorizontal: 8,
@@ -782,26 +740,10 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: 'rgba(255, 193, 7, 0.3)',
   },
-  statusProcessing: {
-    backgroundColor: 'rgba(23, 162, 184, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(23, 162, 184, 0.3)',
-  },
-  statusApproved: {
-    backgroundColor: 'rgba(40, 167, 69, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(40, 167, 69, 0.3)',
-  },
-  statusReady: {
-    backgroundColor: 'rgba(102, 126, 234, 0.15)',
-    borderWidth: 1,
-    borderColor: 'rgba(102, 126, 234, 0.3)',
-  },
-  orderStatusText: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: colors.textPrimary,
-  },
+  statusProcessing: { backgroundColor:'#002395' },
+  statusApproved: { backgroundColor:'rgba(0,122,77,0.15)', borderWidth:1, borderColor:'rgba(0,122,77,0.3)' },
+  statusReady: { backgroundColor:'rgba(0,122,77,0.15)', borderWidth:1, borderColor:'rgba(0,122,77,0.3)' },
+  orderStatusText: { fontSize:9, fontWeight:'700', color:'#fff' },
   noDataText: {
     fontSize: 11,
     color: colors.textSecondary,

@@ -1,39 +1,50 @@
 import { StyleSheet, Platform } from 'react-native';
-import { fonts } from '../theme/typography';
+import { fonts, textStyles } from '../theme/typography';
+
+export { textStyles };
 
 export const colors = {
-  primary:       '#6C63FF',
-  primaryDark:   '#5A52D5',
-  primaryLight:  '#EEF0FF',
+  // SA Flag palette (primary brand)
+  primary:       '#007A4D',  // SA Green
+  primaryDark:   '#005c39',
+  primaryLight:  '#E8F5EF',
+  gold:          '#FFB81C',  // SA Gold
+  goldLight:     '#FFF8E1',
+  blue:          '#002395',  // SA Blue
+  blueLight:     '#EEF1FF',
+  red:           '#DE3831',  // SA Red
+  redLight:      '#FEE2E2',
+  navy:          '#0D1B2A',  // Deep Navy
+  // Semantic
   secondary:     '#FF6584',
-  accent:        '#FFB703',
-  success:       '#22C55E',
-  successLight:  '#DCFCE7',
-  warning:       '#F59E0B',
-  warningLight:  '#FEF3C7',
-  error:         '#EF4444',
+  accent:        '#FFB81C',  // = gold
+  success:       '#007A4D',
+  successLight:  '#E8F5EF',
+  warning:       '#FFB81C',
+  warningLight:  '#FFF8E1',
+  error:         '#DE3831',
   errorLight:    '#FEE2E2',
-  info:          '#3B82F6',
-  infoLight:     '#DBEAFE',
+  info:          '#002395',
+  infoLight:     '#EEF1FF',
   background:    '#F4F6FB',
   surface:       '#FFFFFF',
   surfaceAlt:    '#F8FAFF',
-  border:        '#E8ECF4',
+  border:        '#E0E0E0',
   divider:       '#F0F2F8',
-  textPrimary:   '#0F172A',
-  textSecondary: '#64748B',
+  textPrimary:   '#111111',
+  textSecondary: '#555555',
   textMuted:     '#94A3B8',
   textInverse:   '#FFFFFF',
   white:         '#FFFFFF',
   card:          '#FFFFFF',
-  dangerAction:  '#EF4444',
-  warningAction: '#F59E0B',
-  infoAction:    '#3B82F6',
-  successText:   '#22C55E',
-  errorText:     '#EF4444',
-  starColor:     '#FFB703',
-  shadowColor:   '#6C63FF',
-  iconColor:     '#64748B',
+  dangerAction:  '#DE3831',
+  warningAction: '#FFB81C',
+  infoAction:    '#002395',
+  successText:   '#007A4D',
+  errorText:     '#DE3831',
+  starColor:     '#FFB81C',
+  shadowColor:   '#C8A96E',  // warm SA shadow
+  iconColor:     '#555555',
   buttonText:    '#FFFFFF',
 };
 
@@ -170,14 +181,25 @@ export const globalStyles = StyleSheet.create({
   inputError: { borderColor: colors.error },
 
   // ── Typography ───────────────────────────────────────────────
-  h1:       { fontSize: 28, fontFamily: fonts.headingExtraBold, color: colors.textPrimary, letterSpacing: -0.5 },
-  h2:       { fontSize: 22, fontFamily: fonts.heading, color: colors.textPrimary },
-  h3:       { fontSize: 18, fontFamily: fonts.heading, color: colors.textPrimary },
+  // Shop banners / hero (Poppins-ExtraBold = Instrument Serif role)
+  h1:       { fontSize: 28, fontFamily: fonts.display,       color: colors.textPrimary, letterSpacing: -0.5 },
+  h2:       { fontSize: 22, fontFamily: fonts.display,       color: colors.textPrimary },
+  h3:       { fontSize: 18, fontFamily: fonts.heading,       color: colors.textPrimary },
   h4:       { fontSize: 16, fontFamily: fonts.headingMedium, color: colors.textPrimary },
-  body:     { fontSize: 15, fontFamily: fonts.body, color: colors.textPrimary, lineHeight: 22 },
-  bodySmall:{ fontSize: 13, fontFamily: fonts.body, color: colors.textSecondary, lineHeight: 20 },
-  caption:  { fontSize: 11, fontFamily: fonts.body, color: colors.textMuted },
-  link:     { fontSize: 14, fontFamily: fonts.bodySemi, color: colors.primary },
+  // Body / data (Inter = IBM Plex Sans role)
+  body:     { fontSize: 15, fontFamily: fonts.body,          color: colors.textPrimary, lineHeight: 22 },
+  bodySmall:{ fontSize: 13, fontFamily: fonts.body,          color: colors.textSecondary, lineHeight: 20 },
+  caption:  { fontSize: 11, fontFamily: fonts.bodyMedium,    color: colors.textMuted },
+  link:     { fontSize: 14, fontFamily: fonts.bodySemi,      color: colors.primary },
+  // Price — Inter-Bold in SA Gold
+  price:    { fontSize: 14, fontFamily: fonts.bodyBold,      color: '#FFB81C', letterSpacing: 0.2 },
+  // Nav labels (Poppins-SemiBold = Manrope role)
+  navLabel: { fontSize: 9,  fontFamily: fonts.headingMedium, textTransform: 'uppercase' as const, letterSpacing: 0.3 },
+  // Admin status pills (Inter-SemiBold uppercase)
+  statusPill: { fontSize: 11, fontFamily: fonts.bodySemi, textTransform: 'uppercase' as const, letterSpacing: 0.5 },
+  // Dashboard stats (Inter-Bold large)
+  dashStat: { fontSize: 32, fontFamily: fonts.bodyBold, color: '#111', letterSpacing: -0.5 },
+  dashLabel:{ fontSize: 11, fontFamily: fonts.bodySemi, textTransform: 'uppercase' as const, letterSpacing: 1, color: colors.textMuted },
 
   // ── Badges ───────────────────────────────────────────────────
   badge: {

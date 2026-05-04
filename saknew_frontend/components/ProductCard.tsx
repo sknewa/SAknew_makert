@@ -268,12 +268,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
         <View style={styles.bottomInfo}>
           {distance && (
             <View style={styles.distanceBadge}>
-              <Ionicons name="location-outline" size={8} color="#FFFFFF" />
+              <Ionicons name="location" size={8} color="#FFFFFF" />
               <Text style={styles.distanceText}>{distance}</Text>
             </View>
           )}
           <View style={styles.ratingBadge}>
-            <Ionicons name="star" size={8} color="#FFD700" />
+            <Ionicons name="star" size={8} color="#FFB81C" />
             <Text style={styles.ratingText}>{averageRating > 0 ? averageRating.toFixed(1) : '0.0'}</Text>
           </View>
         </View>
@@ -294,11 +294,14 @@ const ProductCard: React.FC<ProductCardProps> = ({
             disabled={addingToCart || product.stock <= 0}
           >
             {addingToCart ? (
-              <ActivityIndicator size="small" color="#10B981" />
+              <ActivityIndicator size="small" color="#fff" />
             ) : product.stock <= 0 ? (
-              <Ionicons name="close-circle" size={14} color="#999" />
+              <Ionicons name="close-circle" size={12} color="#999" />
             ) : (
-              <FontAwesome5 name="cart-plus" size={14} color="#10B981" light />
+              <>
+                <FontAwesome5 name="cart-plus" size={11} color="#fff" />
+                <Text style={styles.addToCartLabel}>+ Add</Text>
+              </>
             )}
           </TouchableOpacity>
         </View>
@@ -553,13 +556,16 @@ const styles = StyleSheet.create({
     transform: [{ translateX: -50 }],
   },
   shopNameTop: {
-    fontSize: 12,
-    color: '#FFFFFF',
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 3,
+    fontSize: 11,
+    color: '#222',
+    fontWeight: '600',
+    backgroundColor: 'rgba(255,184,28,0.18)',
+    borderWidth: 1,
+    borderColor: '#FFB81C',
+    paddingHorizontal: 4,
     paddingVertical: 1,
+    borderRadius: 4,
+    overflow: 'hidden',
   },
   bottomInfo: {
     position: 'absolute',
@@ -593,12 +599,13 @@ const styles = StyleSheet.create({
   distanceBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 3,
+    backgroundColor: 'rgba(222,56,49,0.82)',
+    paddingHorizontal: 4,
     paddingVertical: 1,
+    borderRadius: 4,
   },
   distanceText: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#FFFFFF',
     marginLeft: 2,
     fontWeight: '600',
@@ -606,13 +613,14 @@ const styles = StyleSheet.create({
   ratingBadge: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 3,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    paddingHorizontal: 4,
     paddingVertical: 1,
+    borderRadius: 4,
   },
   ratingText: {
-    fontSize: 11,
-    color: '#FFFFFF',
+    fontSize: 10,
+    color: '#FFB81C',
     marginLeft: 2,
     fontWeight: '700',
   },
@@ -644,8 +652,18 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   addToCartIcon: {
-    padding: 2,
-    backgroundColor: 'transparent',
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#007A4D',
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 8,
+    gap: 3,
+  },
+  addToCartLabel: {
+    fontSize: 10,
+    color: '#fff',
+    fontWeight: '700',
   },
   disabledIcon: {
     opacity: 0.5,

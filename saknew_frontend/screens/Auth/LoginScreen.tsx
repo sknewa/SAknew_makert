@@ -1,5 +1,5 @@
 // saknew_frontend/screens/Auth/LoginScreen.tsx
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,7 @@ import {
   Keyboard,
   Image,
   ScrollView,
+  StatusBar,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
@@ -36,6 +37,8 @@ const LoginScreen: React.FC = () => {
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [emailFocused, setEmailFocused] = useState(false);
+  const [passwordFocused, setPasswordFocused] = useState(false);
 
   const handleLogin = async () => {
     setError(null);
@@ -81,6 +84,13 @@ const LoginScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={s.safe}>
+      <StatusBar barStyle="dark-content" backgroundColor="#F4F6FB" />
+      {/* SA flag colour bar */}
+      <View style={s.flagBar}>
+        {['#007A4D','#FFB81C','#DE3831','#002395','#000000','#FFFFFF'].map((c, i) => (
+          <View key={i} style={[s.flagSegment, { backgroundColor: c }]} />
+        ))}
+      </View>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
           {/* Hero */}
@@ -88,7 +98,7 @@ const LoginScreen: React.FC = () => {
             <View style={s.logoWrap}>
               <Image source={require('../../img/weblog.jpg')} style={s.logo} />
             </View>
-            <Text style={s.brand}>SAMakert</Text>
+            <Text style={s.brand}><Text style={s.brandSA}>SA</Text>Makert</Text>
             <Text style={s.tagline}>South Africa's marketplace</Text>
           </View>
 
@@ -105,14 +115,16 @@ const LoginScreen: React.FC = () => {
             )}
 
             <Text style={s.label}>Email address</Text>
-            <View style={[s.inputWrap, emailError && s.inputWrapError]}>
-              <Ionicons name="mail-outline" size={18} color={emailError ? '#EF4444' : '#94A3B8'} style={s.inputIcon} />
+            <View style={[s.inputWrap, emailFocused && s.inputWrapFocused, emailError && s.inputWrapError]}>
+              <Ionicons name="mail-outline" size={18} color={emailError ? '#EF4444' : emailFocused ? '#FFB81C' : '#94A3B8'} style={s.inputIcon} />
               <TextInput
                 style={s.input}
                 placeholder="you@example.com"
                 placeholderTextColor="#94A3B8"
                 value={email}
                 onChangeText={(t) => { setEmail(t); setEmailError(null); setError(null); }}
+                onFocus={() => setEmailFocused(true)}
+                onBlur={() => setEmailFocused(false)}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
@@ -127,14 +139,16 @@ const LoginScreen: React.FC = () => {
             )}
 
             <Text style={s.label}>Password</Text>
-            <View style={[s.inputWrap, passwordError && s.inputWrapError]}>
-              <Ionicons name="lock-closed-outline" size={18} color={passwordError ? '#EF4444' : '#94A3B8'} style={s.inputIcon} />
+            <View style={[s.inputWrap, passwordFocused && s.inputWrapFocused, passwordError && s.inputWrapError]}>
+              <Ionicons name="lock-closed-outline" size={18} color={passwordError ? '#EF4444' : passwordFocused ? '#FFB81C' : '#94A3B8'} style={s.inputIcon} />
               <TextInput
                 style={s.input}
                 placeholder="Your password"
                 placeholderTextColor="#94A3B8"
                 value={password}
                 onChangeText={(t) => { setPassword(t); setPasswordError(null); setError(null); }}
+                onFocus={() => setPasswordFocused(true)}
+                onBlur={() => setPasswordFocused(false)}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 textContentType="password"
@@ -154,6 +168,7 @@ const LoginScreen: React.FC = () => {
             <TouchableOpacity onPress={() => navigation.navigate('PasswordResetRequest')} style={s.forgotWrap}>
               <Text style={s.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
+            <View style={{ height: 8 }} />
 
             <TouchableOpacity style={[s.btn, loading && s.btnDisabled]} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
               {loading
@@ -177,6 +192,8 @@ const LoginScreen: React.FC = () => {
 
 const s = StyleSheet.create({
   safe:   { flex: 1, backgroundColor: '#F4F6FB' },
+  flagBar: { flexDirection: 'row', height: 3, width: '100%' },
+  flagSegment: { flex: 1 },
   scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
   hero:   { alignItems: 'center', marginBottom: 32 },
   logoWrap: {
@@ -184,15 +201,16 @@ const s = StyleSheet.create({
     backgroundColor: '#EEF0FF',
     justifyContent: 'center', alignItems: 'center',
     marginBottom: 12,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6,
+    shadowColor: '#007A4D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6,
   },
   logo:    { width: 72, height: 72, borderRadius: 36 },
-  brand:   { fontSize: 24, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 },
+  brand:   { fontSize: 24, fontWeight: '800', color: '#0F172A', letterSpacing: 1.5 },
+  brandSA: { color: '#FFB81C' },
   tagline: { fontSize: 13, color: '#64748B', marginTop: 4 },
 
   card: {
     backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 24, elevation: 6,
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.06, shadowRadius: 20, elevation: 4,
     marginBottom: 24,
   },
   cardTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
@@ -208,8 +226,11 @@ const s = StyleSheet.create({
   label:    { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
   inputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    backgroundColor: '#F8FAFF', borderWidth: 1.5, borderColor: '#E8ECF4',
+    backgroundColor: '#F8FAFF', borderWidth: 1, borderColor: '#E2E8F0',
     borderRadius: 12, paddingHorizontal: 14, marginBottom: 4, height: 50,
+  },
+  inputWrapFocused: {
+    borderColor: '#FFB81C', borderWidth: 1.5, backgroundColor: '#FFFDF5',
   },
   inputWrapError: {
     borderColor: '#EF4444', backgroundColor: '#FFF5F5',
@@ -224,20 +245,20 @@ const s = StyleSheet.create({
   input:    { flex: 1, fontSize: 15, color: '#0F172A' },
   eyeBtn:   { padding: 4 },
 
-  forgotWrap: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -6 },
-  forgotText: { fontSize: 13, color: '#6C63FF', fontWeight: '600' },
+  forgotWrap: { alignSelf: 'flex-end', marginBottom: 12, marginTop: 4 },
+  forgotText: { fontSize: 13, color: '#002395', fontWeight: '600' },
 
   btn: {
-    backgroundColor: '#6C63FF', borderRadius: 14, height: 52,
+    backgroundColor: '#007A4D', borderRadius: 14, height: 52,
     justifyContent: 'center', alignItems: 'center',
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
+    shadowColor: '#007A4D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
   },
   btnDisabled: { opacity: 0.6 },
   btnText:     { color: '#fff', fontSize: 16, fontWeight: '700' },
 
   footer:     { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
   footerText: { fontSize: 14, color: '#64748B' },
-  footerLink: { fontSize: 14, color: '#6C63FF', fontWeight: '700' },
+  footerLink: { fontSize: 14, color: '#002395', fontWeight: '700' },
 });
 
 export default LoginScreen;

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, ActivityIndicator, Platform, ScrollView, KeyboardAvoidingView } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Location from 'expo-location';
@@ -23,6 +23,7 @@ const ShippingScreen: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [locationLoading, setLocationLoading] = useState(false);
   const [hasLocationPermission, setHasLocationPermission] = useState<boolean | null>(null);
+  const [focusedField, setFocusedField] = useState<string | null>(null);
 
   useEffect(() => {
     checkLocationPermission();
@@ -241,7 +242,7 @@ const ShippingScreen: React.FC = () => {
       <BackButton title="Shipping Address" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
-          <Ionicons name="location-outline" size={40} color={colors.primary} />
+          <Ionicons name="location" size={40} color="#DE3831" />
           <Text style={styles.title}>Shipping Address</Text>
           <Text style={styles.subtitle}>Enter your delivery address or use your current location</Text>
         </View>
@@ -252,26 +253,30 @@ const ShippingScreen: React.FC = () => {
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Full Name *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'contactName' && styles.inputFocused]}
                 placeholder="John Doe"
                 value={contactName}
                 onChangeText={setContactName}
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="name"
                 maxLength={100}
+                onFocus={() => setFocusedField('contactName')}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Phone *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'contactPhone' && styles.inputFocused]}
                 placeholder="+27 12 345 6789"
                 value={contactPhone}
                 onChangeText={setContactPhone}
                 keyboardType="phone-pad"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="tel"
                 maxLength={15}
+                onFocus={() => setFocusedField('contactPhone')}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
           </View>
@@ -279,36 +284,40 @@ const ShippingScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Address Details</Text>
           <Text style={styles.inputLabel}>Street Address *</Text>
           <TextInput
-            style={styles.input}
+            style={[styles.input, focusedField === 'street' && styles.inputFocused]}
             placeholder="123 Main Street"
             value={street}
             onChangeText={setStreet}
-            placeholderTextColor={colors.textSecondary}
+            placeholderTextColor="#7A8FA6"
             autoComplete="street-address"
             maxLength={255}
+            onFocus={() => setFocusedField('street')}
+            onBlur={() => setFocusedField(null)}
           />
           
           <View style={styles.row}>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>City *</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'town' && styles.inputFocused]}
                 placeholder="Pretoria"
                 value={town}
                 onChangeText={setTown}
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="address-level2"
                 maxLength={100}
+                onFocus={() => setFocusedField('town')}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Province</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.inputReadOnly]}
                 placeholder="Gauteng"
                 value={province}
                 onChangeText={setProvince}
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="address-level1"
                 maxLength={100}
               />
@@ -319,24 +328,26 @@ const ShippingScreen: React.FC = () => {
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Zip Code</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, focusedField === 'zip' && styles.inputFocused]}
                 placeholder="0001"
                 value={zip}
                 onChangeText={setZip}
                 keyboardType="number-pad"
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="postal-code"
                 maxLength={10}
+                onFocus={() => setFocusedField('zip')}
+                onBlur={() => setFocusedField(null)}
               />
             </View>
             <View style={styles.halfInputContainer}>
               <Text style={styles.inputLabel}>Country</Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, styles.inputReadOnly]}
                 placeholder="South Africa"
                 value={country}
                 onChangeText={setCountry}
-                placeholderTextColor={colors.textSecondary}
+                placeholderTextColor="#7A8FA6"
                 autoComplete="country"
                 maxLength={100}
               />
@@ -350,9 +361,9 @@ const ShippingScreen: React.FC = () => {
               disabled={locationLoading || loading}
             >
               {locationLoading ? (
-                <ActivityIndicator color={colors.buttonText} size="small" />
+                <ActivityIndicator color="#fff" size="small" />
               ) : (
-                <Ionicons name="navigate" size={20} color={colors.buttonText} />
+                <Ionicons name="navigate" size={20} color="#fff" />
               )}
               <Text style={styles.locationButtonText}>
                 {locationLoading ? 'Getting Location...' : 'Use My Location'}
@@ -364,7 +375,7 @@ const ShippingScreen: React.FC = () => {
               onPress={handleClearForm} 
               disabled={loading || locationLoading}
             >
-              <Ionicons name="refresh" size={20} color={colors.textPrimary} />
+              <Ionicons name="trash-outline" size={20} color="#fff" />
               <Text style={styles.clearButtonText}>Clear</Text>
             </TouchableOpacity>
           </View>
@@ -376,9 +387,12 @@ const ShippingScreen: React.FC = () => {
           disabled={loading}
         >
           {loading ? (
-            <ActivityIndicator color={colors.buttonText} />
+            <ActivityIndicator color="#fff" />
           ) : (
-            <Text style={styles.continueButtonText}>Continue to Payment</Text>
+            <>
+              <Ionicons name="lock-closed" size={18} color="#fff" />
+              <Text style={styles.continueButtonText}>Continue to Payment</Text>
+            </>
           )}
         </TouchableOpacity>
       </ScrollView>
@@ -415,11 +429,16 @@ const styles = StyleSheet.create({
   },
   formCard: {
     backgroundColor: colors.card,
-    borderRadius: 4,
+    borderRadius: 12,
     padding: 16,
     borderWidth: 1,
     borderColor: colors.border,
     marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.06,
+    shadowRadius: 12,
+    elevation: 2,
   },
   sectionTitle: {
     fontSize: 14,
@@ -443,43 +462,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   input: { 
-    borderRadius: 4, 
+    borderRadius: 8, 
     padding: 10, 
     marginBottom: 12,
     fontSize: 14,
-    backgroundColor: colors.card,
+    backgroundColor: '#F8F9FA',
     color: colors.textPrimary,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
+    borderWidth: 1.5,
+    borderColor: '#E0E0E0',
+  },
+  inputFocused: {
+    borderColor: '#FFB81C',
+    backgroundColor: '#FFFDF0',
+  },
+  inputReadOnly: {
+    backgroundColor: '#F0F4F0',
+    borderColor: '#FFB81C',
+    color: colors.textSecondary,
   },
   buttonRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginTop: 6,
+    marginBottom: 8,
     gap: 10,
   },
   locationButton: { 
-    backgroundColor: colors.primary, 
-    padding: 10, 
-    borderRadius: 4, 
+    backgroundColor: '#002395', 
+    padding: 12, 
+    borderRadius: 8, 
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
   },
   clearButton: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.border,
-    padding: 10,
-    borderRadius: 4,
+    backgroundColor: '#DE3831',
+    padding: 12,
+    borderRadius: 8,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 90,
   },
   clearButtonText: {
-    color: colors.textPrimary,
+    color: '#fff',
     fontWeight: '600',
     fontSize: 13,
     marginLeft: 6,
@@ -488,24 +515,29 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   locationButtonText: { 
-    color: colors.white, 
+    color: '#fff', 
     fontWeight: '600',
     fontSize: 13,
     marginLeft: 6,
   },
   continueButton: { 
-    backgroundColor: colors.primary, 
-    padding: 12, 
-    borderRadius: 4, 
+    backgroundColor: '#007A4D', 
+    paddingVertical: 14,
+    paddingHorizontal: 12,
+    borderRadius: 8, 
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 8,
   },
   continueButtonDisabled: {
     opacity: 0.7,
   },
   continueButtonText: { 
-    color: colors.white, 
-    fontWeight: '600', 
-    fontSize: 14,
+    color: '#fff', 
+    fontWeight: '700', 
+    fontSize: 15,
   },
 });
 

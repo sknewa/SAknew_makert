@@ -1,0 +1,500 @@
+﻿
+  const handleCreateStatus = () => {
+    navigation.navigate('CreateStatus');
+  };
+
+  // getImageUrl is now imported from utils/imageUtils
+
+  // Format currency
+  const formatCurrency = (amount: string | number): string => {
+    const num = typeof amount === 'string' ? parseFloat(amount) : amount;
+    return `R${(num || 0).toFixed(2)}`;
+  };
+
+  // Fetch categories
+  const fetchCategories = useCallback(async () => {
+    try {
+      const response = await shopService.getCategories();
+      const categoryList = Array.isArray(response) ? response : response.results || [];
+      setCategories([{ id: 0, name: 'All', slug: 'all' }, ...categoryList]);
+    } catch (err) {
+      // Categories not critical
+    }
+  }, []);
+
+  // Apply filters to products
+  const filteredProducts = useMemo(() => {
+    let filtered = [...products];
+    
+    // Distance filter
+    if (distanceFilter !== null && userLocation) {
+      filtered = filtered.filter(product => {
+        if ((product as any).shop_latitude && (product as any).shop_longitude) {
+          const distance = calculateDistance(
+            userLocation.latitude, 
+            userLocation.longitude, 
+            (product as any).shop_latitude, 
+            (product as any).shop_longitude
+          );
+          return distance < distanceRange;
+        }
+        return false;
+      });
+    }
+    
+    // Price filter
+    if (priceFilter === 'low') {
+      filtered = filtered.filter(product => parseFloat(product.display_price || product.price) < 1500);
+    } else if (priceFilter === 'high') {
+      filtered = filtered.filter(product => parseFloat(product.display_price || product.price) >= 1500);
+    }
+    
+    return filtered;
+  }, [products, distanceFilter, priceFilter, userLocation]);
+
+  // Filter and sort categories based on product count from all products, not filtered
+  const visibleCategories = useMemo(() => {
+    if (categories.length === 0) return [];
+    
+    const allCategoryName = categories[0];
+    const categoriesWithCount = categories.slice(1).map(cat => ({
+      ...cat,
+      productCount: allProducts.filter(p => p.category_name === cat.name).length
+    })).filter(cat => cat.productCount > 0).sort((a, b) => b.productCount - a.productCount);
+    
+    return [allCategoryName, ...categoriesWithCount];
+  }, [categories, allProducts]);
+
+  // Memoize the category data structure for the FlatList to prevent re-renders
+  const categorySections = useMemo(() => {
+    // Use filtered products if filters are active, otherwise use grouped products
+    if (distanceFilter || priceFilter) {
+      const grouped = filteredProducts.reduce((acc, product) => {
+        const categoryName = product.category_name || 'Other';
+        if (!acc[categoryName]) acc[categoryName] = [];
+        acc[categoryName].push(product);
+        return acc;
+      }, {} as {[key: string]: AppProduct[]});
+      
+      return Object.entries(grouped);
+    }
+    
+    return Object.entries(groupedProducts);
+  }, [filteredProducts, groupedProducts, distanceFilter, priceFilter]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const location = await Location.getCurrentPositionAsync({});
+          setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+        } else {
+          // Location denied â€” fetch products without location immediately
+          fetchProducts();
+        }
+      } catch (err) {
+        // Location unavailable â€” fetch products without location
+        fetchProducts();
+      }
+    })();
+  }, []);
+
+  const enrichProductWithShopData = useCallback((product: ServiceProduct) => {
+    // shop_latitude and shop_longitude now come directly from the API
+    return product;
+  }, []);
+
+  const fetchProducts = useCallback(async (categorySlug?: string) => {
+    setProductsLoading(true);
+    setError(null);
+    try {
+      const response = await shopService.getRecommendedProducts(1, 100, userLocation?.latitude, userLocation?.longitude);
+      
+      const isPaginatedResponse = response && typeof response === 'object' && 'results' in response;
+      
+      if (response && (isPaginatedResponse || Array.isArray(response))) {
+        const productList = Array.isArray(response) ? response : (isPaginatedResponse ? (response as PaginatedResponse<ServiceProduct>).results : []);
+        
+        const enrichedProducts = productList.map(enrichProductWithShopData);
+        let convertedProducts = enrichedProducts.map(convertServiceProduct);
+        
+        if (userLocation) {
+          convertedProducts = convertedProducts.sort((a, b) => {
+            const distA = (a as any).shop_latitude && (a as any).shop_longitude 
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, (a as any).shop_latitude, (a as any).shop_longitude)
+              : Infinity;
+            const distB = (b as any).shop_latitude && (b as any).shop_longitude
+              ? calculateDistance(userLocation.latitude, userLocation.longitude, (b as any).shop_latitude, (b as any).shop_longitude)
+              : Infinity;
+            return distA - distB;
+          });
+        }
+        
+        setAllProducts(convertedProducts);
+        
+        const filteredProducts = categorySlug && categorySlug !== 'all'
+          ? convertedProducts.filter(p => p.category_slug === categorySlug)
+          : convertedProducts;
+        
+        setProducts(filteredProducts);
+        
+        const grouped = filteredProducts.reduce((acc, product) => {
+          const categoryName = product.category_name || 'Other';
+          if (!acc[categoryName]) acc[categoryName] = [];
+          acc[categoryName].push(product);
+          return acc;
+        }, {} as {[key: string]: AppProduct[]});
+        
+        // Sort categories by proximity of their closest product
+        const sortedGrouped: {[key: string]: AppProduct[]} = {};
+        const categoryDistances = Object.entries(grouped).map(([categoryName, products]) => {
+          const minDistance = Math.min(...products.map(p => {
+            if ((p as any).shop_latitude && (p as any).shop_longitude && userLocation) {
+              return calculateDistance(userLocation.latitude, userLocation.longitude, (p as any).shop_latitude, (p as any).shop_longitude);
+            }
+            return Infinity;
+          }));
+          return { categoryName, products, minDistance };
+        }).sort((a, b) => a.minDistance - b.minDistance);
+        
+        categoryDistances.forEach(({ categoryName, products }) => {
+          sortedGrouped[categoryName] = products;
+        });
+        
+        setGroupedProducts(sortedGrouped);
+      } else {
+        setProducts([]);
+        setError(null);
+      }
+    } catch (err: any) {
+      setError('Unable to connect to the server. Please check your internet connection.');
+    } finally {
+      setProductsLoading(false);
+      setRefreshing(false);
+    }
+  }, [userLocation]);
+
+  // Search products
+  const handleSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setIsSearching(false);
+      fetchProducts();
+      return;
+    }
+    
+    setIsSearching(true);
+    setProductsLoading(true);
+    try {
+      const response = await shopService.searchProducts(query);
+      const isPaginatedResponse = response && typeof response === 'object' && 'results' in response;
+      
+      if (isPaginatedResponse) {
+        const convertedProducts = (response as PaginatedResponse<ServiceProduct>).results.map(convertServiceProduct);
+        setProducts(convertedProducts);
+        const grouped = convertedProducts.reduce((acc, product) => {
+          const categoryName = product.category_name || 'Other';
+          if (!acc[categoryName]) acc[categoryName] = [];
+          acc[categoryName].push(product);
+          return acc;
+        }, {} as {[key: string]: AppProduct[]});
+        setGroupedProducts(grouped);
+      } else {
+        setProducts([]);
+        setGroupedProducts({});
+        setError(null);
+      }
+    } catch (err: any) {
+      setError('Search failed. Please try again later.');
+    } finally {
+      setProductsLoading(false);
+    }
+  }, [fetchProducts]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      handleSearch(searchQuery);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchQuery, handleSearch]);
+
+  // Fetch unread messages count
+  const fetchUnreadCount = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const conversations = await messagingService.getConversations();
+      const total = conversations.reduce((sum, conv) => sum + conv.unread_count, 0);
+      setUnreadMessages(total);
+    } catch (err) {
+      // Messages not critical
+    }
+  }, [isAuthenticated]);
+
+  // Fetch personalized recommendations
+  const fetchRecommendations = useCallback(async () => {
+    if (!isAuthenticated) return;
+    try {
+      const [forYou, recentlyViewed, trending] = await Promise.all([
+        shopService.getForYouProducts(),
+        shopService.getRecentlyViewedProducts(),
+        shopService.getRecommendedProducts(1, 20, userLocation?.latitude, userLocation?.longitude)
+      ]);
+      
+      setForYouProducts(Array.isArray(forYou) ? forYou.map(convertServiceProduct) : []);
+      setRecentlyViewedProducts(Array.isArray(recentlyViewed) ? recentlyViewed.map(convertServiceProduct) : []);
+      const trendingResults = Array.isArray(trending) ? trending : trending.results || [];
+      setTrendingProducts(trendingResults.slice(0, 8).map(convertServiceProduct));
+    } catch (err) {
+      // Recommendations not critical
+    }
+  }, [isAuthenticated, userLocation]);
+
+  // Refetch products when location becomes available
+  useEffect(() => {
+    if (userLocation) {
+      fetchProducts();
+    }
+  }, [userLocation]);
+
+  // Load categories and products when screen is focused
+  useFocusEffect(
+    useCallback(() => {
+      setStatusRefreshTrigger(prev => prev + 1);
+      fetchCategories();
+      fetchUnreadCount();
+      fetchRecommendations();
+      fetchProducts();
+    }, [fetchProducts, fetchCategories, fetchUnreadCount, fetchRecommendations])
+  );
+
+  // Pull to refresh
+  const onRefresh = useCallback(() => {
+    setRefreshing(true);
+    setSearchQuery('');
+    setSelectedCategory('all');
+    fetchProducts();
+  }, [fetchProducts]);
+
+  // Handle category selection
+  const handleCategorySelect = useCallback((categorySlug: string) => {
+    setSelectedCategory(categorySlug);
+    setSearchQuery('');
+    fetchProducts(categorySlug === 'all' ? undefined : categorySlug);
+  }, [fetchProducts]);
+
+  return (
+    <SafeAreaView style={globalStyles.safeContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+      {/* SA flag bar */}
+      <View style={styles.flagBar}>
+        {['#007A4D','#FFB81C','#DE3831','#002395','#000','#fff'].map((c,i)=>(
+          <View key={i} style={[styles.flagSeg,{backgroundColor:c}]} />
+        ))}
+      </View>
+      {/* Header */}
+      <View style={styles.header}>
+        <View style={styles.headerBrand}>
+          <Image source={require('../../img/weblog.jpg')} style={styles.headerLogo} />
+          <Text style={styles.headerTitle}><Text style={styles.headerSA}>SA</Text>Makert</Text>
+        </View>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.howItWorksButton}
+            onPress={() => navigation.navigate('HowItWorks' as any)}
+            accessibilityLabel="How it works"
+          >
+            <Ionicons name="help-circle-outline" size={20} color="#333" />
+            <Text style={styles.howItWorksText}>How it works</Text>
+          </TouchableOpacity>
+          {isAuthenticated ? (
+            <TouchableOpacity
+              style={styles.logoutButton}
+              onPress={logout}
+              disabled={loading}
+              accessibilityLabel="Logout"
+            >
+              <Ionicons name="log-out-outline" size={20} color="#444" />
+              <Text style={styles.logoutText}>Logout</Text>
+            </TouchableOpacity>
+          ) : (
+            <>
+              <TouchableOpacity
+                style={styles.loginButton}
+                onPress={() => navigation.navigate('Login' as any)}
+                accessibilityLabel="Login"
+              >
+                <Ionicons name="log-in-outline" size={20} color="#333" />
+                <Text style={styles.loginText}>Login</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.registerButton}
+                onPress={() => navigation.navigate('Register' as any)}
+                accessibilityLabel="Register"
+              >
+                <Ionicons name="person-add-outline" size={20} color="#333" />
+                <Text style={styles.registerText}>Register</Text>
+              </TouchableOpacity>
+            </>
+          )}
+        </View>
+      </View>
+      
+      {/* Status Section */}
+      <View style={styles.statusSectionContainer}>
+        <StatusSection 
+          onStatusPress={handleStatusPress}
+          onCreateStatus={handleCreateStatus}
+          refreshTrigger={statusRefreshTrigger}
+        />
+      </View>
+      
+      {/* Filter Bar */}
+      <View style={styles.filterChipsContainer}>
+        <View style={styles.filterRow}>
+          {/* KM Dropdown */}
+          <View style={styles.kmDropdownWrapper}>
+            <TouchableOpacity
+              style={[styles.kmDropdownBtn, distanceFilter !== null && styles.kmDropdownBtnActive]}
+              onPress={() => setShowKmDropdown(!showKmDropdown)}
+            >
+              <Ionicons name="location-outline" size={13} color={distanceFilter !== null ? 'white' : colors.primary} />
+              <Text style={[styles.kmDropdownText, distanceFilter !== null && styles.kmDropdownTextActive]}>
+                {distanceFilter !== null ? `${distanceRange}km` : 'Distance'}
+              </Text>
+              <Ionicons name={showKmDropdown ? 'chevron-up' : 'chevron-down'} size={12} color={distanceFilter !== null ? 'white' : colors.primary} />
+            </TouchableOpacity>
+            {showKmDropdown && (
+              <View style={styles.kmDropdownMenu}>
+                {[5, 10, 25, 50, 100].map((km) => (
+                  <TouchableOpacity
+                    key={km}
+                    style={[styles.kmDropdownItem, distanceRange === km && distanceFilter !== null && styles.kmDropdownItemActive]}
+                    onPress={() => {
+                      setDistanceRange(km);
+                      setDistanceFilter(km);
+                      setCustomKm('');
+                      setShowKmDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.kmDropdownItemText, distanceRange === km && distanceFilter !== null && styles.kmDropdownItemTextActive]}>{km} km</Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={styles.kmCustomRow}>
+                  <TextInput
+                    style={styles.kmCustomInput}
+                    placeholder="Custom km"
+                    placeholderTextColor={colors.textSecondary}
+                    value={customKm}
+                    onChangeText={(t) => {
+                      const val = t.replace(/[^0-9]/g, '');
+                      setCustomKm(val);
+                      if (val) {
+                        setDistanceRange(parseInt(val));
+                        setDistanceFilter(parseInt(val));
+                      }
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <TouchableOpacity
+                    style={styles.kmCustomApply}
+                    onPress={() => setShowKmDropdown(false)}
+                  >
+                    <Text style={styles.kmCustomApplyText}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+                {distanceFilter !== null && (
+                  <TouchableOpacity
+                    style={styles.kmClearBtn}
+                    onPress={() => { setDistanceFilter(null); setCustomKm(''); setShowKmDropdown(false); }}
+                  >
+                    <Text style={styles.kmClearText}>Clear Filter</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.filterChip, priceFilter === 'low' && styles.filterChipActive]}
+            onPress={() => setPriceFilter(priceFilter === 'low' ? null : 'low')}
+          >
+            <Ionicons name="arrow-down" size={12} color={priceFilter === 'low' ? 'white' : colors.primary} />
+            <Text style={[styles.filterChipText, priceFilter === 'low' && styles.filterChipTextActive]}>Low</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterChip, priceFilter === 'high' && styles.filterChipActive]}
+            onPress={() => setPriceFilter(priceFilter === 'high' ? null : 'high')}
+          >
+            <Ionicons name="arrow-up" size={12} color={priceFilter === 'high' ? 'white' : colors.primary} />
+            <Text style={[styles.filterChipText, priceFilter === 'high' && styles.filterChipTextActive]}>High</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.searchIconButton}
+            onPress={() => setShowSearchInput(!showSearchInput)}
+          >
+            <Ionicons name="search" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
+      </View>
+      
+      {/* Expandable Search Input */}
+      {showSearchInput && (
+        <View style={styles.searchContainer}>
+          <View style={styles.searchBar}>
+            <Ionicons name="search" size={18} color={colors.textSecondary} style={styles.searchIcon} />
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Search products..."
+              placeholderTextColor={colors.textSecondary}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              returnKeyType="search"
+              autoFocus
+            />
+            {searchQuery ? (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+              </TouchableOpacity>
+            ) : null}
+            <TouchableOpacity onPress={() => setShowSearchInput(false)} style={styles.closeSearchButton}>
+              <Ionicons name="close" size={18} color={colors.textSecondary} />
+            </TouchableOpacity>
+          </View>
+        </View>
+      )}
+      
+      {/* Categories Navigation */}
+      {visibleCategories.length > 0 && (
+        <View style={styles.categoriesContainer}>
+          <FlatList
+            data={visibleCategories}
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            keyExtractor={(item) => item.slug}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[
+                  styles.categoryItem,
+                  selectedCategory === item.slug && styles.activeCategoryItem
+                ]}
+                onPress={() => handleCategorySelect(item.slug)}
+              >
+                <Text style={[
+                  styles.categoryText,
+                  selectedCategory === item.slug && styles.activeCategoryText
+                ]}>
+                  {item.name}
+                </Text>
+              </TouchableOpacity>
+            )}
+            contentContainerStyle={styles.categoriesList}
+          />
+        </View>
+      )}
+
+      {/* Main Content */}
+      {productsLoading && !refreshing ? (
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color={colors.primary} />
+          <Text style={styles.loadingText}>Loading products...</Text>

@@ -59,13 +59,16 @@ interface Order {
 const colors = {
   background: '#F8F9FA',
   card: '#FFFFFF',
-  primary: '#28A745',
-  info: '#17A2B8',
-  warning: '#FFC107',
-  error: '#DC3545',
-  text: '#212529',
-  textLight: '#6C757D',
-  border: '#DEE2E6',
+  primary:   '#007A4D',  // SA Green
+  blue:      '#002395',  // SA Blue
+  gold:      '#FFB81C',  // SA Gold
+  red:       '#DE3831',  // SA Red
+  info:      '#002395',
+  warning:   '#FFB81C',
+  error:     '#DE3831',
+  text:      '#111111',
+  textLight: '#555555',
+  border:    '#E0E0E0',
 };
 
 const formatCurrency = (amount: string | number): string => {
@@ -415,8 +418,12 @@ const SellerOrdersScreen: React.FC = () => {
             </View>
             <Text style={styles.orderDate}>{new Date(order.order_date).toLocaleDateString()}</Text>
           </View>
-          <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.order_status) + '20' }]}>
-            <Text style={[styles.statusText, { color: getStatusColor(order.order_status) }]}>
+          <View style={[styles.statusBadge, {
+              backgroundColor: order.order_status === 'processing' ? '#FFB81C' : getStatusColor(order.order_status) + '20'
+            }]}>
+            <Text style={[styles.statusText, {
+              color: order.order_status === 'processing' ? '#fff' : getStatusColor(order.order_status)
+            }]}>
               {getStatusText(order.order_status)}
             </Text>
           </View>
@@ -458,23 +465,23 @@ const SellerOrdersScreen: React.FC = () => {
               setExpandedOrders(newExpanded);
             }}
           >
-            <Ionicons name="person-circle" size={14} color={colors.primary} />
+            <Ionicons name="person-circle" size={14} color="#002395" />
             <Text style={styles.expandButtonText}>
               {isExpanded ? 'Hide' : 'Show'} Customer Details
             </Text>
-            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color={colors.primary} />
+            <Ionicons name={isExpanded ? 'chevron-up' : 'chevron-down'} size={14} color="#002395" />
           </TouchableOpacity>
         )}
 
         {(!isHistory || isExpanded) && (
           <View style={styles.buyerInfoCard}>
           <View style={styles.buyerInfoHeader}>
-            <Ionicons name="person-circle" size={16} color={colors.primary} />
+            <Ionicons name="person-circle" size={16} color="#002395" />
             <Text style={styles.buyerInfoTitle}>Customer Details</Text>
           </View>
           
           <View style={styles.infoRow}>
-            <Ionicons name="person" size={14} color={colors.textLight} />
+            <Ionicons name="person" size={14} color="#002395" />
             <Text style={styles.infoLabel}>Name:</Text>
             <Text style={styles.infoText}>{buyerName}</Text>
           </View>
@@ -493,14 +500,14 @@ const SellerOrdersScreen: React.FC = () => {
                 );
               }}
             >
-              <Ionicons name="call" size={14} color={colors.primary} />
+              <Ionicons name="call" size={14} color="#007A4D" />
               <Text style={styles.infoLabel}>Phone:</Text>
-              <Text style={[styles.infoText, { color: colors.primary, fontWeight: '600' }]}>{buyerPhone}</Text>
+              <Text style={[styles.infoText, { color: '#007A4D', fontWeight: '700' }]}>{buyerPhone}</Text>
             </TouchableOpacity>
           )}
           
           <View style={styles.infoRow}>
-            <Ionicons name="mail" size={14} color={colors.textLight} />
+            <Ionicons name="mail" size={14} color="#002395" />
             <Text style={styles.infoLabel}>Email:</Text>
             <Text style={styles.infoText} numberOfLines={1}>{buyerEmail}</Text>
           </View>
@@ -508,7 +515,7 @@ const SellerOrdersScreen: React.FC = () => {
           <View style={styles.divider} />
           
           <View style={styles.deliveryHeader}>
-            <Ionicons name="location" size={16} color={colors.error} />
+            <Ionicons name="location" size={16} color="#002395" />
             <Text style={styles.deliveryTitle}>Delivery Location</Text>
           </View>
           
@@ -568,7 +575,7 @@ const SellerOrdersScreen: React.FC = () => {
                 style={styles.messageBtn}
                 onPress={() => handleMessageCustomer(order)}
               >
-                <Ionicons name={order.user ? 'chatbubble-outline' : 'mail-outline'} size={14} color={colors.primary} />
+                <Ionicons name={order.user ? 'chatbubble-outline' : 'mail-outline'} size={14} color="#002395" />
                 <Text style={styles.messageBtnText}>{order.user ? 'Message' : 'Email'}</Text>
               </TouchableOpacity>
               {order.user && (
@@ -576,7 +583,7 @@ const SellerOrdersScreen: React.FC = () => {
                   style={styles.cancelOrderBtn}
                   onPress={() => handleCancelOrder(order)}
                 >
-                  <Ionicons name="close-circle" size={14} color={colors.error} />
+                  <Ionicons name="close-circle" size={14} color="#DE3831" />
                   <Text style={styles.cancelOrderBtnText}>Cancel</Text>
                 </TouchableOpacity>
               )}
@@ -641,13 +648,13 @@ const SellerOrdersScreen: React.FC = () => {
 
       <View style={styles.tabContainer}>
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'active' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'active' ? styles.activeTab : styles.inactiveTab]}
           onPress={() => setActiveTab('active')}
         >
           <Text style={[styles.tabText, activeTab === 'active' && styles.activeTabText]}>Active</Text>
         </TouchableOpacity>
         <TouchableOpacity 
-          style={[styles.tab, activeTab === 'completed' && styles.activeTab]}
+          style={[styles.tab, activeTab === 'completed' ? styles.activeTab : styles.inactiveTab]}
           onPress={() => setActiveTab('completed')}
         >
           <Text style={[styles.tabText, activeTab === 'completed' && styles.activeTabText]}>History</Text>
@@ -766,7 +773,7 @@ const styles = StyleSheet.create({
   header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 10, paddingVertical: 8, backgroundColor: colors.card, elevation: 1 },
   headerLeft: { flexDirection: 'row', alignItems: 'center', flex: 1 },
   headerTitle: { fontSize: 16, fontWeight: '700', color: colors.text },
-  newOrdersBadge: { backgroundColor: colors.error, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 8 },
+  newOrdersBadge: { backgroundColor: '#DE3831', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 8 },
   newOrdersText: { color: colors.card, fontSize: 10, fontWeight: '600' },
   refreshButton: { padding: 6 },
   content: { flex: 1, paddingHorizontal: 10, paddingTop: 8 },
@@ -775,22 +782,28 @@ const styles = StyleSheet.create({
   emptyText: { fontSize: 14, fontWeight: '600', color: colors.text, marginTop: 12 },
   emptySubText: { fontSize: 11, color: colors.textLight, textAlign: 'center', marginTop: 6, paddingHorizontal: 24 },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 8, padding: 10, marginBottom: 10, elevation: 1, borderWidth: 1, borderColor: colors.border },
+  orderCard: {
+    backgroundColor: colors.card, borderRadius: 10, padding: 10, marginBottom: 10,
+    elevation: 2, borderWidth: 1, borderColor: colors.border,
+    borderLeftWidth: 4, borderLeftColor: '#FFB81C',
+    shadowColor: '#C8A96E', shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.12, shadowRadius: 8,
+  },
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 8 },
   orderId: { fontSize: 13, fontWeight: '700', color: colors.text },
   orderDate: { fontSize: 10, color: colors.textLight, marginTop: 2 },
   statusBadge: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 12 },
   statusText: { fontSize: 10, fontWeight: '600' },
   
-  buyerInfoCard: { backgroundColor: '#EFF6FF', borderRadius: 6, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#BFDBFE' },
-  buyerInfoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#BFDBFE' },
-  buyerInfoTitle: { fontSize: 12, fontWeight: '700', color: colors.primary, marginLeft: 6 },
+  buyerInfoCard: { backgroundColor: '#EEF1FF', borderRadius: 8, padding: 10, marginBottom: 8, borderWidth: 1, borderColor: '#C5CAE9' },
+  buyerInfoHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#C5CAE9' },
+  buyerInfoTitle: { fontSize: 12, fontWeight: '700', color: '#002395', marginLeft: 6 },
   infoRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 6, paddingVertical: 2 },
   infoLabel: { fontSize: 11, fontWeight: '600', color: colors.textLight, marginLeft: 6, width: 50 },
   infoText: { fontSize: 11, color: colors.text, marginLeft: 4, flex: 1, lineHeight: 16, flexShrink: 1 },
   divider: { height: 1, backgroundColor: '#BFDBFE', marginVertical: 8 },
   deliveryHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 6 },
-  deliveryTitle: { fontSize: 12, fontWeight: '700', color: colors.error, marginLeft: 6 },
+  deliveryTitle: { fontSize: 12, fontWeight: '700', color: '#002395', marginLeft: 6 },
   deliveryAddress: { fontSize: 11, color: colors.text, lineHeight: 16, marginBottom: 8, paddingLeft: 20 },
   mapButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, marginTop: 4 },
   mapButtonText: { color: colors.card, fontSize: 11, fontWeight: '600', marginLeft: 4 },
@@ -800,17 +813,17 @@ const styles = StyleSheet.create({
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 8, borderBottomWidth: 1, borderBottomColor: colors.border },
   productImage: { width: 40, height: 40, borderRadius: 6, marginRight: 8 },
   itemDetails: { flex: 1 },
-  productName: { fontSize: 12, fontWeight: '600', color: colors.text, marginBottom: 2 },
+  productName: { fontSize: 12, fontWeight: '700', color: '#111', marginBottom: 2 },
   itemPrice: { fontSize: 10, color: colors.textLight },
-  itemSubtotal: { fontSize: 12, fontWeight: '600', color: colors.primary },
+  itemSubtotal: { fontSize: 12, fontWeight: '700', color: '#007A4D' },
   itemCount: { fontSize: 11, color: colors.textLight },
   orderTotal: { fontSize: 14, fontWeight: '700', color: colors.text },
   
   actionButtons: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 4 },
-  deliveredBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.primary, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6 },
-  actionBtnText: { color: colors.card, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  deliveredBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#007A4D', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 8, shadowColor: '#007A4D', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.25, shadowRadius: 4, elevation: 3 },
+  actionBtnText: { color: '#fff', fontSize: 12, fontWeight: '700', marginLeft: 4 },
   completedBadge: { flexDirection: 'row', alignItems: 'center' },
-  completedText: { color: colors.primary, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  completedText: { color: '#007A4D', fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { backgroundColor: colors.card, borderRadius: 12, padding: 16, width: '90%', maxWidth: 400 },
@@ -826,25 +839,26 @@ const styles = StyleSheet.create({
   confirmBtnText: { color: colors.card, fontWeight: '600', fontSize: 12 },
   
   tabContainer: { flexDirection: 'row', backgroundColor: colors.card, paddingHorizontal: 10, paddingVertical: 6 },
-  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6, marginHorizontal: 2 },
-  activeTab: { backgroundColor: colors.primary },
-  tabText: { fontSize: 12, fontWeight: '600', color: colors.textLight },
-  activeTabText: { color: colors.card },
+  tab: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6, marginHorizontal: 2, borderWidth: 1.5, borderColor: 'transparent' },
+  activeTab: { backgroundColor: '#007A4D', borderColor: '#007A4D' },
+  inactiveTab: { borderColor: '#002395', backgroundColor: 'transparent' },
+  tabText: { fontSize: 12, fontWeight: '600', color: '#002395' },
+  activeTabText: { color: '#fff' },
   
   cancellationBox: { marginBottom: 8, padding: 8, backgroundColor: '#FEE2E2', borderRadius: 6, borderWidth: 1, borderColor: '#FCA5A5' },
   cancellationHeader: { flexDirection: 'row', alignItems: 'center', marginBottom: 4 },
   cancellationLabel: { fontSize: 11, fontWeight: '700', color: colors.error, marginLeft: 4 },
   cancellationText: { fontSize: 10, color: '#991B1B', lineHeight: 14, fontWeight: '500' },
   
-  expandButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6, marginBottom: 8, backgroundColor: '#F0F9FF', borderRadius: 6, borderWidth: 1, borderColor: '#BFDBFE' },
-  expandButtonText: { fontSize: 11, fontWeight: '600', color: colors.primary, marginHorizontal: 6 },
+  expandButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 6, marginBottom: 8, backgroundColor: '#EEF1FF', borderRadius: 6, borderWidth: 1, borderColor: '#C5CAE9' },
+  expandButtonText: { fontSize: 11, fontWeight: '600', color: '#002395', marginHorizontal: 6 },
   
-  messageBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.primary, marginRight: 8 },
-  messageBtnText: { color: colors.primary, fontSize: 11, fontWeight: '600', marginLeft: 4 },
-  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1, borderColor: colors.error, marginRight: 8 },
-  cancelOrderBtnText: { color: colors.error, fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  messageBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1.5, borderColor: '#002395', marginRight: 8 },
+  messageBtnText: { color: '#002395', fontSize: 11, fontWeight: '600', marginLeft: 4 },
+  cancelOrderBtn: { flexDirection: 'row', alignItems: 'center', backgroundColor: colors.card, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 6, borderWidth: 1.5, borderColor: '#DE3831', marginRight: 8 },
+  cancelOrderBtnText: { color: '#DE3831', fontSize: 11, fontWeight: '600', marginLeft: 4 },
   
-  sizeBadge: { backgroundColor: colors.primary, paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  sizeBadge: { backgroundColor: '#007A4D', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
   sizeText: { color: colors.card, fontSize: 9, fontWeight: '700' },
 });
 

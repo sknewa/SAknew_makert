@@ -16,13 +16,14 @@ import ShopOwnerNavigator, { ShopOwnerStackParamList } from './ShopOwnerNavigato
 import CreateShopScreen from '../screens/ShopOwner/CreateShopScreen';
 
 const colors = {
-  primary: '#27AE60',
-  card: '#FFFFFF',
-  textSecondary: '#7F8C8D',
-  error: '#E74C3C',
-  white: '#FFFFFF',
-  shadowColor: '#000',
-  border: '#D0D3D4',
+  primary:       '#007A4D',  // SA Green
+  gold:          '#FFB81C',  // SA Gold
+  card:          '#FFFFFF',
+  textSecondary: '#333333',  // Dark grey inactive
+  error:         '#DE3831',  // SA Red
+  white:         '#FFFFFF',
+  shadowColor:   '#000',
+  border:        '#FFB81C',  // Gold top border
 };
 
 export type BottomTabParamList = {
@@ -110,24 +111,24 @@ const MainTabNavigator = () => {
           }
           return <Ionicons name={iconName} size={size} color={color} />;
         },
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: colors.textSecondary,
+        tabBarActiveTintColor: '#007A4D',
+        tabBarInactiveTintColor: '#333333',
         tabBarStyle: {
-          backgroundColor: colors.card,
-          borderTopWidth: StyleSheet.hairlineWidth,
-          borderTopColor: colors.border,
-          elevation: 4,
-          shadowColor: colors.shadowColor,
-          shadowOffset: { width: 0, height: -1 },
-          shadowOpacity: 0.08,
-          shadowRadius: 3,
+          backgroundColor: '#FFFFFF',
+          borderTopWidth: 1,
+          borderTopColor: '#FFB81C',
+          elevation: 8,
+          shadowColor: '#000',
+          shadowOffset: { width: 0, height: -3 },
+          shadowOpacity: 0.12,
+          shadowRadius: 6,
           height: Platform.OS === 'ios' ? 70 : 56,
           paddingBottom: Platform.OS === 'ios' ? 12 : 6,
           paddingTop: 6,
         },
         tabBarLabelStyle: {
           fontSize: 9,
-          fontWeight: '500',
+          fontWeight: '700',
           marginTop: -1,
         },
         tabBarIconStyle: {
@@ -136,7 +137,7 @@ const MainTabNavigator = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'Home' }} />
+      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'SAknew' }} />
       <Tab.Screen 
         name="CartTab" 
         component={CartScreen} 
@@ -242,39 +243,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   walletBadge: {
-    position: 'absolute',
-    right: -10,
-    top: -5,
-    backgroundColor: colors.primary,
-    borderRadius: 6,
-    minWidth: 20,
-    height: 14,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
+    position: 'absolute', right: -10, top: -5,
+    backgroundColor: '#007A4D',
+    borderRadius: 6, minWidth: 20, height: 14,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
-  walletBadgeText: {
-    color: colors.white,
-    fontSize: 7,
-    fontWeight: 'bold',
-  },
+  walletBadgeText: { color: '#fff', fontSize: 7, fontWeight: 'bold' },
   badge: {
-    position: 'absolute',
-    right: -6,
-    top: -3,
-    backgroundColor: colors.error,
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 2,
+    position: 'absolute', right: -6, top: -3,
+    backgroundColor: '#DE3831',
+    borderRadius: 8, minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 2,
   },
-  badgeText: {
-    color: colors.white,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: 'bold' },
 });
 
 export default MainTabNavigator;

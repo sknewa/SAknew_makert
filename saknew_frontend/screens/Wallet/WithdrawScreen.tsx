@@ -10,18 +10,23 @@ import { colors } from '../../styles/globalStyles';
 import { getMyWallet } from '../../services/walletService';
 import BackButton from '../../components/BackButton';
 
-// ── App theme (matches globalStyles.ts) ──────────────────────
+// ── SA flag palette ──────────────────────────────────────────
 const C = {
   bg:           '#F4F6FB',
   surface:      '#FFFFFF',
   surfaceAlt:   '#F8FAFF',
-  border:       '#E8ECF4',
-  primary:      '#6C63FF',
-  primaryLight: '#EEF0FF',
-  success:      '#22C55E',
-  error:        '#EF4444',
-  textPrimary:  '#0F172A',
-  textSecondary:'#64748B',
+  border:       '#E0E0E0',
+  primary:      '#007A4D',   // SA Green  — primary action
+  primaryLight: '#E8F5EF',
+  blue:         '#002395',   // SA Blue   — selection & trust
+  blueLight:    '#EEF1FF',
+  gold:         '#FFB81C',   // SA Gold   — value & accents
+  goldLight:    '#FFF8E1',
+  red:          '#DE3831',   // SA Red    — errors
+  success:      '#007A4D',
+  error:        '#DE3831',
+  textPrimary:  '#111111',
+  textSecondary:'#555555',
   textMuted:    '#94A3B8',
 };
 
@@ -236,7 +241,7 @@ const WithdrawScreen: React.FC = () => {
         {/* Balance Card */}
         <View style={styles.balanceCard}>
           <View style={styles.balanceIconWrap}>
-            <Ionicons name="wallet-outline" size={22} color={C.primary} />
+            <Ionicons name="wallet-outline" size={22} color="#002395" />
           </View>
           <View>
             <Text style={styles.balanceLabel}>Available Balance</Text>
@@ -296,7 +301,7 @@ const WithdrawScreen: React.FC = () => {
             ) : (
               <Text style={styles.selectPlaceholder}>Select your bank</Text>
             )}
-            <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+            <Ionicons name="chevron-down" size={18} color="#111" />
           </TouchableOpacity>
 
           <Text style={styles.fieldLabel}>Account Holder Name *</Text>
@@ -321,7 +326,7 @@ const WithdrawScreen: React.FC = () => {
           <Text style={styles.fieldLabel}>Account Type</Text>
           <TouchableOpacity style={styles.selectField} onPress={() => setShowAccountTypeModal(true)}>
             <Text style={styles.selectFieldText}>{accountType}</Text>
-            <Ionicons name="chevron-down" size={18} color={C.textMuted} />
+            <Ionicons name="chevron-down" size={18} color="#111" />
           </TouchableOpacity>
         </View>
 
@@ -343,6 +348,13 @@ const WithdrawScreen: React.FC = () => {
         <Text style={styles.disclaimer}>
           Funds will be held as pending until processed by our team within 2 business days.
         </Text>
+
+        {/* SA flag ribbon */}
+        <View style={styles.flagRibbon}>
+          {['#007A4D','#000000','#DE3831','#FFB81C','#002395','#FFFFFF'].map((c, i) => (
+            <View key={i} style={[styles.flagSegment, { backgroundColor: c }]} />
+          ))}
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -363,37 +375,37 @@ const styles = StyleSheet.create({
   balanceCard: {
     backgroundColor: C.surface, borderRadius: 16, padding: 16,
     flexDirection: 'row', alignItems: 'center', gap: 14,
-    marginBottom: 16, borderWidth: 1, borderColor: C.border,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.08, shadowRadius: 16, elevation: 3,
+    marginBottom: 16, borderWidth: 2, borderColor: '#002395',
+    shadowColor: '#002395', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1, shadowRadius: 16, elevation: 3,
   },
   balanceIconWrap: {
     width: 48, height: 48, borderRadius: 24,
-    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center',
   },
-  balanceLabel: { fontSize: 12, color: C.textSecondary, marginBottom: 2 },
-  balanceAmount: { fontSize: 26, fontWeight: '800', color: C.textPrimary },
+  balanceLabel: { fontSize: 12, color: C.textSecondary, marginBottom: 2, fontWeight: '600', textTransform: 'uppercase', letterSpacing: 0.8 },
+  balanceAmount: { fontSize: 28, fontWeight: '800', color: '#111111' },
 
   // Cards / sections
   card: {
     backgroundColor: C.surface, borderRadius: 16, padding: 16,
     marginBottom: 16, borderWidth: 1, borderColor: C.border,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+    shadowColor: '#C8A96E', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12, shadowRadius: 10, elevation: 2,
   },
   sectionLabel: {
-    fontSize: 11, fontWeight: '700', color: C.textMuted,
+    fontSize: 11, fontWeight: '700', color: '#888',
     letterSpacing: 1.2, marginBottom: 14,
   },
 
   // Amount input
   amountInputWrap: {
     flexDirection: 'row', alignItems: 'center',
-    borderBottomWidth: 2, borderBottomColor: C.primary, paddingBottom: 8, marginBottom: 8,
+    borderBottomWidth: 2.5, borderBottomColor: '#FFB81C', paddingBottom: 8, marginBottom: 8,
   },
-  currencySymbol: { fontSize: 26, fontWeight: '700', color: C.textPrimary, marginRight: 6 },
-  amountInput:    { flex: 1, fontSize: 34, fontWeight: '800', color: C.textPrimary },
-  fieldError:     { fontSize: 12, color: C.error, marginBottom: 8 },
+  currencySymbol: { fontSize: 26, fontWeight: '700', color: '#111111', marginRight: 6 },
+  amountInput:    { flex: 1, fontSize: 34, fontWeight: '800', color: '#111111' },
+  fieldError:     { fontSize: 12, color: '#DE3831', marginBottom: 8, fontWeight: '600' },
 
   quickAmounts: { flexDirection: 'row', gap: 8, marginTop: 12 },
   quickBtn: {
@@ -401,19 +413,19 @@ const styles = StyleSheet.create({
     paddingVertical: 8, alignItems: 'center',
     borderWidth: 1.5, borderColor: C.border,
   },
-  quickBtnActive:     { backgroundColor: C.primaryLight, borderColor: C.primary },
-  quickBtnText:       { color: C.textSecondary, fontSize: 13, fontWeight: '600' },
-  quickBtnTextActive: { color: C.primary, fontWeight: '700' },
+  quickBtnActive:     { backgroundColor: '#002395', borderColor: '#002395' },
+  quickBtnText:       { color: C.textSecondary, fontSize: 13, fontWeight: '700' },
+  quickBtnTextActive: { color: '#FFFFFF', fontWeight: '800' },
 
   // Form fields
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: C.textSecondary, marginBottom: 6, marginTop: 12 },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: C.textSecondary, marginBottom: 6, marginTop: 12 },
   field: {
-    backgroundColor: C.surfaceAlt, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.surfaceAlt, borderWidth: 1.5, borderColor: '#D0D0D0',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
     fontSize: 15, color: C.textPrimary, marginBottom: 2,
   },
   selectField: {
-    backgroundColor: C.surfaceAlt, borderWidth: 1.5, borderColor: C.border,
+    backgroundColor: C.surfaceAlt, borderWidth: 1.5, borderColor: '#D0D0D0',
     borderRadius: 12, paddingHorizontal: 14, paddingVertical: 13,
     flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 2,
   },
@@ -422,22 +434,22 @@ const styles = StyleSheet.create({
   selectedBankRow:  { flexDirection: 'row', alignItems: 'center', gap: 10, flex: 1 },
   bankIconSm: {
     width: 32, height: 32, borderRadius: 8,
-    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center',
   },
-  bankIconSmText: { color: C.primary, fontWeight: '800', fontSize: 14 },
+  bankIconSmText: { color: '#002395', fontWeight: '800', fontSize: 14 },
   branchText:     { fontSize: 11, color: C.textMuted, marginTop: 1 },
 
   // Submit
   submitBtn: {
-    backgroundColor: C.primary, borderRadius: 14, padding: 16,
+    backgroundColor: '#007A4D', borderRadius: 14, padding: 16,
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
     marginBottom: 16,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#007A4D', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
   },
-  submitBtnDisabled: { backgroundColor: C.border, shadowOpacity: 0 },
+  submitBtnDisabled: { backgroundColor: '#C8C8C8', shadowOpacity: 0 },
   submitBtnText:     { color: '#fff', fontSize: 16, fontWeight: '800' },
-  disclaimer:        { fontSize: 11, color: C.textMuted, textAlign: 'center', lineHeight: 16 },
+  disclaimer:        { fontSize: 12, color: '#444444', textAlign: 'center', lineHeight: 18, marginBottom: 16 },
 
   // Picker sheet
   pickerOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
@@ -454,16 +466,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
     padding: 14, borderBottomWidth: 1, borderBottomColor: C.border,
   },
-  pickerItemActive:     { backgroundColor: C.primaryLight },
+  pickerItemActive:     { backgroundColor: '#E8F5EF' },
   pickerItemLeft:       { flexDirection: 'row', alignItems: 'center', gap: 12 },
   bankIcon: {
     width: 40, height: 40, borderRadius: 10,
-    backgroundColor: C.surfaceAlt, alignItems: 'center', justifyContent: 'center',
-    borderWidth: 1, borderColor: C.border,
+    backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center',
+    borderWidth: 1, borderColor: '#D0D0D0',
   },
-  bankIconText:         { color: C.primary, fontWeight: '800', fontSize: 16 },
+  bankIconText:         { color: '#002395', fontWeight: '800', fontSize: 16 },
   pickerItemText:       { fontSize: 15, color: C.textPrimary, fontWeight: '500' },
-  pickerItemTextActive: { color: C.primary, fontWeight: '700' },
+  pickerItemTextActive: { color: '#007A4D', fontWeight: '700' },
 
   // Modals
   modalOverlay: {
@@ -474,12 +486,12 @@ const styles = StyleSheet.create({
     backgroundColor: C.surface, borderRadius: 24, padding: 24,
     width: '100%', maxWidth: 380, alignItems: 'center',
     borderWidth: 1, borderColor: C.border,
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 8 },
-    shadowOpacity: 0.15, shadowRadius: 24, elevation: 8,
+    shadowColor: '#002395', shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.12, shadowRadius: 24, elevation: 8,
   },
   modalIconWrap: {
     width: 64, height: 64, borderRadius: 32,
-    backgroundColor: C.primaryLight, alignItems: 'center', justifyContent: 'center', marginBottom: 16,
+    backgroundColor: '#EEF1FF', alignItems: 'center', justifyContent: 'center', marginBottom: 16,
   },
   modalTitle:  { fontSize: 18, fontWeight: '800', color: C.textPrimary, marginBottom: 16 },
   summaryBox: {
@@ -489,7 +501,7 @@ const styles = StyleSheet.create({
   summaryRow:             { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 5 },
   summaryLabel:           { fontSize: 13, color: C.textSecondary },
   summaryValue:           { fontSize: 13, color: C.textPrimary, fontWeight: '600' },
-  summaryValueHighlight:  { fontSize: 16, color: C.primary, fontWeight: '900' },
+  summaryValueHighlight:  { fontSize: 16, color: '#007A4D', fontWeight: '900' },
   modalNote:   { fontSize: 12, color: C.textMuted, textAlign: 'center', marginBottom: 20, lineHeight: 18 },
   modalActions:{ flexDirection: 'row', gap: 12, width: '100%' },
   cancelBtn: {
@@ -499,14 +511,16 @@ const styles = StyleSheet.create({
   },
   cancelBtnText:  { color: C.textSecondary, fontSize: 15, fontWeight: '700' },
   confirmBtn: {
-    flex: 1, backgroundColor: C.primary, borderRadius: 12,
+    flex: 1, backgroundColor: '#007A4D', borderRadius: 12,
     paddingVertical: 14, alignItems: 'center',
-    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 },
+    shadowColor: '#007A4D', shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3, shadowRadius: 8, elevation: 3,
   },
   confirmBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-  successAmount:  { fontSize: 38, fontWeight: '900', color: C.primary, marginBottom: 8 },
+  successAmount:  { fontSize: 38, fontWeight: '900', color: '#007A4D', marginBottom: 8 },
   successSub:     { fontSize: 13, color: C.textSecondary, textAlign: 'center', lineHeight: 20, marginBottom: 24 },
+  flagRibbon: { flexDirection: 'row', height: 4, borderRadius: 2, overflow: 'hidden', marginTop: 8 },
+  flagSegment: { flex: 1 },
 });
 
 export default WithdrawScreen;

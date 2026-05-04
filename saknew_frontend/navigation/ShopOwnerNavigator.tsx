@@ -46,19 +46,20 @@ type CategoryProductsScreenRouteProp = RouteProp<ShopOwnerStackParamList, 'Categ
 // 4. Define Common Colors (Recommended: Move this to a separate constants/theme file)
 // --------------------------------------------------------------------------
 const colors = {
-  primary: '#4CAF50',
-  topNavBg: '#34495E',
-  textPrimary: '#333333',
-  textSecondary: '#666666',
-  white: '#FFFFFF',
-  background: '#F0F2F5',
-  card: '#FFFFFF',
-  border: '#E0E0E0',
-  navLinkText: '#FFFFFF',
-  navLinkActiveBg: 'rgba(255, 255, 255, 0.15)',
-  footerBg: '#453b3b',
-  footerText: 'rgb(155, 153, 153)',
-  footerLink: '#eee',
+  primary:      '#007A4D',   // SA Green
+  gold:         '#FFB81C',   // SA Gold — active icons
+  topNavBg:     '#0D1B2A',   // Deep Navy Black
+  textPrimary:  '#333333',
+  textSecondary:'#666666',
+  white:        '#FFFFFF',
+  background:   '#F0F2F5',
+  card:         '#FFFFFF',
+  border:       '#E0E0E0',
+  navLinkText:  '#FFFFFF',
+  navLinkActiveBg: 'rgba(255,184,28,0.15)',
+  footerBg:     '#453b3b',
+  footerText:   'rgb(155,153,153)',
+  footerLink:   '#eee',
 };
 
 const ShopOwnerStack = createNativeStackNavigator<ShopOwnerStackParamList>();
@@ -137,8 +138,8 @@ const ShopOwnerCustomHeader = () => {
           activeOpacity={0.7}
         >
           <View style={styles.navLinkContent}>
-            <Ionicons name="home-outline" size={18} color={colors.navLinkText} />
-            <Text style={styles.navLinkText}>Home</Text>
+            <Ionicons name="storefront" size={18} color="#FFB81C" />
+            <Text style={[styles.navLinkText, { color: '#FFB81C', fontWeight: '800' }]}>MyShop</Text>
           </View>
         </TouchableOpacity>
 
@@ -151,7 +152,7 @@ const ShopOwnerCustomHeader = () => {
                 activeOpacity={0.7}
               >
                 <View style={styles.navLinkContent}>
-                  <Ionicons name="add-circle-outline" size={18} color={colors.navLinkText} />
+                    <Ionicons name="add-circle-outline" size={18} color={colors.navLinkText} />
                   <Text style={styles.navLinkText}>Add</Text>
                 </View>
               </TouchableOpacity>
@@ -267,7 +268,7 @@ const ShopOwnerNavigator = () => {
 
 const styles = StyleSheet.create({
   headerSafeArea: {
-    backgroundColor: colors.topNavBg,
+    backgroundColor: '#0D1B2A',
     paddingTop: (Platform.OS === 'android' ? StatusBar.currentHeight || 0 : 0) + 5,
   },
   headerContainer: {
@@ -277,13 +278,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingTop: 12,
     paddingBottom: 8,
-    backgroundColor: colors.topNavBg,
-    borderBottomWidth: 0,
+    backgroundColor: '#0D1B2A',
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFB81C',
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 4,
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.25,
+    shadowRadius: 6,
+    elevation: 6,
   },
 
   navlinks: {
@@ -317,22 +319,12 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   badge: {
-    position: 'absolute',
-    top: -3,
-    right: -5,
-    backgroundColor: '#FF4444',
-    borderRadius: 8,
-    minWidth: 16,
-    height: 16,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 3,
+    position: 'absolute', top: -3, right: -5,
+    backgroundColor: '#DE3831',
+    borderRadius: 8, minWidth: 16, height: 16,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 3,
   },
-  badgeText: {
-    color: '#FFFFFF',
-    fontSize: 9,
-    fontWeight: '700',
-  },
+  badgeText: { color: '#FFFFFF', fontSize: 9, fontWeight: '700' },
 });
 
 const footerStyles = StyleSheet.create({

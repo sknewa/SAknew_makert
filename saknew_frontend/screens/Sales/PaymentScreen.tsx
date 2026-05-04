@@ -23,17 +23,19 @@ import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 const colors = {
   background: '#F5F5F5',
   textPrimary: '#222',
-  textSecondary: '#999',
+  textSecondary: '#666',
   card: '#FFFFFF',
   border: '#E0E0E0',
-  primary: '#10B981',
+  primary: '#007A4D',
   buttonText: '#FFFFFF',
-  errorText: '#FF4444',
-  warningBg: '#FFF5E6',
-  warningBorder: '#FFD699',
-  warningText: '#CC7A00',
-  warningAction: '#FF9800',
+  errorText: '#DE3831',
+  warningBg: '#FFF0F0',
+  warningBorder: '#DE3831',
+  warningText: '#DE3831',
+  warningAction: '#FFB81C',
   iconBg: '#E8F5E9',
+  saBlue: '#002395',
+  saGold: '#FFB81C',
   white: '#FFFFFF',
 };
 
@@ -182,13 +184,18 @@ const PaymentScreen: React.FC = () => {
             <Ionicons name="card" size={32} color={colors.primary} />
           </View>
           <Text style={styles.title}>Complete Payment</Text>
+          <View style={styles.flagStripe}>
+            {['#007A4D','#000000','#DE3831','#FFB81C','#002395','#FFFFFF'].map((c, i) => (
+              <View key={i} style={[styles.flagStripeSegment, { backgroundColor: c }]} />
+            ))}
+          </View>
           <Text style={styles.subtitle}>Review and confirm your payment</Text>
         </View>
 
         {/* Order Summary Card */}
         <View style={styles.card}>
           <View style={styles.cardHeader}>
-            <Ionicons name="receipt-outline" size={20} color={colors.primary} />
+            <Ionicons name="receipt-outline" size={20} color={colors.saBlue} />
             <Text style={styles.cardTitle}>Order Summary</Text>
           </View>
           <View style={styles.divider} />
@@ -218,12 +225,13 @@ const PaymentScreen: React.FC = () => {
         <View style={styles.card}>
           <View style={styles.cardHeader}>
             <Ionicons name="wallet-outline" size={20} color={colors.primary} />
+
             <Text style={styles.cardTitle}>Wallet Balance</Text>
           </View>
           <View style={styles.divider} />
           <View style={styles.balanceRow}>
             <View style={styles.balanceIconContainer}>
-              <Ionicons name="wallet" size={28} color={colors.primary} />
+              <Ionicons name="wallet" size={28} color="#fff" />
             </View>
             <View style={styles.balanceInfo}>
               <Text style={styles.balanceLabel}>Available Balance</Text>
@@ -233,7 +241,7 @@ const PaymentScreen: React.FC = () => {
           
           {!hasEnoughFunds && (
             <View style={styles.warningContainer}>
-              <Ionicons name="alert-circle" size={20} color={colors.warningText} />
+              <Ionicons name="alert-circle" size={22} color="#DE3831" />
               <View style={styles.warningTextContainer}>
                 <Text style={styles.warningTitle}>Insufficient Funds</Text>
                 <Text style={styles.warningText}>
@@ -406,9 +414,11 @@ const styles = StyleSheet.create({
   
   // Header
   header: { alignItems: 'center', marginBottom: 20 },
-  headerIconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
-  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 6 },
-  subtitle: { fontSize: 12, color: colors.textSecondary, fontWeight: '400' },
+  headerIconContainer: { width: 56, height: 56, borderRadius: 28, backgroundColor: '#E8F5E9', justifyContent: 'center', alignItems: 'center', marginBottom: 10 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary, marginBottom: 8 },
+  subtitle: { fontSize: 12, color: colors.textSecondary, fontWeight: '400', marginTop: 6 },
+  flagStripe: { flexDirection: 'row', height: 4, width: '60%', borderRadius: 2, overflow: 'hidden', marginBottom: 2 },
+  flagStripeSegment: { flex: 1 },
   
   // Card
   card: { backgroundColor: colors.card, borderRadius: 4, padding: 16, marginBottom: 12, borderWidth: 1, borderColor: colors.border },
@@ -422,21 +432,21 @@ const styles = StyleSheet.create({
   orderItemDetails: { flex: 1, justifyContent: 'space-between' },
   orderItemName: { fontSize: 12, color: colors.textPrimary, fontWeight: '600', marginBottom: 4 },
   orderItemMeta: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  orderItemQuantity: { fontSize: 11, color: colors.textSecondary, fontWeight: '500' },
+  orderItemQuantity: { fontSize: 11, color: '#555', fontWeight: '600' },
   orderItemPrice: { fontSize: 13, color: colors.textPrimary, fontWeight: '700' },
   summaryRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
   summaryLabel: { fontSize: 12, color: colors.textSecondary, fontWeight: '500' },
   summaryValue: { fontSize: 13, color: colors.textPrimary, fontWeight: '600' },
-  totalAmount: { fontSize: 16, fontWeight: '700', color: colors.primary },
+  totalAmount: { fontSize: 18, fontWeight: '800', color: '#111' },
   
   // Wallet Balance
   balanceRow: { 
     flexDirection: 'row', 
     alignItems: 'center', 
     marginBottom: 16, 
-    backgroundColor: '#059669', 
+    backgroundColor: '#007A4D', 
     padding: 20, 
-    borderRadius: 16 
+    borderRadius: 12,
   },
   balanceIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   balanceInfo: { flex: 1 },
@@ -444,19 +454,19 @@ const styles = StyleSheet.create({
   balanceAmount: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
   
   // Warning
-  warningContainer: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 10, borderRadius: 4, borderWidth: 1, borderColor: colors.warningBorder },
+  warningContainer: { flexDirection: 'row', backgroundColor: '#FFF0F0', padding: 12, borderRadius: 8, borderWidth: 1.5, borderColor: '#DE3831', shadowColor: '#DE3831', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.12, shadowRadius: 6, elevation: 2 },
   warningTextContainer: { flex: 1, marginLeft: 8 },
-  warningTitle: { fontSize: 12, fontWeight: '700', color: colors.warningText, marginBottom: 3 },
-  warningText: { fontSize: 11, color: colors.warningText, lineHeight: 16, fontWeight: '500' },
+  warningTitle: { fontSize: 12, fontWeight: '700', color: '#DE3831', marginBottom: 3 },
+  warningText: { fontSize: 11, color: '#DE3831', lineHeight: 16, fontWeight: '500' },
   
   // Actions
   actionsContainer: { marginTop: 6 },
-  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 4, marginBottom: 10 },
+  payButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#007A4D', paddingVertical: 14, borderRadius: 8, marginBottom: 10 },
   payButtonText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 8 },
-  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.warningAction, paddingVertical: 12, borderRadius: 4, marginBottom: 10 },
-  addFundsButtonText: { color: colors.buttonText, fontSize: 14, fontWeight: '600', marginLeft: 8 },
-  cancelButton: { backgroundColor: colors.card, paddingVertical: 10, borderRadius: 4, alignItems: 'center', borderWidth: 1, borderColor: colors.border },
-  cancelButtonText: { color: colors.textPrimary, fontSize: 13, fontWeight: '600' },
+  addFundsButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#FFB81C', paddingVertical: 12, borderRadius: 8, marginBottom: 10 },
+  addFundsButtonText: { color: '#222', fontSize: 14, fontWeight: '700', marginLeft: 8 },
+  cancelButton: { backgroundColor: colors.card, paddingVertical: 10, borderRadius: 8, alignItems: 'center', borderWidth: 1.5, borderColor: '#002395' },
+  cancelButtonText: { color: '#002395', fontSize: 13, fontWeight: '600' },
   buttonDisabled: { opacity: 0.6 },
   
   // Modal

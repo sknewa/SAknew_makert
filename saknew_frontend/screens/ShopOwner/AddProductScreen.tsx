@@ -1,1132 +1,482 @@
 // saknew_frontend/screens/ShopOwner/AddProductScreen.tsx
-
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  View,
-  Text,
-  ScrollView,
-  StyleSheet,
-  SafeAreaView,
-  TextInput,
-  TouchableOpacity,
-  Alert,
-  ActivityIndicator,
-  Platform,
-  Switch,
-  Image,
-  Keyboard,
+  View, Text, ScrollView, StyleSheet, SafeAreaView, TextInput,
+  TouchableOpacity, Alert, ActivityIndicator, Platform, Switch, Image, Keyboard,
 } from 'react-native';
 import apiClient from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useNavigation, CommonActions } from '@react-navigation/native'; // Import CommonActions
+import { useNavigation, CommonActions } from '@react-navigation/native';
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { safeLog, safeError } from '../../utils/securityUtils';
 
-// No need for AddProductImageData or Product from shop.types here as we are creating, not specifically handling existing product types for images
-
-// Define common colors
-const colors = {
-  background: '#F0F2F5',
-  textPrimary: '#2C3E50',
-  textSecondary: '#7F8C8D',
-  card: '#FFFFFF',
-  border: '#BDC3C7',
-  primary: '#27AE60',
-  primaryLight: '#2ECC71',
-  buttonBg: '#27AE60',
-  buttonText: '#FFFFFF',
-  inputBorder: '#DCDCDC',
-  inputFocusBorder: '#27AE60',
-  errorText: '#E74C3C',
-  successText: '#2ECC71',
-  shadowColor: '#000', // Define a consistent shadow color
+const SA = {
+  green: '#007A4D', blue: '#002395', gold: '#FFB81C',
+  red: '#DE3831', black: '#111', white: '#fff',
 };
 
-// Define a type for your Category data, matching your Django CategorySerializer
-interface Category {
-  id: number;
-  name: string;
-  slug: string;
-  parent_category: number | null;
-  parent_category_name: string | null;
-}
+interface Category { id: number; name: string; slug: string; parent_category: number | null; parent_category_name: string | null; }
+interface SelectedImage { uri: string; isMain: boolean; }
 
-// Define a type for selected images
-interface SelectedImage {
-  uri: string;
-  isMain: boolean;
-  // No 'id' here as these are new images being added
-}
+const STEPS = ['Basics', 'Media', 'Inventory'];
 
 const AddProductScreen: React.FC = () => {
   const { user, isAuthenticated = false, refreshUserProfile } = useAuth();
   const navigation = useNavigation<MainNavigationProp>();
 
+  const [step, setStep] = useState(0);
 
-
-  // Product form states - initialized for a new product
-  const [productName, setProductName] = useState('');
+  // Step 1 — Basics
+  const [productName, setProductName]           = useState('');
   const [productDescription, setProductDescription] = useState('');
-  const [productPrice, setProductPrice] = useState('');
-  const [productStock, setProductStock] = useState('');
-  const [isProductActive, setIsProductActive] = useState(true); // New products are active by default
+  const [productPrice, setProductPrice]         = useState('');
+  const [isNameFocused, setIsNameFocused]       = useState(false);
+  const [isDescFocused, setIsDescFocused]       = useState(false);
+  const [isPriceFocused, setIsPriceFocused]     = useState(false);
 
-  // Category selection states
-  const [allCategories, setAllCategories] = useState<Category[]>([]);
-  const [currentDisplayCategories, setCurrentDisplayCategories] = useState<Category[]>([]);
-  const [selectedLeafCategory, setSelectedLeafCategory] = useState<Category | null>(null);
-  const [categoryBreadcrumbs, setCategoryBreadcrumbs] = useState<Category[]>([]);
-
-  // Image states
-  const [selectedImages, setSelectedImages] = useState<SelectedImage[]>([]);
+  // Step 2 — Media
+  const [selectedImages, setSelectedImages]     = useState<SelectedImage[]>([]);
+  const [imagePickerLoading, setImagePickerLoading] = useState(false);
   const [imageUploadLoading, setImageUploadLoading] = useState(false);
 
-  // UI states
+  // Step 3 — Inventory
+  const [productStock, setProductStock]         = useState('');
+  const [isProductActive, setIsProductActive]   = useState(true);
+  const [isStockFocused, setIsStockFocused]     = useState(false);
+  const [allCategories, setAllCategories]       = useState<Category[]>([]);
+  const [currentDisplayCategories, setCurrentDisplayCategories] = useState<Category[]>([]);
+  const [selectedLeafCategory, setSelectedLeafCategory] = useState<Category | null>(null);
+  const [categoryBreadcrumbs, setCategoryBreadcrumbs]   = useState<Category[]>([]);
+  const [categoriesLoading, setCategoriesLoading]       = useState(true);
+
+  // Submission
+  const [loading, setLoading]           = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
-  const [loading, setLoading] = useState(false); // Overall loading for product submission
-  const [imagePickerLoading, setImagePickerLoading] = useState(false); // Loading for image picker
-  const [categoriesLoading, setCategoriesLoading] = useState(true); // Loading specifically for categories
+
   const authReady = isAuthenticated;
+  const overallLoading = loading || imageUploadLoading || imagePickerLoading;
 
-  // Input focus states
-  const [isNameFocused, setIsNameFocused] = useState(false);
-  const [isDescriptionFocused, setIsDescriptionFocused] = useState(false);
-  const [isPriceFocused, setIsPriceFocused] = useState(false);
-  const [isStockFocused, setIsStockFocused] = useState(false);
-
-  // Fetch categories on component mount
   useEffect(() => {
-    
-    // Fetch categories when user is ready and is a seller
     if (authReady && user?.profile?.is_seller) {
-      const fetchCategories = async () => {
+      (async () => {
         setCategoriesLoading(true);
         try {
-          const response = await apiClient.get<Category[]>('/api/categories/');
-          
-          if (response.status === 200) {
-            const fetchedCategories: Category[] = response.data || [];
-            setAllCategories(fetchedCategories);
-            // Initialize with root categories (parent_category is null)
-            const rootCategories = fetchedCategories.filter(cat => cat.parent_category === null);
-            setCurrentDisplayCategories(rootCategories);
-          } else {
-            setErrorMessage('Failed to load categories. Please try again.');
+          const res = await apiClient.get<Category[]>('/api/categories/');
+          if (res.status === 200) {
+            setAllCategories(res.data || []);
+            setCurrentDisplayCategories((res.data || []).filter(c => c.parent_category === null));
           }
-        } catch (error: any) {
-          setErrorMessage('Failed to load categories. Network error or server issue.');
-        } finally {
-          setCategoriesLoading(false);
-        }
-      };
-      fetchCategories();
+        } catch { setErrorMessage('Failed to load categories.'); }
+        finally { setCategoriesLoading(false); }
+      })();
     }
-  }, [authReady, user]); // Fetch when auth and user are ready
+  }, [authReady, user]);
 
-  // Clear messages after a delay
   useEffect(() => {
-    let errorTimer: NodeJS.Timeout;
-    let successTimer: NodeJS.Timeout;
+    if (errorMessage) { const t = setTimeout(() => setErrorMessage(''), 5000); return () => clearTimeout(t); }
+  }, [errorMessage]);
+  useEffect(() => {
+    if (successMessage) { const t = setTimeout(() => setSuccessMessage(''), 5000); return () => clearTimeout(t); }
+  }, [successMessage]);
 
-    if (errorMessage) {
-      errorTimer = setTimeout(() => setErrorMessage(''), 5000); // Clear error after 5 seconds
-    }
-    if (successMessage) {
-      successTimer = setTimeout(() => setSuccessMessage(''), 5000); // Clear success after 5 seconds
-    }
-
-    return () => {
-      clearTimeout(errorTimer);
-      clearTimeout(successTimer);
-    };
-  }, [errorMessage, successMessage]);
-
-  // Category Selection Logic
-  const handleCategoryPress = useCallback((category: Category) => {
-    const children = allCategories.filter(cat => cat.parent_category === category.id);
-
+  // ── Category helpers ──
+  const handleCategoryPress = useCallback((cat: Category) => {
+    const children = allCategories.filter(c => c.parent_category === cat.id);
     if (children.length > 0) {
-      // If there are children, navigate deeper
-      setCategoryBreadcrumbs(prev => [...prev, category]);
+      setCategoryBreadcrumbs(p => [...p, cat]);
       setCurrentDisplayCategories(children);
-      setSelectedLeafCategory(null); // Clear leaf selection when navigating deeper
+      setSelectedLeafCategory(null);
     } else {
-      // If no children, this is a leaf category
-      setSelectedLeafCategory(category);
-      // Ensure breadcrumbs reflect the full path to the selected leaf category
+      setSelectedLeafCategory(cat);
       const path: Category[] = [];
-      let current: Category | undefined = category;
-      while (current) {
-        path.unshift(current); // Add to the beginning to maintain correct order
-        current = allCategories.find(cat => cat.id === current?.parent_category);
-      }
+      let cur: Category | undefined = cat;
+      while (cur) { path.unshift(cur); cur = allCategories.find(c => c.id === cur?.parent_category); }
       setCategoryBreadcrumbs(path);
     }
   }, [allCategories]);
 
   const navigateUpCategory = useCallback(() => {
-    setSelectedLeafCategory(null); // Clear leaf selection when navigating up
+    setSelectedLeafCategory(null);
     setCategoryBreadcrumbs(prev => {
-      const newBreadcrumbs = [...prev];
-      newBreadcrumbs.pop(); // Remove the last item (current level)
-
-      if (newBreadcrumbs.length === 0) {
-        // If no breadcrumbs left, go back to root categories
-        setCurrentDisplayCategories(allCategories.filter(cat => cat.parent_category === null));
-      } else {
-        // Go to children of the new last breadcrumb (parent of current level)
-        const newParent = newBreadcrumbs[newBreadcrumbs.length - 1];
-        setCurrentDisplayCategories(allCategories.filter(cat => cat.parent_category === newParent.id));
-      }
-      return newBreadcrumbs;
+      const nb = [...prev]; nb.pop();
+      setCurrentDisplayCategories(nb.length === 0
+        ? allCategories.filter(c => c.parent_category === null)
+        : allCategories.filter(c => c.parent_category === nb[nb.length - 1].id));
+      return nb;
     });
   }, [allCategories]);
 
-  const handleClearFinalSelection = useCallback(() => {
-    setSelectedLeafCategory(null);
-  }, []);
-
-  // Image Handling Functions
+  // ── Image helpers ──
   const pickImages = useCallback(async () => {
-    setImagePickerLoading(true); // Show image picker loading
+    setImagePickerLoading(true);
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-      
-      if (status !== 'granted') {
-        Alert.alert(
-          'Permission Required',
-          'Please grant media library access to select images for your product.'
-        );
-        return;
-      }
-
-      let result = await ImagePicker.launchImageLibraryAsync({
-        mediaTypes: ['images'],
-        allowsMultipleSelection: true,
-        quality: 0.5,
+      if (status !== 'granted') { Alert.alert('Permission Required', 'Please grant media library access.'); return; }
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsMultipleSelection: true, quality: 0.5 });
+      if (result.canceled || !result.assets?.length) return;
+      setSelectedImages(prev => {
+        const next = [...prev, ...result.assets.map(a => ({ uri: a.uri, isMain: false }))];
+        if (!next.some(i => i.isMain)) next[0].isMain = true;
+        return next;
       });
-
-      if (result.canceled || !result.assets || result.assets.length === 0) {
-        return; // User cancelled or no assets selected
-      }
-
-      setSelectedImages(prevImages => {
-        const newImages: SelectedImage[] = result.assets.map(asset => ({
-          uri: asset.uri,
-          isMain: false, // Default new images to not main
-        }));
-
-        const updatedImages = [...prevImages, ...newImages];
-        // If no main image exists, set the first image as main
-        if (updatedImages.length > 0 && !updatedImages.some(img => img.isMain)) {
-          updatedImages[0].isMain = true;
-        }
-        return updatedImages;
-      });
-    } catch (error) {
-      Alert.alert('Error', 'Failed to open image library. Please try again.');
-    } finally {
-      setImagePickerLoading(false); // Hide image picker loading
-    }
+    } catch { Alert.alert('Error', 'Failed to open image library.'); }
+    finally { setImagePickerLoading(false); }
   }, []);
 
-  const removeImage = useCallback((uriToRemove: string) => {
-    setSelectedImages(prevImages => {
-      const updatedImages = prevImages.filter(img => img.uri !== uriToRemove);
-      // If the removed image was main, and there are other images, set the first as main
-      if (prevImages.find(img => img.uri === uriToRemove)?.isMain && updatedImages.length > 0) {
-        updatedImages[0].isMain = true;
-      }
-      return updatedImages;
+  const removeImage = useCallback((uri: string) => {
+    setSelectedImages(prev => {
+      const next = prev.filter(i => i.uri !== uri);
+      if (prev.find(i => i.uri === uri)?.isMain && next.length > 0) next[0].isMain = true;
+      return next;
     });
   }, []);
 
-  const setMainImage = useCallback((uriToSetMain: string) => {
-    setSelectedImages(prevImages => {
-      return prevImages.map(img => ({
-        ...img,
-        isMain: img.uri === uriToSetMain, // Set this image as main, others as not main
-      }));
-    });
+  const setMainImage = useCallback((uri: string) => {
+    setSelectedImages(prev => prev.map(i => ({ ...i, isMain: i.uri === uri })));
   }, []);
 
-  // Helper to create image data for upload
   const createImageData = useCallback(async (uri: string, isMain: boolean) => {
-    safeLog('🖼️ Creating image data for upload:', { uri, isMain });
-    const filename = `image_${Date.now()}.jpg`;
-    const type = 'image/jpeg';
-    
-    // Fetch the actual blob data from the URI
-    safeLog('🖼️ Fetching blob from URI...');
     const response = await fetch(uri);
     const blob = await response.blob();
-    safeLog('🖼️ Blob fetched:', { size: blob.size, type: blob.type });
-    
-    return {
-      image: {
-        uri: uri,
-        name: filename,
-        type: type,
-        blob: blob, // Include the actual blob data
-      },
-      is_main: isMain,
-    };
+    return { image: { uri, name: `image_${Date.now()}.jpg`, type: 'image/jpeg', blob }, is_main: isMain };
   }, []);
 
-  // Product Submission Logic
+  // ── Step validation ──
+  const validateStep = () => {
+    if (step === 0) {
+      if (!productName.trim())        { setErrorMessage('Product name is required.'); return false; }
+      if (!productDescription.trim()) { setErrorMessage('Description is required.'); return false; }
+      const p = parseFloat(productPrice);
+      if (isNaN(p) || p <= 0)         { setErrorMessage('Enter a valid price.'); return false; }
+    }
+    if (step === 1) {
+      if (!selectedImages.length)     { setErrorMessage('Select at least one image.'); return false; }
+      if (!selectedImages.some(i => i.isMain)) { setErrorMessage('Set one image as main.'); return false; }
+    }
+    if (step === 2) {
+      const s = parseInt(productStock, 10);
+      if (isNaN(s) || s < 0)          { setErrorMessage('Enter a valid stock quantity.'); return false; }
+      if (!selectedLeafCategory)      { setErrorMessage('Select a product category.'); return false; }
+    }
+    return true;
+  };
+
+  const goNext = () => { if (validateStep()) { setErrorMessage(''); setStep(s => s + 1); } };
+  const goBack = () => { setErrorMessage(''); setStep(s => s - 1); };
+
+  // ── Submit ──
   const handleAddProduct = useCallback(async () => {
-    safeLog('🚀 ADD PRODUCT - Function called!');
-    safeLog('🚀 Product Name:', productName);
-    safeLog('🚀 Selected Images:', selectedImages.length);
-    
-    setErrorMessage('');
-    setSuccessMessage('');
-    Keyboard.dismiss(); // Hide keyboard
-
-    // Client-side validation
-    if (!productName.trim()) {
-      setErrorMessage('Product Name is required.');
-      return;
-    }
-    if (!productDescription.trim()) {
-      setErrorMessage('Product Description is required.');
-      return;
-    }
-    const priceValue = parseFloat(productPrice);
-    if (isNaN(priceValue) || priceValue <= 0) {
-      setErrorMessage('Please enter a valid positive price (e.g., 150.00).');
-      return;
-    }
-    const stockValue = parseInt(productStock, 10); // Specify radix for parseInt
-    if (isNaN(stockValue) || stockValue < 0) {
-      setErrorMessage('Please enter a valid non-negative stock quantity (e.g., 100).');
-      return;
-    }
-    if (selectedImages.length === 0) {
-      setErrorMessage('Please select at least one image for the product.');
-      return;
-    }
-    if (!selectedImages.some(img => img.isMain)) {
-      setErrorMessage('One image must be set as the main image.');
-      return;
-    }
-    if (selectedLeafCategory === null) {
-      setErrorMessage('Please select a product category.');
-      return;
-    }
-
-    setLoading(true); // Start overall loading
-
-    const productData = {
-      name: productName.trim(),
-      description: productDescription.trim(),
-      price: priceValue.toFixed(2), // Ensure 2 decimal places for price
-      stock: stockValue,
-      category: selectedLeafCategory.id,
-      is_active: isProductActive,
-    };
-
-    let productId = null;
+    if (!validateStep()) return;
+    Keyboard.dismiss();
+    setLoading(true);
+    let productId: number | null = null;
     try {
-      // Step 1: Create the product
-      const productResponse = await shopService.createProduct(productData);
-      
-      if (productResponse.id) {
-        productId = productResponse.id;
-        setSuccessMessage('Product created successfully. Uploading images...');
-        setImageUploadLoading(true); // Indicate image upload is starting
-      } else {
-        setErrorMessage('Product creation failed: No ID returned from server.');
-        return; // Exit if product ID is not returned
-      }
-    } catch (error: any) {
-      let apiErrorMessage = 'Failed to add product. Please check your input.';
-      if (error.response?.data) {
-        // Attempt to parse validation errors from Django
-        apiErrorMessage = Object.values(error.response.data)
-          .flat()
-          .map(msg => String(msg))
-          .join('\n');
-      } else if (error.message) {
-        apiErrorMessage = `Network Error: ${error.message}`;
-      }
-      setErrorMessage(apiErrorMessage);
-      return; // Exit on product creation error
-    } finally {
-      setLoading(false); // End overall loading for product creation part
-    }
+      const res = await shopService.createProduct({
+        name: productName.trim(),
+        description: productDescription.trim(),
+        price: parseFloat(productPrice).toFixed(2),
+        stock: parseInt(productStock, 10),
+        category: selectedLeafCategory!.id,
+        is_active: isProductActive,
+      });
+      if (!res.id) { setErrorMessage('Product creation failed.'); return; }
+      productId = res.id;
+      setSuccessMessage('Product created! Uploading images...');
+      setImageUploadLoading(true);
+    } catch (err: any) {
+      setErrorMessage(err.response?.data ? Object.values(err.response.data).flat().map(String).join('\n') : err.message || 'Failed to add product.');
+      return;
+    } finally { setLoading(false); }
 
-    // Step 2: Upload images if product was created successfully
     if (productId) {
-      safeLog('📤 Starting image upload for product:', productId);
-      safeLog('📤 Total images to upload:', selectedImages.length);
-      let allImagesUploadedSuccessfully = true;
-      for (let i = 0; i < selectedImages.length; i++) {
-        const img = selectedImages[i];
-        safeLog(`📤 Uploading image ${i + 1}/${selectedImages.length}:`, { uri: img.uri, isMain: img.isMain });
-        
+      let allOk = true;
+      for (const img of selectedImages) {
         try {
-          const imageData = await createImageData(img.uri, img.isMain);
-          safeLog('📤 Image data created, calling addProductImage...');
-          const uploadResult = await shopService.addProductImage(productId, imageData);
-          safeLog(`✅ Image ${i + 1} uploaded successfully:`, uploadResult);
-        } catch (imageUploadError: any) {
-          safeError(`❌ Image ${i + 1} upload failed:`, imageUploadError);
-          safeError('❌ Error response:', imageUploadError.response?.data);
-          safeError('❌ Error status:', imageUploadError.response?.status);
-          allImagesUploadedSuccessfully = false;
-          
-          // Get specific error message
-          let errorMsg = 'Unknown error';
-          if (imageUploadError.response?.data) {
-            if (typeof imageUploadError.response.data === 'string') {
-              errorMsg = imageUploadError.response.data;
-            } else if (imageUploadError.response.data.detail) {
-              errorMsg = imageUploadError.response.data.detail;
-            } else if (imageUploadError.response.data.error) {
-              errorMsg = imageUploadError.response.data.error;
-            } else {
-              errorMsg = JSON.stringify(imageUploadError.response.data);
-            }
-          } else if (imageUploadError.message) {
-            errorMsg = imageUploadError.message;
-          }
-          safeError('❌ Parsed error message:', errorMsg);
-          
-          setErrorMessage(prev => prev + `\nImage ${i + 1} upload failed: ${errorMsg}`);
-        }
+          const data = await createImageData(img.uri, img.isMain);
+          await shopService.addProductImage(productId, data);
+        } catch { allOk = false; }
       }
-      safeLog('📤 Image upload complete. All successful:', allImagesUploadedSuccessfully);
-
-      setImageUploadLoading(false); // End image upload loading
-      setLoading(false); // Ensure overall loading is false
-
-      if (allImagesUploadedSuccessfully) {
-        setSuccessMessage('Product and all images added successfully!');
-        // Clear form fields after successful submission
-        resetFormFields();
-        // Immediately redirect to MyShopScreen
-        await refreshUserProfile(); // Refresh user profile (e.g., if seller shop status changed)
-        navigation.dispatch(
-          CommonActions.navigate({
-            name: 'MainTabs',
-            params: {
-              screen: 'ShopTab',
-              params: {
-                screen: 'MyShop',
-              },
-            },
-          })
-        );
+      setImageUploadLoading(false);
+      if (allOk) {
+        setSuccessMessage('Product added successfully!');
+        await refreshUserProfile();
+        navigation.dispatch(CommonActions.navigate({ name: 'MainTabs', params: { screen: 'ShopTab', params: { screen: 'MyShop' } } }));
       } else {
-        // If some images failed, show a different message
-        setErrorMessage(prev => prev || 'Product created, but some images failed to upload. You can add them later by editing the product.');
+        setErrorMessage('Product created but some images failed. Edit the product to add them.');
       }
     }
-  }, [
-    productName,
-    productDescription,
-    productPrice,
-    productStock,
-    isProductActive,
-    selectedImages,
-    selectedLeafCategory,
-    allCategories, // Added as dependency for resetFormFields logic
-    createImageData,
-    navigation,
-    refreshUserProfile,
-  ]);
+  }, [productName, productDescription, productPrice, productStock, isProductActive, selectedImages, selectedLeafCategory, createImageData, navigation, refreshUserProfile]);
 
-  // Helper function to reset form to initial state
-  const resetFormFields = useCallback(() => {
-    setProductName('');
-    setProductDescription('');
-    setProductPrice('');
-    setProductStock('');
-    setIsProductActive(true);
-    setSelectedLeafCategory(null);
-    setCategoryBreadcrumbs([]);
-    // Reset current display categories to root categories
-    setCurrentDisplayCategories(allCategories.filter(cat => cat.parent_category === null));
-    setSelectedImages([]);
-  }, [allCategories]); // `allCategories` is needed here to properly reset `currentDisplayCategories`
-
-  const overallLoading = loading || imageUploadLoading || categoriesLoading || imagePickerLoading;
-
-  // Render loading state for initial auth check
   if (!authReady && user === undefined) {
-    return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centeredContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.subtitle}>Checking authentication status...</Text>
-        </View>
-      </SafeAreaView>
-    );
+    return <SafeAreaView style={s.safe}><View style={s.center}><ActivityIndicator size="large" color={SA.green} /></View></SafeAreaView>;
   }
-
-  // Render access denied state if not authenticated or not a seller
   if (!isAuthenticated || !user?.profile?.is_seller) {
     return (
-      <SafeAreaView style={styles.safeArea}>
-        <View style={styles.centeredContainer}>
-          <Ionicons name="lock-closed-outline" size={60} color={colors.errorText} style={styles.lockIcon} />
-          <Text style={styles.title}>Access Denied</Text>
-          <Text style={styles.subtitle}>
-            You must be an authenticated seller to add products.
-          </Text>
-        </View>
-      </SafeAreaView>
+      <SafeAreaView style={s.safe}><View style={s.center}>
+        <Ionicons name="lock-closed-outline" size={60} color={SA.red} />
+        <Text style={s.title}>Access Denied</Text>
+        <Text style={s.subtitle}>You must be a seller to add products.</Text>
+      </View></SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <ScrollView contentContainerStyle={styles.scrollViewContent}>
-        <View style={styles.container}>
-          <Text style={styles.title}>Add New Product</Text>
-          <Text style={styles.subtitle}>Fill in the details to add a new product to your shop.</Text>
-
-          {/* Message Boxes */}
-          {errorMessage ? (
-            <View style={styles.messageBoxError}>
-              <Ionicons name="close-circle" size={20} color={colors.errorText} />
-              <Text style={styles.messageTextError}>{errorMessage}</Text>
+    <SafeAreaView style={s.safe}>
+      {/* Stepper header */}
+      <View style={s.stepperRow}>
+        {STEPS.map((label, i) => (
+          <View key={i} style={s.stepItem}>
+            <View style={[s.stepCircle, i === step && s.stepCircleActive, i < step && s.stepCircleDone]}>
+              {i < step
+                ? <Ionicons name="checkmark" size={14} color="#fff" />
+                : <Text style={[s.stepNum, i === step && s.stepNumActive]}>{i + 1}</Text>}
             </View>
-          ) : null}
+            <Text style={[s.stepLabel, i === step && s.stepLabelActive]}>{label}</Text>
+            {i < STEPS.length - 1 && <View style={[s.stepLine, i < step && s.stepLineDone]} />}
+          </View>
+        ))}
+      </View>
 
-          {successMessage ? (
-            <View style={styles.messageBoxSuccess}>
-              <Ionicons name="checkmark-circle" size={20} color={colors.successText} />
-              <Text style={styles.messageTextSuccess}>{successMessage}</Text>
+      <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+        {/* Messages */}
+        {errorMessage ? (
+          <View style={s.msgError}><Ionicons name="close-circle" size={18} color={SA.red} /><Text style={s.msgErrorText}>{errorMessage}</Text></View>
+        ) : null}
+        {successMessage ? (
+          <View style={s.msgSuccess}><Ionicons name="checkmark-circle" size={18} color={SA.green} /><Text style={s.msgSuccessText}>{successMessage}</Text></View>
+        ) : null}
+
+        {/* ── STEP 1: BASICS ── */}
+        {step === 0 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Product Basics</Text>
+            <Text style={s.label}>Product Name *</Text>
+            <View style={[s.input, isNameFocused && s.inputFocus]}>
+              <TextInput style={s.inputText} placeholder="e.g., Organic Honey 500g" placeholderTextColor="#888"
+                value={productName} onChangeText={setProductName}
+                onFocus={() => setIsNameFocused(true)} onBlur={() => setIsNameFocused(false)} maxLength={200} />
             </View>
-          ) : null}
 
-          {/* Product Name */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Product Name:</Text>
-            <View style={[styles.inputContainer, isNameFocused && styles.inputFocused]}>
-              <TextInput
-                style={styles.inputField}
-                placeholder="e.g., Organic Honey 500g"
-                placeholderTextColor={colors.textSecondary}
-                value={productName}
-                onChangeText={setProductName}
-                editable={!overallLoading}
-                onFocus={() => setIsNameFocused(true)}
-                onBlur={() => setIsNameFocused(false)}
-                maxLength={200}
-              />
+            <Text style={s.label}>Description *</Text>
+            <View style={[s.input, s.textArea, isDescFocused && s.inputFocus]}>
+              <TextInput style={[s.inputText, { height: 80, textAlignVertical: 'top' }]}
+                placeholder="Describe your product..." placeholderTextColor="#888"
+                multiline value={productDescription} onChangeText={setProductDescription}
+                onFocus={() => setIsDescFocused(true)} onBlur={() => setIsDescFocused(false)} />
+            </View>
+
+            <Text style={s.label}>Price (ZAR) *</Text>
+            <View style={[s.input, s.priceInput, isPriceFocused && s.priceInputFocus]}>
+              <Text style={s.currencyR}>R</Text>
+              <TextInput style={s.inputText} placeholder="0.00" placeholderTextColor="#888"
+                keyboardType="numeric" value={productPrice} onChangeText={setProductPrice}
+                onFocus={() => setIsPriceFocused(true)} onBlur={() => setIsPriceFocused(false)} maxLength={10} />
             </View>
           </View>
+        )}
 
-          {/* Description */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Description:</Text>
-            <View style={[styles.inputContainer, styles.textAreaContainer, isDescriptionFocused && styles.inputFocused]}>
-              <TextInput
-                style={[styles.inputField, styles.textAreaField]}
-                placeholder="Provide a detailed description of your product, its features, and benefits."
-                placeholderTextColor={colors.textSecondary}
-                multiline
-                numberOfLines={5}
-                value={productDescription}
-                onChangeText={setProductDescription}
-                editable={!overallLoading}
-                onFocus={() => setIsDescriptionFocused(true)}
-                onBlur={() => setIsDescriptionFocused(false)}
-              />
-            </View>
-          </View>
-
-          {/* Price (ZAR) */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Price (ZAR):</Text>
-            <View style={[styles.inputContainer, isPriceFocused && styles.inputFocused]}>
-              <TextInput
-                style={styles.inputField}
-                placeholder="e.g., 150.00"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                value={productPrice}
-                onChangeText={setProductPrice}
-                editable={!overallLoading}
-                onFocus={() => setIsPriceFocused(true)}
-                onBlur={() => setIsPriceFocused(false)}
-                maxLength={10}
-              />
-            </View>
-          </View>
-
-          {/* Stock Quantity */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Stock Quantity:</Text>
-            <View style={[styles.inputContainer, isStockFocused && styles.inputFocused]}>
-              <TextInput
-                style={styles.inputField}
-                placeholder="e.g., 100"
-                placeholderTextColor={colors.textSecondary}
-                keyboardType="numeric"
-                value={productStock}
-                onChangeText={setProductStock}
-                editable={!overallLoading}
-                onFocus={() => setIsStockFocused(true)}
-                onBlur={() => setIsStockFocused(false)}
-                maxLength={6}
-              />
-            </View>
-          </View>
-
-          {/* Category Selection */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Product Category:</Text>
-            {categoriesLoading ? (
-              <ActivityIndicator size="small" color={colors.primary} style={styles.categoryLoadingIndicator} />
-            ) : (
-              <View style={styles.categorySelectionContainer}>
-                {/* Breadcrumbs */}
-                {categoryBreadcrumbs.length > 0 && (
-                  <View style={styles.categoryPathContainer}>
-                    <TouchableOpacity onPress={navigateUpCategory} style={styles.backButton} disabled={overallLoading}>
-                      <Ionicons name="arrow-back-outline" size={20} color={colors.textPrimary} />
-                    </TouchableOpacity>
-                    <Text style={styles.categoryPathText}>
-                      {categoryBreadcrumbs.map(cat => cat.name).join(' > ')}
-                    </Text>
-                    {/* Clear final selection button */}
-                    {selectedLeafCategory !== null && (
-                      <TouchableOpacity onPress={handleClearFinalSelection} style={styles.clearSelectionButton} disabled={overallLoading}>
-                        <Ionicons name="close-circle-outline" size={20} color={colors.errorText} />
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                )}
-
-                {/* Categories - This ScrollView allows horizontal scrolling */}
-                <ScrollView
-                  horizontal={false} // Set to false for vertical scrolling
-                  showsVerticalScrollIndicator={true} // Show vertical scroll indicator
-                  contentContainerStyle={styles.categoryButtonsContent} // Apply flexWrap and flexDirection here
-                  style={styles.categoryButtonsScrollView} // Apply maxHeight here
-                >
-                  {currentDisplayCategories.length > 0 ? (
-                    currentDisplayCategories.map((category: Category) => (
-                      <TouchableOpacity
-                        key={category.id}
-                        style={[
-                          styles.categoryButton,
-                          selectedLeafCategory?.id === category.id && styles.selectedCategoryButton,
-                          // No need to highlight breadcrumb categories in the list of current display categories
-                          // categoryBreadcrumbs.some(pathCat => pathCat.id === category.id) && styles.selectedCategoryButton,
-                        ]}
-                        onPress={() => handleCategoryPress(category)}
-                        activeOpacity={0.7}
-                        disabled={overallLoading}
-                      >
-                        <Text
-                          style={[
-                            styles.categoryButtonText,
-                            selectedLeafCategory?.id === category.id && styles.selectedCategoryButtonText,
-                            // No need to highlight breadcrumb categories in the list of current display categories
-                            // categoryBreadcrumbs.some(pathCat => pathCat.id === category.id) && styles.selectedCategoryButtonText,
-                          ]}
-                        >
-                          {category.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))
-                  ) : (
-                    <Text style={styles.noCategoriesText}>No subcategories found for this path.</Text>
-                  )}
-                </ScrollView>
-
-                {/* Display final selected category */}
-                {selectedLeafCategory !== null && (
-                  <Text style={styles.finalSelectionText}>
-                    Final Selection: <Text style={styles.finalSelectionTextBold}>{selectedLeafCategory.name}</Text>
-                  </Text>
-                )}
-              </View>
-            )}
-          </View>
-
-          {/* Image Upload Section */}
-          <View style={styles.formGroup}>
-            <Text style={styles.label}>Product Images:</Text>
-            <TouchableOpacity
-              style={[styles.imagePickerButton, overallLoading && styles.buttonDisabled]}
-              onPress={pickImages}
-              disabled={overallLoading}
-              activeOpacity={0.7}
-            >
-              {imagePickerLoading ? ( // Use image picker loading state
-                <ActivityIndicator color={colors.buttonText} />
-              ) : (
-                <>
-                  <Ionicons name="image-outline" size={24} color={colors.buttonText} />
-                  <Text style={styles.imagePickerButtonText}>Select Images</Text>
-                </>
-              )}
+        {/* ── STEP 2: MEDIA ── */}
+        {step === 1 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Product Images</Text>
+            <TouchableOpacity style={[s.pickBtn, overallLoading && s.btnDisabled]} onPress={pickImages} disabled={overallLoading}>
+              {imagePickerLoading
+                ? <ActivityIndicator color="#fff" />
+                : <><Ionicons name="image-outline" size={22} color="#fff" /><Text style={s.pickBtnText}>Select Images</Text></>}
             </TouchableOpacity>
 
-            {selectedImages.length === 0 ? (
-              <Text style={styles.imageCountText}>No images selected yet.</Text>
-            ) : (
-              <Text style={styles.imageCountText}>Selected {selectedImages.length} image(s).</Text>
-            )}
+            {selectedImages.length === 0
+              ? <View style={s.noImgRow}><Text style={s.noImgText}>No images selected yet.</Text><Text style={s.reqStar}> *</Text></View>
+              : <Text style={s.imgCount}>{selectedImages.length} image(s) selected</Text>}
 
             {selectedImages.length > 0 && (
-              <ScrollView horizontal showsHorizontalScrollIndicator={true} style={styles.imagePreviewContainer}>
-                {selectedImages.map((img, index) => (
-                  <View key={img.uri} style={styles.imagePreviewWrapper}>
-                    <Image source={{ uri: img.uri }} style={styles.imagePreview} />
-                    <TouchableOpacity
-                      style={styles.removeImageButton}
-                      onPress={() => removeImage(img.uri)}
-                      disabled={overallLoading}
-                    >
-                      <Ionicons name="close-circle" size={24} color={colors.errorText} />
+              <ScrollView horizontal showsHorizontalScrollIndicator style={s.imgPreviewScroll}>
+                {selectedImages.map(img => (
+                  <View key={img.uri} style={s.imgWrap}>
+                    <Image source={{ uri: img.uri }} style={s.imgThumb} />
+                    <TouchableOpacity style={s.imgRemove} onPress={() => removeImage(img.uri)}>
+                      <Ionicons name="close-circle" size={22} color={SA.red} />
                     </TouchableOpacity>
-                    <TouchableOpacity
-                      style={[
-                        styles.mainImageButton,
-                        img.isMain && styles.mainImageButtonActive,
-                      ]}
-                      onPress={() => setMainImage(img.uri)}
-                      disabled={overallLoading}
-                    >
-                      <Text style={styles.mainImageButtonText}>
-                        {img.isMain ? 'Main' : 'Set Main'}
-                      </Text>
+                    <TouchableOpacity style={[s.imgMain, img.isMain && s.imgMainActive]} onPress={() => setMainImage(img.uri)}>
+                      <Text style={s.imgMainText}>{img.isMain ? 'Main' : 'Set Main'}</Text>
                     </TouchableOpacity>
                   </View>
                 ))}
               </ScrollView>
             )}
-
-            {imageUploadLoading && ( // Show image upload indicator during image upload specifically
-              <ActivityIndicator size="small" color={colors.primary} style={styles.imageUploadIndicator} />
-            )}
-
-            {selectedImages.length > 0 && !selectedImages.some(img => img.isMain) && (
-              <Text style={[styles.warningText, styles.warningTextProminent]}>
-                Please select one image as main.
-              </Text>
-            )}
+            {imageUploadLoading && <ActivityIndicator size="small" color={SA.green} style={{ marginTop: 8 }} />}
           </View>
+        )}
 
-          {/* Is Active */}
-          <View style={styles.formGroup}>
-            <View style={styles.switchContainer}>
-              <Text style={styles.label}>Is Active (Visible to Customers):</Text>
-              <Switch
-                trackColor={{ false: colors.border, true: colors.primaryLight }}
-                thumbColor={Platform.OS === 'android' ? colors.primary : colors.card} // Android needs different thumbColor
-                ios_backgroundColor={colors.border}
-                onValueChange={setIsProductActive}
-                value={isProductActive}
-                disabled={overallLoading}
-              />
+        {/* ── STEP 3: INVENTORY ── */}
+        {step === 2 && (
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Inventory & Category</Text>
+
+            <Text style={s.label}>Stock Quantity *</Text>
+            <View style={[s.input, isStockFocused && s.inputFocus]}>
+              <TextInput style={s.inputText} placeholder="e.g., 100" placeholderTextColor="#888"
+                keyboardType="numeric" value={productStock} onChangeText={setProductStock}
+                onFocus={() => setIsStockFocused(true)} onBlur={() => setIsStockFocused(false)} maxLength={6} />
             </View>
-            <Text style={styles.helpText}>Uncheck to temporarily hide this product from your shop.</Text>
-          </View>
 
-          <TouchableOpacity
-            style={[styles.button, overallLoading && styles.buttonDisabled]}
-            onPress={handleAddProduct}
-            disabled={overallLoading}
-            activeOpacity={0.7}
-          >
-            {overallLoading ? (
-              <ActivityIndicator color={colors.buttonText} />
-            ) : (
-              <Text style={styles.buttonText}>Add Product</Text>
-            )}
-          </TouchableOpacity>
+            <Text style={s.label}>Category *</Text>
+            {categoriesLoading
+              ? <ActivityIndicator size="small" color={SA.green} />
+              : (
+                <View style={s.catBox}>
+                  {categoryBreadcrumbs.length > 0 && (
+                    <View style={s.breadcrumbRow}>
+                      <TouchableOpacity onPress={navigateUpCategory} style={s.backBtn}>
+                        <Ionicons name="arrow-back-outline" size={18} color={SA.black} />
+                      </TouchableOpacity>
+                      <Text style={s.breadcrumbText}>{categoryBreadcrumbs.map(c => c.name).join(' › ')}</Text>
+                      {selectedLeafCategory && (
+                        <TouchableOpacity onPress={() => setSelectedLeafCategory(null)} style={s.clearBtn}>
+                          <Ionicons name="close-circle-outline" size={18} color={SA.red} />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+                  )}
+                  <ScrollView style={{ maxHeight: 180 }} showsVerticalScrollIndicator>
+                    <View style={s.catChips}>
+                      {currentDisplayCategories.map(cat => (
+                        <TouchableOpacity key={cat.id}
+                          style={[s.catChip, selectedLeafCategory?.id === cat.id && s.catChipActive]}
+                          onPress={() => handleCategoryPress(cat)}>
+                          <Text style={[s.catChipText, selectedLeafCategory?.id === cat.id && s.catChipTextActive]}>{cat.name}</Text>
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  </ScrollView>
+                  {selectedLeafCategory && (
+                    <Text style={s.selectedCat}>Selected: <Text style={{ fontWeight: '800' }}>{selectedLeafCategory.name}</Text></Text>
+                  )}
+                </View>
+              )}
+
+            <View style={s.switchRow}>
+              <Text style={s.label}>Active (visible to customers)</Text>
+              <Switch trackColor={{ false: '#D0D0D0', true: SA.green }}
+                thumbColor={Platform.OS === 'android' ? SA.green : '#fff'}
+                ios_backgroundColor="#D0D0D0"
+                onValueChange={setIsProductActive} value={isProductActive} />
+            </View>
+          </View>
+        )}
+
+        {/* Navigation buttons */}
+        <View style={s.navRow}>
+          {step > 0 && (
+            <TouchableOpacity style={s.backNavBtn} onPress={goBack}>
+              <Ionicons name="arrow-back" size={16} color={SA.blue} />
+              <Text style={s.backNavText}>Back</Text>
+            </TouchableOpacity>
+          )}
+          {step < STEPS.length - 1 ? (
+            <TouchableOpacity style={s.nextBtn} onPress={goNext}>
+              <Text style={s.nextBtnText}>Next</Text>
+              <Ionicons name="arrow-forward" size={16} color="#fff" />
+            </TouchableOpacity>
+          ) : (
+            <TouchableOpacity style={[s.submitBtn, overallLoading && s.btnDisabled]} onPress={handleAddProduct} disabled={overallLoading}>
+              {overallLoading
+                ? <ActivityIndicator color="#fff" />
+                : <><Ionicons name="checkmark-circle" size={18} color="#fff" /><Text style={s.submitBtnText}>Add Product</Text></>}
+            </TouchableOpacity>
+          )}
         </View>
       </ScrollView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: 'flex-start',
-    paddingBottom: 12,
-  },
-  container: {
-    flex: 1,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    backgroundColor: colors.background,
-  },
-  centeredContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    padding: 20,
-  },
-  lockIcon: {
-    marginBottom: 20,
-  },
-  title: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
-    marginBottom: 8,
-    textAlign: 'center',
-  },
-  messageBoxError: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#FADBD8',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.errorText,
-  },
-  messageTextError: {
-    color: colors.errorText,
-    fontSize: 11,
-    marginLeft: 6,
-    flexShrink: 1,
-  },
-  messageBoxSuccess: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#D4EFDF',
-    borderRadius: 6,
-    padding: 8,
-    marginBottom: 8,
-    borderWidth: 1,
-    borderColor: colors.successText,
-  },
-  messageTextSuccess: {
-    color: colors.successText,
-    fontSize: 11,
-    marginLeft: 6,
-    flexShrink: 1,
-  },
-  formGroup: {
-    marginBottom: 10,
-  },
-  label: {
-    fontSize: 12,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: Platform.OS === 'ios' ? 8 : 6,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
-  },
-  inputFocused: {
-    borderColor: colors.inputFocusBorder,
-    shadowOpacity: 0.1,
-    elevation: 2,
-  },
-  inputField: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.textPrimary,
-    padding: 0,
-  },
-  textAreaContainer: {
-    height: 80,
-    alignItems: 'flex-start',
-    paddingTop: 8,
-    paddingBottom: 8,
-  },
-  textAreaField: {
-    height: '100%',
-    textAlignVertical: 'top', // For Android to start text at top
-  },
-  categorySelectionContainer: {
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 6,
-    padding: 8,
-    marginVertical: 4,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  categoryPathContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 8,
-    paddingBottom: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: colors.border,
-    backgroundColor: '#F8F8F8',
-    borderRadius: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-  },
-  backButton: {
-    padding: 4,
-    marginRight: 6,
-    backgroundColor: colors.background,
-    borderRadius: 12,
-  },
-  categoryPathText: {
-    fontSize: 10,
-    color: colors.textPrimary,
-    flex: 1,
-    fontWeight: '600',
-  },
-  clearSelectionButton: {
-    padding: 4,
-    marginLeft: 6,
-    backgroundColor: '#FADBD8',
-    borderRadius: 12,
-  },
-  categoryButtonsScrollView: {
-    maxHeight: 200,
-    minHeight: 60,
-    paddingBottom: 4,
-  },
-  categoryButtonsContent: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'flex-start',
-    paddingVertical: 2,
-  },
-  categoryButton: {
-    paddingVertical: 5,
-    paddingHorizontal: 10,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: colors.border,
-    margin: 3,
-    backgroundColor: colors.card,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  selectedCategoryButton: {
-    backgroundColor: colors.primary,
-    borderColor: colors.primary,
-    shadowOpacity: 0.1,
-    elevation: 2,
-  },
-  categoryButtonText: {
-    color: colors.textPrimary,
-    fontSize: 10,
-    fontWeight: '500',
-  },
-  selectedCategoryButtonText: {
-    color: colors.buttonText,
-    fontSize: 10,
-    fontWeight: 'bold',
-  },
-  noCategoriesText: {
-    color: colors.textSecondary,
-    fontSize: 10,
-    textAlign: 'center',
-    padding: 6,
-    flex: 1,
-  },
-  finalSelectionText: {
-    fontSize: 10,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginTop: 8,
-    paddingTop: 6,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    textAlign: 'center',
-  },
-  finalSelectionTextBold: {
-    fontWeight: 'bold', // Ensure this part is bold
-  },
-  categoryLoadingIndicator: {
-    marginVertical: 4,
-  },
-  imagePickerButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.buttonBg,
-    borderRadius: 6,
-    paddingVertical: 8,
-    marginBottom: 6,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  imagePickerButtonText: {
-    color: colors.buttonText,
-    fontSize: 13,
-    fontWeight: 'bold',
-    marginLeft: 6,
-  },
-  imageCountText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 6,
-  },
-  imagePreviewContainer: {
-    flexDirection: 'row',
-    marginBottom: 8,
-    paddingVertical: 6,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 6,
-    backgroundColor: colors.card,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  imagePreviewWrapper: {
-    marginHorizontal: 4,
-    width: 70,
-    height: 70,
-    borderRadius: 6,
-    overflow: 'hidden',
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    position: 'relative',
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.1,
-    shadowRadius: 2,
-    elevation: 2,
-  },
-  imagePreview: {
-    width: '100%',
-    height: '100%',
-    resizeMode: 'cover',
-  },
-  removeImageButton: {
-    position: 'absolute',
-    top: -6,
-    right: -6,
-    backgroundColor: 'white',
-    borderRadius: 10,
-    padding: 1,
-    zIndex: 1,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.15,
-    shadowRadius: 2,
-    elevation: 3,
-  },
-  mainImageButton: {
-    position: 'absolute',
-    bottom: 3,
-    left: 3,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: 3,
-    paddingVertical: 2,
-    paddingHorizontal: 4,
-  },
-  mainImageButtonActive: {
-    backgroundColor: colors.primary,
-  },
-  mainImageButtonText: {
-    color: colors.buttonText,
-    fontSize: 8,
-    fontWeight: 'bold',
-  },
-  imageUploadIndicator: {
-    marginTop: 4,
-  },
-  warningText: {
-    fontSize: 11,
-    color: colors.errorText,
-    textAlign: 'center',
-    marginTop: 6,
-  },
-  warningTextProminent: {
-    fontWeight: 'bold',
-    padding: 4,
-    backgroundColor: '#FADBD8',
-    borderRadius: 4,
-  },
-  switchContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.inputBorder,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 6,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.05,
-    shadowRadius: 1,
-    elevation: 1,
-  },
-  helpText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 3,
-    marginLeft: 3,
-  },
-  button: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: colors.buttonBg,
-    borderRadius: 6,
-    paddingVertical: 10,
-    marginTop: 10,
-    shadowColor: colors.shadowColor,
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 3,
-    elevation: 3,
-  },
-  buttonDisabled: {
-    backgroundColor: colors.primaryLight,
-    opacity: 0.7,
-  },
-  buttonText: {
-    color: colors.buttonText,
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
+const s = StyleSheet.create({
+  safe:  { flex: 1, backgroundColor: '#F0F2F5' },
+  center:{ flex: 1, justifyContent: 'center', alignItems: 'center', padding: 20 },
+  scroll:{ padding: 16, paddingBottom: 40 },
+
+  // Stepper
+  stepperRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 14, paddingHorizontal: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  stepItem:   { flexDirection: 'row', alignItems: 'center' },
+  stepCircle: { width: 28, height: 28, borderRadius: 14, backgroundColor: '#E0E0E0', justifyContent: 'center', alignItems: 'center' },
+  stepCircleActive: { backgroundColor: '#002395' },
+  stepCircleDone:   { backgroundColor: '#007A4D' },
+  stepNum:    { fontSize: 12, fontWeight: '700', color: '#888' },
+  stepNumActive: { color: '#fff' },
+  stepLabel:  { fontSize: 10, color: '#888', fontWeight: '600', marginLeft: 6, marginRight: 4 },
+  stepLabelActive: { color: '#002395', fontWeight: '800' },
+  stepLine:   { width: 24, height: 2, backgroundColor: '#E0E0E0', marginHorizontal: 4 },
+  stepLineDone: { backgroundColor: '#007A4D' },
+
+  // Messages
+  msgError:   { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#DE3831', gap: 8 },
+  msgErrorText: { color: '#DE3831', fontSize: 12, flex: 1, fontWeight: '600' },
+  msgSuccess: { flexDirection: 'row', alignItems: 'center', backgroundColor: '#D4EFDF', borderRadius: 8, padding: 10, marginBottom: 12, borderWidth: 1, borderColor: '#007A4D', gap: 8 },
+  msgSuccessText: { color: '#007A4D', fontSize: 12, flex: 1, fontWeight: '600' },
+
+  // Card
+  card:      { backgroundColor: '#fff', borderRadius: 16, padding: 18, marginBottom: 16, shadowColor: '#C8A96E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 3 },
+  cardTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 16 },
+
+  // Inputs
+  label:     { fontSize: 12, fontWeight: '700', color: '#444', marginBottom: 6, marginTop: 10 },
+  input:     { flexDirection: 'row', alignItems: 'center', backgroundColor: '#FAFAFA', borderWidth: 1.5, borderColor: '#D0D0D0', borderRadius: 10, paddingHorizontal: 12, paddingVertical: Platform.OS === 'ios' ? 10 : 8, marginBottom: 4 },
+  inputFocus:{ borderColor: '#002395', backgroundColor: '#F0F4FF' },
+  textArea:  { alignItems: 'flex-start', paddingTop: 10 },
+  priceInput:{ borderColor: '#FFB81C' },
+  priceInputFocus: { borderColor: '#FFB81C', borderWidth: 2 },
+  currencyR: { fontSize: 15, fontWeight: '800', color: '#111', marginRight: 6 },
+  inputText: { flex: 1, fontSize: 14, color: '#111' },
+
+  // Image picker
+  pickBtn:     { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#007A4D', borderRadius: 10, paddingVertical: 12, marginBottom: 12, gap: 8, shadowColor: '#007A4D', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.2, shadowRadius: 6, elevation: 3 },
+  pickBtnText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  noImgRow:    { flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginBottom: 8 },
+  noImgText:   { fontSize: 12, color: '#555' },
+  reqStar:     { fontSize: 14, fontWeight: '800', color: '#DE3831' },
+  imgCount:    { fontSize: 12, color: '#555', textAlign: 'center', marginBottom: 8 },
+  imgPreviewScroll: { marginBottom: 8 },
+  imgWrap:     { marginRight: 8, width: 80, height: 80, borderRadius: 8, overflow: 'hidden', position: 'relative', borderWidth: 1, borderColor: '#D0D0D0' },
+  imgThumb:    { width: '100%', height: '100%', resizeMode: 'cover' },
+  imgRemove:   { position: 'absolute', top: -4, right: -4, backgroundColor: '#fff', borderRadius: 12, zIndex: 1 },
+  imgMain:     { position: 'absolute', bottom: 3, left: 3, backgroundColor: 'rgba(0,0,0,0.6)', borderRadius: 4, paddingHorizontal: 4, paddingVertical: 2 },
+  imgMainActive: { backgroundColor: '#007A4D' },
+  imgMainText: { color: '#fff', fontSize: 8, fontWeight: '700' },
+
+  // Category
+  catBox:       { backgroundColor: '#FAFAFA', borderWidth: 1.5, borderColor: '#D0D0D0', borderRadius: 10, padding: 10, marginBottom: 4 },
+  breadcrumbRow:{ flexDirection: 'row', alignItems: 'center', marginBottom: 8, paddingBottom: 6, borderBottomWidth: 1, borderBottomColor: '#E0E0E0' },
+  backBtn:      { padding: 4, marginRight: 6 },
+  breadcrumbText: { flex: 1, fontSize: 11, fontWeight: '600', color: '#111' },
+  clearBtn:     { padding: 4 },
+  catChips:     { flexDirection: 'row', flexWrap: 'wrap', gap: 6 },
+  catChip:      { paddingVertical: 5, paddingHorizontal: 10, borderRadius: 12, borderWidth: 1.5, borderColor: '#002395', backgroundColor: '#fff' },
+  catChipActive:{ backgroundColor: '#002395', borderColor: '#002395' },
+  catChipText:  { fontSize: 11, fontWeight: '600', color: '#111' },
+  catChipTextActive: { color: '#fff', fontWeight: '700' },
+  selectedCat:  { fontSize: 11, color: '#007A4D', marginTop: 8, textAlign: 'center' },
+
+  // Switch
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E0E0E0' },
+
+  // Nav buttons
+  navRow:      { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
+  backNavBtn:  { flexDirection: 'row', alignItems: 'center', gap: 6, paddingVertical: 12, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1.5, borderColor: '#002395' },
+  backNavText: { color: '#002395', fontWeight: '700', fontSize: 14 },
+  nextBtn:     { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: '#002395', paddingVertical: 12, paddingHorizontal: 24, borderRadius: 10, marginLeft: 'auto', shadowColor: '#002395', shadowOffset: { width: 0, height: 3 }, shadowOpacity: 0.25, shadowRadius: 6, elevation: 4 },
+  nextBtnText: { color: '#fff', fontWeight: '800', fontSize: 14 },
+  submitBtn:   { flexDirection: 'row', alignItems: 'center', gap: 8, backgroundColor: '#007A4D', paddingVertical: 14, paddingHorizontal: 28, borderRadius: 12, marginLeft: 'auto', shadowColor: '#007A4D', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 8, elevation: 5 },
+  submitBtnText: { color: '#fff', fontWeight: '800', fontSize: 15 },
+  btnDisabled: { opacity: 0.6 },
+
+  // Misc
+  title:    { fontSize: 20, fontWeight: '800', color: '#111', marginBottom: 8, textAlign: 'center' },
+  subtitle: { fontSize: 13, color: '#666', textAlign: 'center' },
 });
 
 export default AddProductScreen;

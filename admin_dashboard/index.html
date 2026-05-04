@@ -4,6 +4,10 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>SAknew Market — Admin</title>
+  <!-- Typography: Manrope (nav/buttons) + IBM Plex Sans (data/tables) + Inter (body) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=IBM+Plex+Sans:wght@400;500;600;700&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
@@ -11,13 +15,20 @@
 <!-- LOGIN SCREEN -->
 <div id="login-screen">
   <div class="login-card">
-    <div class="login-logo">🛍️</div>
+    <div class="login-logo">🛒</div>
     <h1 class="login-title">SAknew Admin</h1>
-    <p class="login-sub">Sign in to your admin dashboard</p>
+    <p class="login-sub">Command Center — Sign in to continue</p>
     <div id="login-error" class="login-error hidden"></div>
-    <input id="login-email" type="email" placeholder="Admin email" class="login-input" />
-    <input id="login-password" type="password" placeholder="Password" class="login-input" />
+    <div class="login-input-wrap">
+      <span class="login-input-icon">✉️</span>
+      <input id="login-email" type="email" placeholder="Admin email" class="login-input" />
+    </div>
+    <div class="login-input-wrap">
+      <span class="login-input-icon">🔒</span>
+      <input id="login-password" type="password" placeholder="Password" class="login-input" />
+    </div>
     <button id="login-btn" onclick="doLogin()">Sign In</button>
+    <p class="login-footer">Powered by SA_makert · Proudly South African 🇿🇦</p>
   </div>
 </div>
 
@@ -25,8 +36,8 @@
 <div id="dashboard" class="hidden">
   <aside class="sidebar">
     <div class="sidebar-logo">
-      <span class="logo-icon">🛍️</span>
-      <span class="logo-text">SAknew Admin</span>
+      <span class="logo-icon">🛒</span>
+      <span class="logo-text">SA_makert</span>
     </div>
     <div class="admin-badge" id="admin-name">Admin</div>
     <nav class="nav">
@@ -55,7 +66,7 @@
         <span class="nav-icon">💬</span> Feedback
       </a>
     </nav>
-    <button class="logout-btn" onclick="doLogout()">⬅ Logout</button>
+    <button class="logout-btn" onclick="doLogout()">🚪 Logout</button>
   </aside>
 
   <main class="main">
@@ -71,24 +82,24 @@
     <section id="sec-overview" class="sec active">
       <div class="stats-grid">
         <div class="stat-card blue">
-          <div class="stat-top"><span class="stat-label">Total Users</span><span class="stat-icon">👥</span></div>
+          <div class="stat-top"><span class="stat-label">Total Users</span><span class="stat-icon" style="color:#002395">👥</span></div>
           <div class="stat-val" id="s-users">—</div>
           <div class="stat-sub" id="s-users-sub"></div>
         </div>
         <div class="stat-card green">
-          <div class="stat-top"><span class="stat-label">Total Revenue</span><span class="stat-icon">💰</span></div>
-          <div class="stat-val" id="s-revenue">—</div>
-          <div class="stat-sub" id="s-revenue-sub"></div>
+          <div class="stat-top"><span class="stat-label">Active Shops</span><span class="stat-icon" style="color:#007A4D">🏪</span></div>
+          <div class="stat-val" id="s-shops">—</div>
+          <div class="stat-sub" id="s-shops-sub"></div>
         </div>
-        <div class="stat-card purple">
-          <div class="stat-top"><span class="stat-label">Total Orders</span><span class="stat-icon">🧾</span></div>
+        <div class="stat-card blue">
+          <div class="stat-top"><span class="stat-label">Total Orders</span><span class="stat-icon" style="color:#002395">🧾</span></div>
           <div class="stat-val" id="s-orders">—</div>
           <div class="stat-sub" id="s-orders-sub"></div>
         </div>
-        <div class="stat-card orange">
-          <div class="stat-top"><span class="stat-label">Active Shops</span><span class="stat-icon">🏪</span></div>
-          <div class="stat-val" id="s-shops">—</div>
-          <div class="stat-sub" id="s-shops-sub"></div>
+        <div class="stat-card yellow">
+          <div class="stat-top"><span class="stat-label">Total Revenue</span><span class="stat-icon" style="color:#FFB81C">💰</span></div>
+          <div class="stat-val" id="s-revenue">—</div>
+          <div class="stat-sub" id="s-revenue-sub"></div>
         </div>
         <div class="stat-card teal">
           <div class="stat-top"><span class="stat-label">Wallet Balance</span><span class="stat-icon">👛</span></div>
@@ -96,7 +107,7 @@
           <div class="stat-sub" id="s-wallet-sub"></div>
         </div>
         <div class="stat-card red">
-          <div class="stat-top"><span class="stat-label">Pending Withdrawals</span><span class="stat-icon">🏦</span></div>
+          <div class="stat-top"><span class="stat-label">Pending Withdrawals</span><span class="stat-icon" style="color:#DE3831">🏦</span></div>
           <div class="stat-val" id="s-withdrawals">—</div>
           <div class="stat-sub" id="s-withdrawals-sub"></div>
         </div>
@@ -105,11 +116,20 @@
           <div class="stat-val" id="s-products">—</div>
           <div class="stat-sub" id="s-products-sub"></div>
         </div>
-        <div class="stat-card yellow">
-          <div class="stat-top"><span class="stat-label">Pending Orders</span><span class="stat-icon">⏳</span></div>
+        <div class="stat-card orange">
+          <div class="stat-top"><span class="stat-label">Pending Orders</span><span class="stat-icon" style="color:#DE3831">⏳</span></div>
           <div class="stat-val" id="s-pending">—</div>
           <div class="stat-sub" id="s-pending-sub"></div>
         </div>
+      </div>
+
+      <div class="activity-card">
+        <div class="activity-title">Recent Activity</div>
+        <div class="activity-row"><span class="activity-label">New users today</span><strong class="activity-val" id="act-users-today">—</strong></div>
+        <div class="activity-row"><span class="activity-label">Orders this week</span><strong class="activity-val" id="act-orders-week">—</strong></div>
+        <div class="activity-row"><span class="activity-label">Revenue this month</span><strong class="activity-val" id="act-rev-month">—</strong></div>
+        <div class="activity-row"><span class="activity-label">Pending withdrawals</span><strong class="activity-val" style="color:#DE3831" id="act-withdrawals">—</strong></div>
+        <div class="activity-row"><span class="activity-label">Out of stock products</span><strong class="activity-val" style="color:#DE3831" id="act-oos">—</strong></div>
       </div>
 
       <div class="row-2">
@@ -151,7 +171,7 @@
       </div>
       <div class="table-wrap">
         <table class="tbl">
-          <thead><tr><th>#</th><th>Email</th><th>Name</th><th>Role</th><th>Verified</th><th>Joined</th></tr></thead>
+          <thead><tr><th>#</th><th>Email</th><th>Name</th><th>Role</th><th>Verified</th><th>Joined</th><th>Actions</th></tr></thead>
           <tbody id="users-tbody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
         </table>
       </div>
@@ -164,7 +184,7 @@
       </div>
       <div class="table-wrap">
         <table class="tbl">
-          <thead><tr><th>#</th><th>Shop Name</th><th>Owner</th><th>Products</th><th>Active</th><th>Out of Stock</th><th>Created</th></tr></thead>
+          <thead><tr><th>#</th><th>Shop Name</th><th>Owner</th><th>Products</th><th>Active</th><th>Out of Stock</th><th>Status</th><th>Created</th><th>Actions</th></tr></thead>
           <tbody id="shops-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
         </table>
       </div>
@@ -198,8 +218,18 @@
 
     <!-- TRANSACTIONS -->
     <section id="sec-transactions" class="sec">
-      <div class="search-bar">
-        <input id="search-transactions" type="text" placeholder="🔍 Search transactions..." oninput="filterTable('transactions-tbody','search-transactions')" />
+      <div class="table-controls">
+        <div class="search-bar">
+          <input id="search-transactions" type="text" placeholder="Search user, description..." oninput="filterTransactions()" />
+        </div>
+        <select id="txn-status-filter" class="filter-select" onchange="filterTransactions()">
+          <option value="">All Statuses</option>
+          <option value="COMPLETED">Completed</option>
+          <option value="PENDING">Pending</option>
+          <option value="PROCESSING">Processing</option>
+          <option value="FAILED">Failed</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
       </div>
       <div class="table-wrap">
         <table class="tbl">
@@ -211,12 +241,26 @@
 
     <!-- WITHDRAWALS -->
     <section id="sec-withdrawals" class="sec">
-      <div class="search-bar">
-        <input id="search-withdrawals" type="text" placeholder="🔍 Search withdrawals..." oninput="filterTable('withdrawals-tbody','search-withdrawals')" />
+      <div class="wd-summary">
+        <div class="wd-chip wd-chip-gold">
+          <span class="wd-chip-label">Pending</span>
+          <span class="wd-chip-val" id="wd-pending">—</span>
+        </div>
+        <div class="wd-chip wd-chip-green">
+          <span class="wd-chip-label">Paid</span>
+          <span class="wd-chip-val" id="wd-paid">—</span>
+        </div>
+        <div class="wd-chip wd-chip-red">
+          <span class="wd-chip-label">Rejected</span>
+          <span class="wd-chip-val" id="wd-rejected">—</span>
+        </div>
+      </div>
+      <div class="search-bar" style="margin-bottom:16px">
+        <input id="search-withdrawals" type="text" placeholder="Search by user email or amount..." oninput="filterTable('withdrawals-tbody','search-withdrawals')" />
       </div>
       <div class="table-wrap">
         <table class="tbl">
-          <thead><tr><th>#</th><th>User</th><th>Amount</th><th>Status</th><th>Bank Details</th><th>Date</th><th>Action</th></tr></thead>
+          <thead><tr><th>#</th><th>User</th><th>Amount</th><th>Status</th><th>Bank Details</th><th>Date</th><th>Actions</th></tr></thead>
           <tbody id="withdrawals-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
         </table>
       </div>
@@ -224,6 +268,19 @@
 
     <!-- FEEDBACK -->
     <section id="sec-feedback" class="sec">
+      <div class="feedback-controls">
+        <div class="fb-filter-chips">
+          <button class="fb-chip active" onclick="filterFeedback('all',this)">All</button>
+          <button class="fb-chip" onclick="filterFeedback('unread',this)">Unread</button>
+          <button class="fb-chip" onclick="filterFeedback('shop',this)">Shops</button>
+          <button class="fb-chip" onclick="filterFeedback('anon',this)">Anonymous</button>
+        </div>
+        <div class="fb-summary">
+          <span class="fb-summary-item" id="fb-total">— total</span>
+          <span class="fb-summary-item fb-summary-shop" id="fb-shops">— shops</span>
+          <span class="fb-summary-item fb-summary-anon" id="fb-anon">— anonymous</span>
+        </div>
+      </div>
       <div class="feedback-grid" id="feedback-grid">
         <p class="loading">Loading feedback...</p>
       </div>

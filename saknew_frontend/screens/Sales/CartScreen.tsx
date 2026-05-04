@@ -20,17 +20,17 @@ import { useAuth } from '../../context/AuthContext';
 
 // ── palette ──────────────────────────────────────────────────────────────────
 const C = {
-  bg:          '#F0F0EE',
+  bg:          '#FAF8F4',
   card:        '#FFFFFF',
   border:      '#EBEBEB',
-  primary:     '#059669',
-  primaryDark: '#047857',
-  danger:      '#EF4444',
+  primary:     '#007A4D',
+  primaryDark: '#005C3A',
+  danger:      '#DE3831',
   text:        '#111827',
   sub:         '#6B7280',
   muted:       '#9CA3AF',
-  accent:      '#F59E0B',
-  purple:      '#6366F1',
+  gold:        '#FFB81C',
+  blue:        '#002395',
   shadow:      '#000',
 };
 
@@ -269,7 +269,13 @@ const CartScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      {/* ── header ── */}
+      {/* SA flag bar */}
+      <View style={styles.flagBar}>
+        {['#007A4D','#FFB81C','#DE3831','#002395','#000','#fff'].map((c,i)=>(
+          <View key={i} style={[styles.flagSeg,{backgroundColor:c}]} />
+        ))}
+      </View>
+      {/* ── header ── */}}
       <View style={styles.header}>
         <TouchableOpacity onPress={goBack} style={styles.backBtn}>
           <Ionicons name="arrow-back" size={22} color={C.text} />
@@ -284,8 +290,7 @@ const CartScreen: React.FC = () => {
         </View>
         {hasItems ? (
           <TouchableOpacity onPress={handleClear} style={styles.clearBtn}>
-            <Ionicons name="trash-outline" size={16} color={C.danger} />
-            <Text style={styles.clearBtnText}>Clear</Text>
+            <Text style={styles.clearBtnText}>Clear all</Text>
           </TouchableOpacity>
         ) : <View style={{ width: 60 }} />}
       </View>
@@ -336,7 +341,7 @@ const CartScreen: React.FC = () => {
                 }}
                 disabled={checkoutLoading}
               >
-                <LinearGradient colors={[C.primary, C.primaryDark]} style={styles.checkoutGradient}>
+                <LinearGradient colors={['#007A4D', '#005C3A']} style={styles.checkoutGradient}>
                   {checkoutLoading
                     ? <ActivityIndicator color="#fff" />
                     : <>
@@ -352,7 +357,7 @@ const CartScreen: React.FC = () => {
                   style={styles.checkoutBtn}
                   onPress={() => (navigation as any).navigate('GuestCheckout', { cartItems: guestCart, cartTotal: subtotal.toFixed(2) })}
                 >
-                  <LinearGradient colors={['#6366F1', '#4F46E5']} style={styles.checkoutGradient}>
+                  <LinearGradient colors={['#002395', '#001A70']} style={styles.checkoutGradient}>
                     <Ionicons name="card" size={16} color="#fff" />
                     <Text style={styles.checkoutBtnText}>Checkout as Guest</Text>
                   </LinearGradient>
@@ -361,13 +366,26 @@ const CartScreen: React.FC = () => {
                   style={[styles.checkoutBtn, { marginTop: 10 }]}
                   onPress={() => navigation.navigate('Login' as any)}
                 >
-                  <LinearGradient colors={[C.primary, C.primaryDark]} style={styles.checkoutGradient}>
+                  <LinearGradient colors={['#007A4D', '#005C3A']} style={styles.checkoutGradient}>
                     <Ionicons name="log-in" size={16} color="#fff" />
                     <Text style={styles.checkoutBtnText}>Login to Checkout</Text>
                   </LinearGradient>
                 </TouchableOpacity>
               </>
             )}
+
+            {/* trust footer */}
+            <View style={styles.trustRow}>
+              <Ionicons name="shield-checkmark-outline" size={13} color={C.primary} />
+              <Text style={styles.trustText}>Proudly South African Marketplace</Text>
+            </View>
+            <View style={styles.paymentRow}>
+              {['Ozow', 'PayFast', 'Visa', 'Mastercard'].map((p) => (
+                <View key={p} style={styles.paymentChip}>
+                  <Text style={styles.paymentChipText}>{p}</Text>
+                </View>
+              ))}
+            </View>
           </View>
         ) : null}
       />
@@ -377,6 +395,8 @@ const CartScreen: React.FC = () => {
 
 // ── styles ────────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
+  flagBar: { flexDirection: 'row', height: 3 },
+  flagSeg:  { flex: 1 },
   safeArea:    { flex: 1, backgroundColor: C.bg },
   centred:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
   loadingText: { marginTop: 12, fontSize: 14, color: C.sub, fontFamily: 'Inter-Regular' },
@@ -401,8 +421,8 @@ const styles = StyleSheet.create({
   headerTitle:   { fontSize: 17, fontFamily: 'Poppins-SemiBold', color: C.text },
   headerBadge:   { backgroundColor: C.primary, borderRadius: 10, minWidth: 20, height: 20, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 5 },
   headerBadgeText: { color: '#fff', fontSize: 11, fontFamily: 'Inter-Bold' },
-  clearBtn:      { flexDirection: 'row', alignItems: 'center', gap: 4, paddingHorizontal: 8, paddingVertical: 5, borderRadius: 8, borderWidth: 1, borderColor: C.danger, width: 60 },
-  clearBtnText:  { color: C.danger, fontSize: 11, fontFamily: 'Inter-SemiBold' },
+  clearBtn:      { paddingHorizontal: 4, paddingVertical: 5, width: 60, alignItems: 'flex-end' },
+  clearBtnText:  { color: C.danger, fontSize: 11, fontFamily: 'Inter-SemiBold', textDecorationLine: 'underline' },
 
   // list
   listContent: { padding: 14, paddingBottom: 40 },
@@ -466,15 +486,15 @@ const styles = StyleSheet.create({
   stepper: {
     flexDirection: 'row', alignItems: 'center',
     backgroundColor: '#F9FAFB', borderRadius: 10,
-    borderWidth: 1, borderColor: C.border, overflow: 'hidden',
+    borderWidth: 1, borderColor: '#002395', overflow: 'hidden',
   },
-  stepBtn:         { paddingHorizontal: 10, paddingVertical: 6 },
+  stepBtn:         { paddingHorizontal: 10, paddingVertical: 6, backgroundColor: '#002395' },
   stepBtnDisabled: { opacity: 0.35 },
-  stepBtnText:     { fontSize: 16, fontFamily: 'Inter-Bold', color: C.text },
-  stepCount:       { fontSize: 13, fontFamily: 'Inter-Bold', color: C.text, paddingHorizontal: 8 },
+  stepBtnText:     { fontSize: 16, fontFamily: 'Inter-Bold', color: '#FFFFFF' },
+  stepCount:       { fontSize: 13, fontFamily: 'Inter-Bold', color: C.text, paddingHorizontal: 10 },
 
   lineTotal:    { fontSize: 11, fontFamily: 'Inter-Regular', color: C.sub, marginTop: 4 },
-  lineTotalVal: { fontFamily: 'Inter-Bold', color: C.primary },
+  lineTotalVal: { fontFamily: 'Inter-Bold', color: '#005C3A', fontSize: 13 },
 
   // empty
   emptyBox:   { alignItems: 'center', paddingVertical: 60, paddingHorizontal: 30 },
@@ -496,13 +516,28 @@ const styles = StyleSheet.create({
   summaryRow:       { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
   summaryLabel:     { fontSize: 13, fontFamily: 'Inter-Regular', color: C.sub },
   summaryValue:     { fontSize: 14, fontFamily: 'Inter-SemiBold', color: C.text },
-  summaryTotalRow:  { borderTopWidth: 1, borderTopColor: C.border, paddingTop: 10, marginTop: 4 },
-  summaryTotalLabel:{ fontSize: 15, fontFamily: 'Poppins-SemiBold', color: C.text },
-  summaryTotalValue:{ fontSize: 20, fontFamily: 'Poppins-Bold', color: C.primary },
+  summaryTotalRow:  { borderTopWidth: 2, borderTopColor: '#FFB81C', paddingTop: 10, marginTop: 4 },
+  summaryTotalLabel:{ fontSize: 16, fontFamily: 'Poppins-Bold', color: '#111827' },
+  summaryTotalValue:{ fontSize: 22, fontFamily: 'Poppins-Bold', color: '#111827' },
 
   checkoutBtn:      { borderRadius: 14, overflow: 'hidden', marginTop: 14 },
   checkoutGradient: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8, paddingVertical: 15 },
   checkoutBtnText:  { color: '#fff', fontSize: 15, fontFamily: 'Poppins-SemiBold' },
+
+  trustRow: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+    gap: 5, marginTop: 16, marginBottom: 8,
+  },
+  trustText: { fontSize: 11, color: C.sub, fontFamily: 'Inter-Regular' },
+  paymentRow: {
+    flexDirection: 'row', justifyContent: 'center',
+    flexWrap: 'wrap', gap: 6,
+  },
+  paymentChip: {
+    borderWidth: 1, borderColor: '#D1D5DB',
+    borderRadius: 6, paddingHorizontal: 8, paddingVertical: 3,
+  },
+  paymentChipText: { fontSize: 10, color: C.muted, fontFamily: 'Inter-Regular' },
 });
 
 export default CartScreen;

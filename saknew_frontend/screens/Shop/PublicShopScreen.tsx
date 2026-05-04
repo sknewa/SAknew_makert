@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+﻿import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import ProductCard from '../../components/ProductCard';
 import {
   View,
@@ -33,23 +33,14 @@ import { useBadges } from '../../context/BadgeContext';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
 
-// Derive a unique accent color from the shop name so every shop looks different
-const PALETTE = [
-  ['#6B46C1', '#9F7AEA'], // purple
-  ['#2B6CB0', '#63B3ED'], // blue
-  ['#276749', '#68D391'], // green
-  ['#C05621', '#F6AD55'], // orange
-  ['#97266D', '#F687B3'], // pink
-  ['#2C7A7B', '#81E6D9'], // teal
-  ['#744210', '#F6E05E'], // gold
-  ['#1A365D', '#90CDF4'], // navy
-];
-
-function shopColorPair(name: string): [string, string] {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return PALETTE[Math.abs(hash) % PALETTE.length];
-}
+// SA flag palette for this screen
+const SA = {
+  green:  '#007A4D',
+  blue:   '#002395',
+  gold:   '#FFB81C',
+  red:    '#DE3831',
+  navy:   '#0D1B2A',
+};
 
 // Pre-computed star positions for the galaxy default banner
 const STARS = Array.from({ length: 60 }, (_, i) => ({
@@ -278,7 +269,6 @@ const PublicShopScreen = () => {
 
   const renderHeader = () => {
     if (!shop) return null;
-    const [dark, light] = shopColorPair(shop.name);
     const location = [shop.town, shop.province].filter(Boolean).join(', ');
     const socialLinks = shop.social_links || {};
     const bannerUrl = (shop as any).banner_image_url;
@@ -286,19 +276,18 @@ const PublicShopScreen = () => {
     const BannerInner = (
       <LinearGradient
         colors={[
-          bannerUrl ? 'rgba(0,0,0,0.32)' : `${dark}DD`,
+          bannerUrl ? 'rgba(0,0,0,0.32)' : '#0D1B2ADD',
           'rgba(0,0,0,0.52)',
           'rgba(0,0,0,0.76)',
-          // fade into the page background colour at the very bottom
           '#F0F0EE',
         ]}
         locations={[0, 0.38, 0.72, 1]}
         style={styles.bannerOverlay}
       >
-        {/* ── All shop info, fully centred ── */}
+        {/* â”€â”€ All shop info, fully centred â”€â”€ */}
         <View style={styles.bannerCenter}>
 
-          {/* Shop name — 3D calm effect:
+          {/* Shop name â€” 3D calm effect:
               layer 1: dark shadow offset down-right (depth)
               layer 2: bright highlight offset up-left (lift)
               layer 3: the actual white text on top */}
@@ -330,14 +319,14 @@ const PublicShopScreen = () => {
           {/* Location */}
           {location ? (
             <View style={styles.bannerRow}>
-              <Ionicons name="location" size={13} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="location" size={13} color="#FFB81C" />
               <Text style={styles.bannerMeta}>{location}</Text>
             </View>
           ) : null}
 
           {/* Product count */}
           <View style={styles.bannerRow}>
-            <Ionicons name="cube-outline" size={13} color="rgba(255,255,255,0.8)" />
+            <Ionicons name="cube-outline" size={13} color="#FFB81C" />
             <Text style={styles.bannerMeta}>{allProducts.length} Products</Text>
           </View>
 
@@ -347,7 +336,7 @@ const PublicShopScreen = () => {
               style={styles.bannerRow}
               onPress={() => Linking.openURL(`tel:${shop.phone_number}`)}
             >
-              <Ionicons name="call" size={13} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="call" size={13} color="#FFB81C" />
               <Text style={[styles.bannerMeta, styles.bannerLink]}>{shop.phone_number}</Text>
             </TouchableOpacity>
           ) : null}
@@ -358,7 +347,7 @@ const PublicShopScreen = () => {
               style={styles.bannerRow}
               onPress={() => Linking.openURL(`mailto:${shop.email_contact}`)}
             >
-              <Ionicons name="mail" size={13} color="rgba(255,255,255,0.8)" />
+              <Ionicons name="mail" size={13} color="#FFB81C" />
               <Text style={[styles.bannerMeta, styles.bannerLink]}>{shop.email_contact}</Text>
             </TouchableOpacity>
           ) : null}
@@ -433,21 +422,21 @@ const PublicShopScreen = () => {
           style={[styles.filterChip, priceFilter === 'low' && styles.filterChipActive]}
           onPress={() => setPriceFilter(priceFilter === 'low' ? null : 'low')}
         >
-          <Ionicons name="arrow-down" size={14} color={priceFilter === 'low' ? 'white' : colors.primary} />
+          <Ionicons name="arrow-down" size={14} color={priceFilter === 'low' ? 'white' : '#FFB81C'} />
           <Text style={[styles.filterChipText, priceFilter === 'low' && styles.filterChipTextActive]}>Low Price</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={[styles.filterChip, priceFilter === 'high' && styles.filterChipActive]}
           onPress={() => setPriceFilter(priceFilter === 'high' ? null : 'high')}
         >
-          <Ionicons name="arrow-up" size={14} color={priceFilter === 'high' ? 'white' : colors.primary} />
+          <Ionicons name="arrow-up" size={14} color={priceFilter === 'high' ? 'white' : '#FFB81C'} />
           <Text style={[styles.filterChipText, priceFilter === 'high' && styles.filterChipTextActive]}>High Price</Text>
         </TouchableOpacity>
         <TouchableOpacity 
           style={styles.searchIconButton}
           onPress={() => setShowSearchInput(!showSearchInput)}
         >
-          <Ionicons name="search" size={20} color={colors.primary} />
+          <Ionicons name="search" size={20} color="#002395" />
         </TouchableOpacity>
       </View>
       
@@ -562,14 +551,14 @@ const PublicShopScreen = () => {
         />
       )}
 
-      {/* Floating buttons — HomeScreen style, right side */}
+      {/* Floating buttons â€” HomeScreen style, right side */}
       <TouchableOpacity
         style={styles.floatingMarketBtn}
         onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
         activeOpacity={0.85}
       >
         <View style={styles.floatingIconCircle}>
-          <Ionicons name="storefront" size={24} color="#10B981" />
+          <Ionicons name="storefront" size={24} color="#007A4D" />
         </View>
         <Text style={styles.floatingBtnLabel}>Main{"\n"}Market</Text>
       </TouchableOpacity>
@@ -580,7 +569,7 @@ const PublicShopScreen = () => {
         activeOpacity={0.85}
       >
         <View style={styles.floatingIconCircle}>
-          <Ionicons name="cart" size={24} color="#10B981" />
+          <Ionicons name="cart" size={24} color="#007A4D" />
           {cartCount > 0 && (
             <View style={styles.floatingBadge}>
               <Text style={styles.floatingBadgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
@@ -665,7 +654,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
   },
   galaxyBanner: {
-    backgroundColor: '#060818',
+    backgroundColor: '#0D1B2A',
   },
   star: {
     position: 'absolute',
@@ -687,7 +676,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
 
-  // ── 3D calm shop name ──
+  // â”€â”€ 3D calm shop name â”€â”€
   shopNameWrapper: {
     position: 'relative',
     alignItems: 'center',
@@ -699,21 +688,21 @@ const styles = StyleSheet.create({
     letterSpacing: 0.6,
     textAlign: 'center',
   },
-  // Layer 1 — dark offset shadow (gives depth / ground)
+  // Layer 1 â€” dark offset shadow (gives depth / ground)
   shopNameShadowDepth: {
     color: 'rgba(0,0,0,0.55)',
     position: 'absolute',
     top: 3,
     left: 3,
   },
-  // Layer 2 — soft light offset (gives lift / emboss)
+  // Layer 2 â€” soft light offset (gives lift / emboss)
   shopNameHighlight: {
     color: 'rgba(255,255,255,0.18)',
     position: 'absolute',
     top: -1,
     left: -1,
   },
-  // Layer 3 — the real white text on top
+  // Layer 3 â€” the real white text on top
   shopNameMain: {
     color: '#ffffff',
     textShadowColor: 'rgba(0,0,0,0.45)',
@@ -722,20 +711,14 @@ const styles = StyleSheet.create({
   },
 
   bannerDivider: {
-    width: 48,
-    height: 2,
-    borderRadius: 2,
-    backgroundColor: 'rgba(255,255,255,0.35)',
+    width: 48, height: 2, borderRadius: 2,
+    backgroundColor: '#FFB81C',
     marginBottom: 10,
   },
   bannerDescription: {
-    fontSize: 13,
-    fontFamily: 'Inter-Regular',
-    color: 'rgba(255,255,255,0.82)',
-    textAlign: 'center',
-    lineHeight: 19,
-    marginBottom: 8,
-    fontStyle: 'italic',
+    fontSize: 13, fontFamily: 'Inter-Regular',
+    color: '#FFFFFF',
+    textAlign: 'center', lineHeight: 19, marginBottom: 8, fontStyle: 'italic',
   },
   bannerRow: {
     flexDirection: 'row',
@@ -779,27 +762,13 @@ const styles = StyleSheet.create({
     marginBottom: spacing.xs,
   },
   filterChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
-    backgroundColor: colors.card,
-    borderWidth: 1,
-    borderColor: colors.primary,
-    gap: 4,
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 10, paddingVertical: 5, borderRadius: 12,
+    backgroundColor: colors.card, borderWidth: 1.5, borderColor: '#FFB81C', gap: 4,
   },
-  filterChipActive: {
-    backgroundColor: colors.primary,
-  },
-  filterChipText: {
-    fontSize: 11,
-    color: colors.primary,
-  },
-  filterChipTextActive: {
-    color: 'white',
-    fontWeight: '600',
-  },
+  filterChipActive: { backgroundColor: '#007A4D', borderColor: '#007A4D' },
+  filterChipText: { fontSize: 11, color: '#B8860B', fontWeight: '600' },
+  filterChipTextActive: { color: 'white', fontWeight: '700' },
   searchIconButton: {
     padding: 8,
     marginLeft: 'auto',
@@ -890,17 +859,9 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.border,
   },
-  activeCategoryItem: {
-    backgroundColor: colors.primary,
-  },
-  categoryText: {
-    fontSize: 11,
-    color: colors.textSecondary,
-  },
-  activeCategoryText: {
-    color: 'white',
-    fontWeight: '600',
-  },
+  activeCategoryItem: { backgroundColor: '#002395', borderColor: '#002395' },
+  categoryText: { fontSize: 11, color: colors.textSecondary, fontWeight: '600' },
+  activeCategoryText: { color: 'white', fontWeight: '700' },
   productsContainer: {
     flex: 1,
     backgroundColor: '#F0F0EE',
@@ -979,7 +940,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-  // Floating buttons — HomeScreen style
+  // Floating buttons â€” HomeScreen style
   floatingMarketBtn: {
     position: 'absolute',
     right: 20,
@@ -1002,24 +963,14 @@ const styles = StyleSheet.create({
     position: 'relative',
   },
   floatingBtnLabel: {
-    color: '#10B981',
-    fontSize: 9,
-    fontFamily: 'Inter-Bold',
-    marginTop: 4,
-    textAlign: 'center',
-    lineHeight: 11,
+    color: '#007A4D', fontSize: 9, fontFamily: 'Inter-Bold',
+    marginTop: 4, textAlign: 'center', lineHeight: 11,
   },
   floatingBadge: {
-    position: 'absolute',
-    top: -4,
-    right: -4,
-    backgroundColor: '#EF4444',
-    borderRadius: 10,
-    minWidth: 20,
-    height: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 4,
+    position: 'absolute', top: -4, right: -4,
+    backgroundColor: '#DE3831',
+    borderRadius: 10, minWidth: 20, height: 20,
+    justifyContent: 'center', alignItems: 'center', paddingHorizontal: 4,
   },
   floatingBadgeText: {
     color: '#fff',
