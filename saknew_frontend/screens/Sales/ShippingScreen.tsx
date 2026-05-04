@@ -238,7 +238,7 @@ const ShippingScreen: React.FC = () => {
 
   return (
     <KeyboardAvoidingView style={styles.container} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <BackButton />
+      <BackButton title="Shipping Address" />
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.header}>
           <Ionicons name="location-outline" size={40} color={colors.primary} />
@@ -258,6 +258,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setContactName}
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="name"
+                maxLength={100}
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -270,6 +271,7 @@ const ShippingScreen: React.FC = () => {
                 keyboardType="phone-pad"
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="tel"
+                maxLength={15}
               />
             </View>
           </View>
@@ -283,6 +285,7 @@ const ShippingScreen: React.FC = () => {
             onChangeText={setStreet}
             placeholderTextColor={colors.textSecondary}
             autoComplete="street-address"
+            maxLength={255}
           />
           
           <View style={styles.row}>
@@ -295,6 +298,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setTown}
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="address-level2"
+                maxLength={100}
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -306,6 +310,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setProvince}
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="address-level1"
+                maxLength={100}
               />
             </View>
           </View>
@@ -321,6 +326,7 @@ const ShippingScreen: React.FC = () => {
                 keyboardType="number-pad"
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="postal-code"
+                maxLength={10}
               />
             </View>
             <View style={styles.halfInputContainer}>
@@ -332,6 +338,7 @@ const ShippingScreen: React.FC = () => {
                 onChangeText={setCountry}
                 placeholderTextColor={colors.textSecondary}
                 autoComplete="country"
+                maxLength={100}
               />
             </View>
           </View>
@@ -386,7 +393,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingTop: Platform.OS === 'ios' ? 60 : 30,
+    paddingTop: 16,
   },
   header: {
     alignItems: 'center',

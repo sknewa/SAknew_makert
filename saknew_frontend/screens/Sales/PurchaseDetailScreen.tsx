@@ -3,6 +3,7 @@ import { View, Text, ScrollView, StyleSheet, SafeAreaView, TouchableOpacity, Ale
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { getOrderById, updateOrderStatus, createReview } from '../../services/salesService';
+import BackButton from '../../components/BackButton';
 
 const colors = {
   background: '#F5F7FA',
@@ -156,16 +157,7 @@ const PurchaseDetailScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-        <Text style={styles.headerTitle}>Purchase Details</Text>
-        <TouchableOpacity onPress={() => navigation.navigate('ConversationsList' as any)}>
-          <Ionicons name="chatbubble-ellipses" size={24} color={colors.primary} />
-        </TouchableOpacity>
-      </View>
-
+      <BackButton title="Purchase Details" />
       <ScrollView style={styles.content}>
         <View style={styles.orderCard}>
           <View style={styles.orderHeader}>

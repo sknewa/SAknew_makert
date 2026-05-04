@@ -2,6 +2,8 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 import { safeLog, safeError } from '../utils/securityUtils';
+import { getGuestCart, clearGuestCart } from '../services/guestCartService';
+import apiClient from '../services/apiClient';
 
 interface User {
   id: number;
@@ -80,17 +82,63 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const { access, refresh } = await apiFetch('api/accounts/login/', {
+      const data = await apiFetch('api/accounts/login/', {
         method: 'POST',
         body: JSON.stringify({ email, password }),
       });
+      const { access, refresh } = data;
       await AsyncStorage.setItem('access_token', access);
       await AsyncStorage.setItem('refresh_token', refresh);
       const profile = await fetchProfile(access);
       setUser(profile);
       setIsAuthenticated(true);
+      // Merge guest cart into backend cart
+      try {
+        const guestItems = await getGuestCart();
+        if (guestItems.length > 0) {
+          await Promise.all(
+            guestItems.map(item =>
+              apiClient.post('/api/carts/add/', {
+                product_id: item.product.id,
+                quantity: item.quantity,
+                ...(item.size ? { size: item.size } : {}),
+              })
+            )
+          );
+          await clearGuestCart();
+        }
+      } catch {
+        // Silent fail — cart merge is best-effort
+      }
     } catch (error: any) {
-      throw new Error(error.message || 'Login failed');
+      const msg: string = error?.message || '';
+      // Map backend messages to user-friendly ones
+      if (
+        msg.includes('No active account') ||
+        msg.includes('no active account') ||
+        msg.includes('credentials') ||
+        msg.includes('401') ||
+        msg.includes('Invalid')
+      ) {
+        // Could be wrong password OR no account — backend returns same 401 for both
+        throw new Error('INVALID_CREDENTIALS');
+      } else if (
+        msg.includes('verify') ||
+        msg.includes('not active') ||
+        msg.includes('not verified') ||
+        msg.includes('email_verified')
+      ) {
+        throw new Error('EMAIL_NOT_VERIFIED');
+      } else if (
+        msg.includes('Network') ||
+        msg.includes('fetch') ||
+        msg.includes('Failed to fetch') ||
+        msg.includes('connect')
+      ) {
+        throw new Error('NETWORK_ERROR');
+      } else {
+        throw new Error(msg || 'LOGIN_FAILED');
+      }
     } finally {
       setLoading(false);
     }

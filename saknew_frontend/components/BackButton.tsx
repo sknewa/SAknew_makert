@@ -1,5 +1,5 @@
 import React from 'react';
-import { TouchableOpacity, StyleSheet, ViewStyle } from 'react-native';
+import { TouchableOpacity, StyleSheet, ViewStyle, View, Text } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 
@@ -8,13 +8,15 @@ interface BackButtonProps {
   color?: string;
   size?: number;
   onPress?: () => void;
+  title?: string;
 }
 
-const BackButton: React.FC<BackButtonProps> = ({ 
-  style, 
-  color = '#2C3E50', 
-  size = 24,
-  onPress 
+const BackButton: React.FC<BackButtonProps> = ({
+  style,
+  color = '#0F172A',
+  size = 22,
+  onPress,
+  title,
 }) => {
   const navigation = useNavigation();
 
@@ -27,33 +29,43 @@ const BackButton: React.FC<BackButtonProps> = ({
   };
 
   return (
-    <TouchableOpacity 
-      style={[styles.backButton, style]} 
-      onPress={handlePress}
-      accessibilityLabel="Go back"
-    >
-      <Ionicons name="arrow-back" size={size} color={color} />
-    </TouchableOpacity>
+    <View style={[styles.header, style]}>
+      <TouchableOpacity
+        style={styles.backButton}
+        onPress={handlePress}
+        accessibilityLabel="Go back"
+        hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+      >
+        <Ionicons name="chevron-back" size={size} color={color} />
+      </TouchableOpacity>
+      {title ? <Text style={styles.title}>{title}</Text> : null}
+    </View>
   );
 };
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E8ECF4',
+  },
   backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 1000,
-    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F4F6FB',
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+  },
+  title: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#0F172A',
+    marginLeft: 12,
   },
 });
 

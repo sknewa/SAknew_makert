@@ -25,7 +25,7 @@ const AddFundsScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <BackButton />
+      <BackButton title="Add Funds" />
       <View style={styles.container}>
         <View style={styles.header}>
           <View style={styles.iconContainer}>
@@ -48,7 +48,7 @@ const AddFundsScreen: React.FC = () => {
           
           <View style={[styles.infoBox, { marginTop: 16 }]}>
             <Ionicons name="shield-checkmark" size={20} color={colors.success} />
-            <Text style={styles.infoText}>Secure payments powered by Yoco. Your card details are never stored.</Text>
+            <Text style={styles.infoText}>Secure payments powered by PayFast. Your card details are never stored.</Text>
           </View>
         </View>
       </View>

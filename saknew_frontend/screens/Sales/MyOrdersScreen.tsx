@@ -858,24 +858,24 @@ const styles = StyleSheet.create({
   emptyTitle: { fontSize: 18, fontWeight: 'bold', color: colors.textPrimary, marginTop: 12, marginBottom: 8 },
   emptySubtitle: { fontSize: 13, color: colors.textSecondary, marginBottom: 20, textAlign: 'center' },
   
-  orderCard: { backgroundColor: colors.card, borderRadius: 0, padding: 12, marginBottom: 0, shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.05, shadowRadius: 4, elevation: 2 },
+  orderCard: { backgroundColor: colors.card, borderRadius: 16, padding: 16, marginBottom: 16, marginHorizontal: 16, shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.05, shadowRadius: 10, elevation: 3, borderWidth: 1, borderColor: colors.border },
   
   orderHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 16, paddingBottom: 12, borderBottomWidth: 1, borderBottomColor: colors.border },
-  orderDate: { fontSize: 13, fontWeight: '600', color: colors.textPrimary, marginBottom: 3 },
-  orderNumber: { fontSize: 11, color: colors.textSecondary },
+  orderDate: { fontSize: 14, fontWeight: '700', color: colors.textPrimary, marginBottom: 4 },
+  orderNumber: { fontSize: 12, color: colors.textSecondary, letterSpacing: 0.5 },
   orderStatus: { alignItems: 'flex-end' },
-  statusBadge: { paddingHorizontal: 6, paddingVertical: 3, borderRadius: 4, fontSize: 11, fontWeight: '600', marginBottom: 3 },
-  statusPending: { backgroundColor: colors.warningAction + '20', color: colors.warningAction },
-  statusProcessing: { backgroundColor: colors.infoAction + '20', color: colors.infoAction },
-  statusShipped: { backgroundColor: colors.primary + '20', color: colors.primary },
-  statusDelivered: { backgroundColor: colors.primary + '20', color: colors.primary },
-  statusCompleted: { backgroundColor: colors.primary + '20', color: colors.primary },
-  statusCancelled: { backgroundColor: colors.dangerAction + '20', color: colors.dangerAction },
-  orderTotal: { fontSize: 14, fontWeight: '700', color: colors.primary },
+  statusBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, fontSize: 11, fontWeight: '700', marginBottom: 6, textTransform: 'uppercase' },
+  statusPending: { backgroundColor: '#FEF3C7', color: '#92400E' },
+  statusProcessing: { backgroundColor: '#DBEAFE', color: '#1E40AF' },
+  statusShipped: { backgroundColor: '#D1FAE5', color: '#065F46' },
+  statusDelivered: { backgroundColor: '#D1FAE5', color: '#065F46' },
+  statusCompleted: { backgroundColor: '#D1FAE5', color: '#065F46' },
+  statusCancelled: { backgroundColor: '#FEE2E2', color: '#991B1B' },
+  orderTotal: { fontSize: 16, fontWeight: '800', color: colors.primary },
   
   itemsContainer: { marginBottom: 12 },
   itemRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  productImage: { width: 60, height: 60, borderRadius: 4, marginRight: 10, backgroundColor: '#F8F8F8', borderWidth: 1, borderColor: colors.border },
+  productImage: { width: 64, height: 64, borderRadius: 12, marginRight: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: colors.border },
   itemDetails: { flex: 1 },
   itemCancelButton: { padding: 4, marginLeft: 8 },
 
@@ -957,6 +957,8 @@ const styles = StyleSheet.create({
   productSelectionInfo: { flex: 1 },
   productSelectionName: { fontSize: 14, fontWeight: '600', color: colors.textPrimary, marginBottom: 4 },
   productSelectionPrice: { fontSize: 12, color: colors.primary, fontWeight: '600' },
+  itemMarkReceivedButton: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: colors.primary + '15', paddingVertical: 6, paddingHorizontal: 10, borderRadius: 6, marginTop: 4, marginLeft: 76, borderWidth: 1, borderColor: colors.primary },
+  itemMarkReceivedText: { fontSize: 11, color: colors.primary, fontWeight: '600', marginLeft: 4 },
 });
 
 export default MyOrdersScreen;

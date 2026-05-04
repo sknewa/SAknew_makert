@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Saknew Market",
-    "slug": "saknew-market",
+    "name": "SAMakert",
+    "slug": "samakert",
     "version": "1.0.0",
     "runtimeVersion": "1.0.0",
     "orientation": "portrait",
@@ -19,7 +19,7 @@
       ]
     ],
     "splash": {
-      "image": "./assets/icon.png",
+      "image": "./assets/weblog.jpg",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },

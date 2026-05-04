@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Keyboard,
+  Image,
 } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import shopService from '../../services/shopService';
@@ -21,6 +22,7 @@ import { useAuth } from '../../context/AuthContext';
 import { MainNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
 import * as Location from 'expo-location';
+import * as ImagePicker from 'expo-image-picker';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 // Centralized colors
@@ -71,6 +73,8 @@ const EditShopScreen: React.FC = () => {
   const [geocodingLoading, setGeocodingLoading] = useState<boolean>(false);
   const [shopLoading, setShopLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [bannerUri, setBannerUri] = useState<string | null>(null);  // local picked URI
+  const [existingBannerUrl, setExistingBannerUrl] = useState<string | null>(null); // from server
 
   // Input focus states
   const [isNameFocused, setIsNameFocused] = useState<boolean>(false);
@@ -103,6 +107,9 @@ const EditShopScreen: React.FC = () => {
         setTown(shop.town || '');
         setPhoneNumber(shop.phone_number || '');
         setEmailContact(shop.email_contact || '');
+        
+        // Banner
+        setExistingBannerUrl((shop as any).banner_image_url || null);
         
         // Set coordinates if available
         if (shop.latitude) setDerivedLatitude(shop.latitude.toString());
@@ -137,6 +144,23 @@ const EditShopScreen: React.FC = () => {
     if (linkedinUrl.trim()) newSocialLinks.linkedin = linkedinUrl.trim();
     setSocialLinks(newSocialLinks);
   }, [facebookUrl, instagramUrl, twitterUrl, linkedinUrl]);
+
+  const pickBanner = useCallback(async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permission required', 'Please allow photo library access to set a banner.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsEditing: true,
+      aspect: [16, 7],
+      quality: 0.7,
+    });
+    if (!result.canceled && result.assets[0]) {
+      setBannerUri(result.assets[0].uri);
+    }
+  }, []);
 
   // Manual location entry as fallback when automatic location fails
   const handleManualLocationEntry = () => {
@@ -298,7 +322,7 @@ const EditShopScreen: React.FC = () => {
 
     setLoading(true);
     try {
-      const shopData = {
+      const shopData: any = {
         name: name.trim(),
         description: description.trim() || undefined,
         country: country.trim() || undefined,
@@ -306,14 +330,23 @@ const EditShopScreen: React.FC = () => {
         town: town.trim() || undefined,
         latitude: finalLatitude || undefined,
         longitude: finalLongitude || undefined,
-        // Contact info fields
         phone_number: phoneNumber.trim() || undefined,
         email_contact: emailContact.trim() || undefined,
-        // Social links field
         social_links: Object.keys(socialLinks).length > 0 ? socialLinks : undefined,
       };
 
-      await shopService.updateShop(shopSlug, shopData);
+      if (bannerUri) {
+        // Send as FormData so the image file is included
+        const formData = new FormData();
+        Object.entries(shopData).forEach(([k, v]) => {
+          if (v !== undefined) formData.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
+        });
+        const filename = bannerUri.split('/').pop() || 'banner.jpg';
+        formData.append('banner_image', { uri: bannerUri, name: filename, type: 'image/jpeg' } as any);
+        await shopService.updateShopFormData(shopSlug, formData);
+      } else {
+        await shopService.updateShop(shopSlug, shopData);
+      }
       Alert.alert('Success!', `Your shop "${name}" has been updated!`, [
         {
           text: 'OK',
@@ -396,6 +429,27 @@ const EditShopScreen: React.FC = () => {
             </View>
 
             <View style={styles.formCard}>
+              {/* Banner Image Picker */}
+              <Text style={styles.inputLabel}>Shop Banner Image</Text>
+              <TouchableOpacity style={styles.bannerPicker} onPress={pickBanner} disabled={overallLoading}>
+                {bannerUri || existingBannerUrl ? (
+                  <Image
+                    source={{ uri: bannerUri || existingBannerUrl! }}
+                    style={styles.bannerPreview}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={styles.bannerPlaceholder}>
+                    <Ionicons name="image-outline" size={32} color="#aaa" />
+                    <Text style={styles.bannerPlaceholderText}>Tap to add a banner photo</Text>
+                    <Text style={styles.bannerPlaceholderSub}>Recommended: 16:7 ratio (e.g. 1600×700)</Text>
+                  </View>
+                )}
+                <View style={styles.bannerEditBadge}>
+                  <Ionicons name="camera" size={14} color="#fff" />
+                </View>
+              </TouchableOpacity>
+
               <Text style={styles.inputLabel}>Shop Name <Text style={styles.requiredIndicator}>*</Text></Text>
               <View style={[styles.inputContainer, isNameFocused && styles.inputFocused]}>
                 <TextInput
@@ -408,6 +462,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsNameFocused(true)}
                   onBlur={() => setIsNameFocused(false)}
+                  maxLength={255}
                 />
               </View>
 
@@ -474,6 +529,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsCountryFocused(true)}
                   onBlur={() => setIsCountryFocused(false)}
+                  maxLength={100}
                 />
               </View>
 
@@ -489,6 +545,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsProvinceFocused(true)}
                   onBlur={() => setIsProvinceFocused(false)}
+                  maxLength={100}
                 />
               </View>
 
@@ -504,6 +561,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsTownFocused(true)}
                   onBlur={() => setIsTownFocused(false)}
+                  maxLength={100}
                 />
               </View>
 
@@ -527,6 +585,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsPhoneNumberFocused(true)}
                   onBlur={() => setIsPhoneNumberFocused(false)}
+                  maxLength={15}
                 />
               </View>
 
@@ -545,6 +604,7 @@ const EditShopScreen: React.FC = () => {
                   editable={!overallLoading}
                   onFocus={() => setIsEmailContactFocused(true)}
                   onBlur={() => setIsEmailContactFocused(false)}
+                  maxLength={255}
                 />
               </View>
 
@@ -645,6 +705,44 @@ const EditShopScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  bannerPicker: {
+    width: '100%',
+    height: 140,
+    borderRadius: 10,
+    overflow: 'hidden',
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: colors.border,
+    position: 'relative',
+  },
+  bannerPreview: {
+    width: '100%',
+    height: '100%',
+  },
+  bannerPlaceholder: {
+    flex: 1,
+    backgroundColor: '#F0F2F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 4,
+  },
+  bannerPlaceholderText: {
+    fontSize: 13,
+    color: '#888',
+    fontWeight: '600',
+  },
+  bannerPlaceholderSub: {
+    fontSize: 10,
+    color: '#aaa',
+  },
+  bannerEditBadge: {
+    position: 'absolute',
+    bottom: 8,
+    right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    borderRadius: 14,
+    padding: 6,
+  },
   safeArea: {
     flex: 1,
     backgroundColor: colors.backgroundLight,

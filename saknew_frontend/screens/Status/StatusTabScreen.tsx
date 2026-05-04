@@ -1,43 +1,35 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, RefreshControl, Alert } from 'react-native';
+import React, { useState, useCallback } from 'react';
+import { View, Text, StyleSheet, FlatList, TouchableOpacity, Image, RefreshControl, ScrollView } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import statusService from '../../services/statusService';
 import { UserStatus } from '../../services/status.types';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { safeError } from '../../utils/securityUtils';
+
+const AVATAR_SIZE = 58;
 
 const StatusTabScreen: React.FC = () => {
   const navigation = useNavigation();
   const { user } = useAuth();
-  
+
   const [userStatuses, setUserStatuses] = useState<UserStatus[]>([]);
   const [myStatuses, setMyStatuses] = useState<UserStatus | null>(null);
   const [loading, setLoading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
 
   useFocusEffect(
-    useCallback(() => {
-      fetchStatuses();
-    }, [])
+    useCallback(() => { fetchStatuses(); }, [])
   );
 
   const fetchStatuses = async (isRefreshing = false) => {
-    if (isRefreshing) {
-      setRefreshing(true);
-    } else {
-      setLoading(true);
-    }
-    
+    isRefreshing ? setRefreshing(true) : setLoading(true);
     try {
       const data = await statusService.getUserStatuses();
-      
-      // Separate my statuses from others
-      const myStatus = data.find((us: UserStatus) => us.user.id === user?.id);
-      const otherStatuses = data.filter((us: UserStatus) => us.user.id !== user?.id);
-      
+      const myStatus = user ? data.find((us: UserStatus) => us.user.id === user.id) : null;
+      const others = user ? data.filter((us: UserStatus) => us.user.id !== user.id) : data;
       setMyStatuses(myStatus || null);
-      setUserStatuses(otherStatuses);
+      setUserStatuses(others);
     } catch (error) {
       safeError('Failed to fetch statuses:', error);
     } finally {
@@ -46,110 +38,71 @@ const StatusTabScreen: React.FC = () => {
     }
   };
 
-  const handleViewStatus = (userStatus: UserStatus) => {
-    navigation.navigate('StatusViewer' as any, { userStatus });
-  };
-
-  const handleCreateStatus = () => {
-    navigation.navigate('CreateStatus' as any);
-  };
-
-  const handleViewMyStatus = () => {
-    if (myStatuses) {
-      navigation.navigate('StatusViewer' as any, { userStatus: myStatuses });
-    } else {
-      handleCreateStatus();
-    }
-  };
-
-  const renderMyStatus = () => (
-    <TouchableOpacity 
-      style={styles.myStatusContainer}
-      onPress={handleViewMyStatus}
-      activeOpacity={0.7}
-    >
-      <View style={styles.statusRow}>
-        <View style={styles.avatarContainer}>
-          {user?.profile?.profile_picture ? (
-            <Image 
-              source={{ uri: user.profile.profile_picture }} 
-              style={styles.avatar}
-            />
-          ) : (
-            <View style={[styles.avatar, styles.defaultAvatar]}>
-              <Ionicons name="person" size={24} color="#fff" />
-            </View>
-          )}
-          <TouchableOpacity 
-            style={styles.addButton}
-            onPress={handleCreateStatus}
-          >
-            <Ionicons name="add" size={16} color="#fff" />
-          </TouchableOpacity>
-        </View>
-        
-        <View style={styles.statusInfo}>
-          <Text style={styles.statusName}>My status</Text>
-          <Text style={styles.statusTime}>
-            {myStatuses 
-              ? `${myStatuses.statuses.length} update${myStatuses.statuses.length > 1 ? 's' : ''}`
-              : 'Tap to add status update'
-            }
-          </Text>
-        </View>
-      </View>
-    </TouchableOpacity>
-  );
-
-  const renderStatusItem = ({ item }: { item: UserStatus }) => {
-    const hasUnviewed = item.unviewed_count > 0;
-    
-    return (
-      <TouchableOpacity 
-        style={styles.statusItem}
-        onPress={() => handleViewStatus(item)}
-        activeOpacity={0.7}
-      >
-        <View style={styles.statusRow}>
-          <View style={[
-            styles.avatarBorder,
-            hasUnviewed ? styles.unviewedBorder : styles.viewedBorder
-          ]}>
-            {item.user.profile?.profile_picture ? (
-              <Image 
-                source={{ uri: item.user.profile.profile_picture }} 
-                style={styles.avatar}
-              />
-            ) : (
-              <View style={[styles.avatar, styles.defaultAvatar]}>
-                <Ionicons name="person" size={24} color="#fff" />
-              </View>
-            )}
-          </View>
-          
-          <View style={styles.statusInfo}>
-            <Text style={styles.statusName}>{item.user.username}</Text>
-            <Text style={styles.statusTime}>
-              {formatTime(item.latest_status.created_at)}
-            </Text>
-          </View>
-        </View>
-      </TouchableOpacity>
-    );
-  };
-
   const formatTime = (dateString: string): string => {
-    const date = new Date(dateString);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
+    const diffMins = Math.floor((Date.now() - new Date(dateString).getTime()) / 60000);
     const diffHours = Math.floor(diffMins / 60);
-    
     if (diffMins < 1) return 'Just now';
     if (diffMins < 60) return `${diffMins}m ago`;
     if (diffHours < 24) return `${diffHours}h ago`;
     return 'Yesterday';
   };
+
+  // Story bubble: avatar + username below, fits within avatar width
+  const renderStoryBubble = (item: UserStatus, isMe = false) => {
+    const hasUnviewed = item.unviewed_count > 0;
+    const label = isMe ? 'My status' : item.user.username;
+    return (
+      <TouchableOpacity
+        key={item.user.id}
+        style={styles.storyItem}
+        onPress={() => navigation.navigate('StatusViewer' as any, { userStatus: item })}
+        activeOpacity={0.75}
+      >
+        <View style={[styles.avatarRing, hasUnviewed ? styles.ringUnviewed : styles.ringViewed]}>
+          {item.user.profile?.profile_picture ? (
+            <Image source={{ uri: item.user.profile.profile_picture }} style={styles.avatar} />
+          ) : (
+            <View style={[styles.avatar, styles.defaultAvatar]}>
+              <Ionicons name="person" size={22} color="#fff" />
+            </View>
+          )}
+          {isMe && (
+            <TouchableOpacity
+              style={styles.addBtn}
+              onPress={() => navigation.navigate('CreateStatus' as any)}
+            >
+              <Ionicons name="add" size={13} color="#fff" />
+            </TouchableOpacity>
+          )}
+        </View>
+        <Text style={styles.storyName} numberOfLines={1} ellipsizeMode="tail">{label}</Text>
+      </TouchableOpacity>
+    );
+  };
+
+  const storiesRow = (
+    <View style={styles.storiesWrapper}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.storiesScroll}>
+        {user && (
+          myStatuses
+            ? renderStoryBubble(myStatuses, true)
+            : (
+              <TouchableOpacity style={styles.storyItem} onPress={() => navigation.navigate('CreateStatus' as any)} activeOpacity={0.75}>
+                <View style={[styles.avatarRing, styles.ringViewed]}>
+                  {user.profile?.profile_picture
+                    ? <Image source={{ uri: user.profile.profile_picture }} style={styles.avatar} />
+                    : <View style={[styles.avatar, styles.defaultAvatar]}><Ionicons name="person" size={22} color="#fff" /></View>
+                  }
+                  <View style={styles.addBtn}><Ionicons name="add" size={13} color="#fff" /></View>
+                </View>
+                <Text style={styles.storyName} numberOfLines={1} ellipsizeMode="tail">My status</Text>
+              </TouchableOpacity>
+            )
+        )}
+        {userStatuses.map(item => renderStoryBubble(item))}
+      </ScrollView>
+    </View>
+  );
 
   return (
     <View style={styles.container}>
@@ -167,11 +120,10 @@ const StatusTabScreen: React.FC = () => {
 
       <FlatList
         data={userStatuses}
-        renderItem={renderStatusItem}
         keyExtractor={(item) => item.user.id.toString()}
         ListHeaderComponent={
           <>
-            {renderMyStatus()}
+            {storiesRow}
             {userStatuses.length > 0 && (
               <View style={styles.sectionHeader}>
                 <Text style={styles.sectionTitle}>Recent updates</Text>
@@ -179,16 +131,38 @@ const StatusTabScreen: React.FC = () => {
             )}
           </>
         }
+        renderItem={({ item }) => {
+          const hasUnviewed = item.unviewed_count > 0;
+          return (
+            <TouchableOpacity
+              style={styles.listItem}
+              onPress={() => navigation.navigate('StatusViewer' as any, { userStatus: item })}
+              activeOpacity={0.7}
+            >
+              <View style={[styles.avatarRing, hasUnviewed ? styles.ringUnviewed : styles.ringViewed]}>
+                {item.user.profile?.profile_picture ? (
+                  <Image source={{ uri: item.user.profile.profile_picture }} style={styles.avatar} />
+                ) : (
+                  <View style={[styles.avatar, styles.defaultAvatar]}>
+                    <Ionicons name="person" size={22} color="#fff" />
+                  </View>
+                )}
+              </View>
+              <View style={styles.listInfo}>
+                <Text style={styles.listName}>{item.user.username}</Text>
+                <Text style={styles.listTime}>{formatTime(item.latest_status.created_at)}</Text>
+              </View>
+            </TouchableOpacity>
+          );
+        }}
         ListEmptyComponent={
-          !loading && (
+          !loading ? (
             <View style={styles.emptyState}>
-              <Ionicons name="chatbubble-ellipses-outline" size={80} color="#ccc" />
+              <Ionicons name="chatbubble-ellipses-outline" size={70} color="#ccc" />
               <Text style={styles.emptyTitle}>No status updates</Text>
-              <Text style={styles.emptyText}>
-                Status updates from your contacts will appear here
-              </Text>
+              <Text style={styles.emptyText}>Status updates will appear here</Text>
             </View>
-          )
+          ) : null
         }
         refreshControl={
           <RefreshControl
@@ -206,129 +180,88 @@ const StatusTabScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#fff',
-  },
+  container: { flex: 1, backgroundColor: '#fff' },
   header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 16,
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 12,
+    borderBottomWidth: 1, borderBottomColor: '#f0f0f0',
+  },
+  headerTitle: { fontSize: 20, fontWeight: '600', color: '#000' },
+  headerActions: { flexDirection: 'row', gap: 16 },
+  headerButton: { padding: 4 },
+
+  // Stories row
+  storiesWrapper: {
+    borderBottomWidth: 8, borderBottomColor: '#f5f5f5',
     paddingVertical: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
   },
-  headerTitle: {
-    fontSize: 20,
-    fontWeight: '600',
-    color: '#000',
-  },
-  headerActions: {
-    flexDirection: 'row',
-    gap: 16,
-  },
-  headerButton: {
-    padding: 4,
-  },
-  listContent: {
-    paddingBottom: 20,
-  },
-  myStatusContainer: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderBottomWidth: 8,
-    borderBottomColor: '#f5f5f5',
-  },
-  statusRow: {
-    flexDirection: 'row',
+  storiesScroll: { paddingHorizontal: 12, gap: 4 },
+  storyItem: {
+    width: AVATAR_SIZE + 8,
     alignItems: 'center',
+    marginHorizontal: 4,
   },
-  avatarContainer: {
+  avatarRing: {
+    width: AVATAR_SIZE + 4,
+    height: AVATAR_SIZE + 4,
+    borderRadius: (AVATAR_SIZE + 4) / 2,
+    borderWidth: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
     position: 'relative',
   },
-  avatarBorder: {
-    padding: 2,
-    borderRadius: 30,
-    borderWidth: 2,
-  },
-  unviewedBorder: {
-    borderColor: '#25D366',
-  },
-  viewedBorder: {
-    borderColor: '#d0d0d0',
-  },
+  ringUnviewed: { borderColor: '#25D366' },
+  ringViewed: { borderColor: '#d0d0d0' },
   avatar: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
+    width: AVATAR_SIZE,
+    height: AVATAR_SIZE,
+    borderRadius: AVATAR_SIZE / 2,
   },
   defaultAvatar: {
-    backgroundColor: '#666',
+    backgroundColor: '#888',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  addButton: {
-    position: 'absolute',
-    bottom: -2,
-    right: -2,
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+  addBtn: {
+    position: 'absolute', bottom: -1, right: -1,
+    width: 18, height: 18, borderRadius: 9,
     backgroundColor: '#25D366',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#fff',
+    justifyContent: 'center', alignItems: 'center',
+    borderWidth: 1.5, borderColor: '#fff',
   },
-  statusInfo: {
-    flex: 1,
-    marginLeft: 12,
+  storyName: {
+    marginTop: 4,
+    fontSize: 10,
+    color: '#333',
+    textAlign: 'center',
+    width: AVATAR_SIZE + 8,
+    overflow: 'hidden',
   },
-  statusName: {
-    fontSize: 16,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 2,
-  },
-  statusTime: {
-    fontSize: 14,
-    color: '#666',
-  },
+
+  // List items below stories
   sectionHeader: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 16, paddingVertical: 8,
     backgroundColor: '#f5f5f5',
   },
   sectionTitle: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#666',
-    textTransform: 'uppercase',
+    fontSize: 12, fontWeight: '600', color: '#666', textTransform: 'uppercase',
   },
-  statusItem: {
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  listItem: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: 16, paddingVertical: 10,
+    borderBottomWidth: 1, borderBottomColor: '#f5f5f5',
   },
+  listInfo: { flex: 1, marginLeft: 12 },
+  listName: { fontSize: 15, fontWeight: '500', color: '#000', marginBottom: 2 },
+  listTime: { fontSize: 13, color: '#666' },
+  listContent: { paddingBottom: 20 },
+
   emptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: 40,
+    alignItems: 'center', justifyContent: 'center',
+    paddingVertical: 60, paddingHorizontal: 40,
   },
-  emptyTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#666',
-    marginTop: 16,
-    marginBottom: 8,
-  },
-  emptyText: {
-    fontSize: 14,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 20,
-  },
+  emptyTitle: { fontSize: 17, fontWeight: '600', color: '#666', marginTop: 14, marginBottom: 6 },
+  emptyText: { fontSize: 13, color: '#999', textAlign: 'center' },
 });
 
 export default StatusTabScreen;

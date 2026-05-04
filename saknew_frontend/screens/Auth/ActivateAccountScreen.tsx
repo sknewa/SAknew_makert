@@ -185,7 +185,7 @@ const ActivateAccountScreen: React.FC = () => {
 
           <View style={styles.header}>
             <Ionicons name="mail-open-outline" size={60} color={colors.primary} style={styles.headerIcon} />
-            <Text style={styles.logoText}>Saknew Market</Text>
+            <Text style={styles.logoText}>SAMakert</Text>
             <Text style={styles.welcomeTitle}>Activate Your Account</Text>
             <Text style={styles.welcomeSubtitle}>
               Please enter the 6-digit code sent to{' '}

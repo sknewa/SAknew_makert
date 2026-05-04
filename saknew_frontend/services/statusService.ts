@@ -1,34 +1,16 @@
 import api from './apiClient';
+import publicApi from './publicApiClient';
 import { Status, StatusView, UserStatus } from './status.types';
 import { safeLog, safeWarn } from '../utils/securityUtils';
 
 class StatusService {
   async getUserStatuses(): Promise<UserStatus[]> {
     try {
-      safeLog('DEBUG: Fetching user statuses from /api/status/users/');
-      const response = await api.get('/api/status/users/');
-      safeLog('DEBUG: Status response:', response.status, 'Data count:', Array.isArray(response.data) ? response.data.length : 'Not array');
-      
-      // Ensure we return an array even if the response is unexpected
-      if (Array.isArray(response.data)) {
-        // Log media URLs for debugging
-        response.data.forEach((userStatus: any) => {
-          userStatus.statuses?.forEach((status: any) => {
-            if (status.media_url) {
-              safeLog('DEBUG: Status media_url:', status.id, status.media_type, status.media_url);
-            }
-          });
-        });
-        safeLog('DEBUG: Returning', response.data.length, 'user statuses');
-        return response.data;
-      } else {
-        safeWarn('DEBUG: Expected array but got:', typeof response.data);
-        return [];
-      }
+      const response = await publicApi.get('/api/status/users/');
+      return Array.isArray(response.data) ? response.data : [];
     } catch (error: any) {
-      safeLog('DEBUG: Status fetch error:', error?.response?.status, error?.response?.data, error?.message);
       safeLog('Error fetching user statuses:', error?.message);
-      return []; // Return empty array instead of throwing
+      return [];
     }
   }
 

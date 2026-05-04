@@ -111,7 +111,7 @@ const PasswordResetRequestScreen: React.FC = () => {
 
           <View style={styles.header}>
             <Ionicons name="key-outline" size={48} color={colors.primary} style={styles.headerIcon} />
-            <Text style={styles.logoText}>Saknew Market</Text>
+            <Text style={styles.logoText}>SAMakert</Text>
             <Text style={styles.welcomeTitle}>Forgot Your Password?</Text>
             <Text style={styles.welcomeSubtitle}>
               Enter your email address and we'll send you a link to reset your password.

@@ -6,9 +6,12 @@ import { getFullImageUrl } from '../utils/imageHelper';
 import { MainNavigationProp } from '../navigation/types';
 import shopService from '../services/shopService';
 import { addCartItem, getReviewsByProduct } from '../services/salesService';
+import { addToGuestCart } from '../services/guestCartService';
 import { colors, spacing } from '../styles/globalStyles';
 import * as Location from 'expo-location';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { requiresSize, getSizesForCategory, getSizeType } from '../utils/sizeUtils';
 
 const screenWidth = Dimensions.get('window').width;
 const productCardWidth = (screenWidth - 8) / 3;
@@ -45,16 +48,9 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const [alertConfig, setAlertConfig] = useState<{title: string; message: string; onConfirm?: () => void}>({title: '', message: ''});
   const [averageRating, setAverageRating] = useState<number>(0);
   
-  const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
-  const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
-                          product?.category_name?.toLowerCase().includes('apparel') ||
-                          product?.category_name?.toLowerCase().includes('clothing') ||
-                          product?.category_name?.toLowerCase().includes('dress') ||
-                          product?.category_name?.toLowerCase().includes('shirt') ||
-                          product?.category_name?.toLowerCase().includes('pants') ||
-                          product?.category_name?.toLowerCase().includes('shoes') ||
-                          product?.category_name?.toLowerCase().includes('jacket') ||
-                          product?.category_name?.toLowerCase().includes('wear');
+  const sizeType = getSizeType(product?.category_name);
+  const SIZES = getSizesForCategory(product?.category_name);
+  const isFashionProduct = requiresSize(product?.category_name);
   
   const showAlert = (title: string, message: string, onConfirm?: () => void) => {
     setAlertConfig({title, message, onConfirm});
@@ -125,7 +121,6 @@ const ProductCard: React.FC<ProductCardProps> = ({
       showAlert('Out of Stock', 'This product is currently out of stock.');
       return;
     }
-    
     if (!skipSizeCheck && isFashionProduct && !selectedSize) {
       setSizeModalVisible(true);
       return;
@@ -133,8 +128,13 @@ const ProductCard: React.FC<ProductCardProps> = ({
 
     setAddingToCart(true);
     try {
-      await addCartItem(product.id, 1, selectedSize || undefined);
-      showAlert('Success', `Added "${product.name}" to cart!`);
+      const token = await AsyncStorage.getItem('access_token');
+      if (token) {
+        await addCartItem(product.id, 1, selectedSize || undefined);
+      } else {
+        await addToGuestCart(product, 1, selectedSize || undefined);
+      }
+      showAlert('Added to Cart', `"${product.name}" added to your cart!`);
       setSelectedSize(null);
       onCartUpdated?.();
     } catch (err: any) {
@@ -239,11 +239,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
           </View>
         )}
         
-        <View style={styles.stockBadge}>
-          <Text style={styles.stockBadgeText}>
-            {product.stock === 0 ? 'Out' : product.stock <= 5 ? 'Low' : 'Stock'}
-          </Text>
-        </View>
+        {/* stock badge removed */}
         
         {!isShopOwner && (
           <View style={styles.shopNameBadge}>
@@ -366,10 +362,10 @@ const ProductCard: React.FC<ProductCardProps> = ({
       <View style={styles.modalOverlay}>
         <View style={styles.sizeModalContent}>
           <Text style={styles.modalTitle}>Select Size</Text>
-          <Text style={styles.sizeModalSubtitle}>Please choose your size</Text>
+          <Text style={styles.sizeModalSubtitle}>Please choose your {sizeType === 'shoes' ? 'shoe size' : 'size'}</Text>
           
           <View style={styles.sizeOptions}>
-            {CLOTHING_SIZES.map((size) => (
+            {SIZES.map((size) => (
               <TouchableOpacity
                 key={size}
                 style={[
@@ -624,9 +620,9 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   productPrice: {
-    fontSize: 12.5,
-    fontWeight: '700',
-    color: '#10B981',
+    fontSize: 15,
+    fontWeight: '800',
+    color: '#111111',
   },
   originalPrice: {
     fontSize: 10.5,

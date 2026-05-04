@@ -76,6 +76,9 @@ const HomeScreen = () => {
   const [trendingProducts, setTrendingProducts] = useState<AppProduct[]>([]);
   const [showQuickActions, setShowQuickActions] = useState(false);
   const [distanceFilter, setDistanceFilter] = useState<number | null>(null);
+  const [distanceRange, setDistanceRange] = useState<number>(50);
+  const [customKm, setCustomKm] = useState<string>('');
+  const [showKmDropdown, setShowKmDropdown] = useState(false);
   const [priceFilter, setPriceFilter] = useState<'low' | 'high' | null>(null);
   const [showSearchInput, setShowSearchInput] = useState(false);
 
@@ -110,8 +113,8 @@ const HomeScreen = () => {
   const filteredProducts = useMemo(() => {
     let filtered = [...products];
     
-    // Distance filter: <5km
-    if (distanceFilter === 5 && userLocation) {
+    // Distance filter
+    if (distanceFilter !== null && userLocation) {
       filtered = filtered.filter(product => {
         if ((product as any).shop_latitude && (product as any).shop_longitude) {
           const distance = calculateDistance(
@@ -120,7 +123,7 @@ const HomeScreen = () => {
             (product as any).shop_latitude, 
             (product as any).shop_longitude
           );
-          return distance < 5;
+          return distance < distanceRange;
         }
         return false;
       });
@@ -173,31 +176,20 @@ const HomeScreen = () => {
         if (status === 'granted') {
           const location = await Location.getCurrentPositionAsync({});
           setUserLocation({ latitude: location.coords.latitude, longitude: location.coords.longitude });
+        } else {
+          // Location denied — fetch products without location immediately
+          fetchProducts();
         }
       } catch (err) {
-        // Location permission denied or unavailable
+        // Location unavailable — fetch products without location
+        fetchProducts();
       }
     })();
   }, []);
 
-  const enrichProductWithShopData = useCallback(async (product: ServiceProduct) => {
-    try {
-      const decodedShopName = product.shop_name
-        .replace(/&#39;/g, "'")
-        .replace(/&quot;/g, '"')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>');
-      const shopSlug = decodedShopName.toLowerCase().replace(/'/g, '').replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '');
-      const shopData = await shopService.getShopBySlug(shopSlug);
-      return {
-        ...product,
-        shop_latitude: shopData?.latitude,
-        shop_longitude: shopData?.longitude
-      };
-    } catch (err) {
-      return product;
-    }
+  const enrichProductWithShopData = useCallback((product: ServiceProduct) => {
+    // shop_latitude and shop_longitude now come directly from the API
+    return product;
   }, []);
 
   const fetchProducts = useCallback(async (categorySlug?: string) => {
@@ -211,7 +203,7 @@ const HomeScreen = () => {
       if (response && (isPaginatedResponse || Array.isArray(response))) {
         const productList = Array.isArray(response) ? response : (isPaginatedResponse ? (response as PaginatedResponse<ServiceProduct>).results : []);
         
-        const enrichedProducts = await Promise.all(productList.map(enrichProductWithShopData));
+        const enrichedProducts = productList.map(enrichProductWithShopData);
         let convertedProducts = enrichedProducts.map(convertServiceProduct);
         
         if (userLocation) {
@@ -344,6 +336,13 @@ const HomeScreen = () => {
     }
   }, [isAuthenticated, userLocation]);
 
+  // Refetch products when location becomes available
+  useEffect(() => {
+    if (userLocation) {
+      fetchProducts();
+    }
+  }, [userLocation]);
+
   // Load categories and products when screen is focused
   useFocusEffect(
     useCallback(() => {
@@ -351,14 +350,7 @@ const HomeScreen = () => {
       fetchCategories();
       fetchUnreadCount();
       fetchRecommendations();
-      testApiConnectivity().then(isConnected => {
-        if (isConnected) {
-          fetchProducts();
-        } else {
-          setError('Cannot connect to server. Please check your network connection.');
-          setProductsLoading(false);
-        }
-      });
+      fetchProducts();
     }, [fetchProducts, fetchCategories, fetchUnreadCount, fetchRecommendations])
   );
 
@@ -383,7 +375,10 @@ const HomeScreen = () => {
       
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>SA_knew markets</Text>
+        <View style={styles.headerBrand}>
+          <Image source={require('../../img/weblog.jpg')} style={styles.headerLogo} />
+          <Text style={styles.headerTitle}>SAMakert</Text>
+        </View>
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.howItWorksButton}
@@ -435,35 +430,94 @@ const HomeScreen = () => {
         />
       </View>
       
-      {/* Quick Filter Chips with Search Icon */}
+      {/* Filter Bar */}
       <View style={styles.filterChipsContainer}>
-        <TouchableOpacity 
-          style={[styles.filterChip, distanceFilter === 5 && styles.filterChipActive]}
-          onPress={() => setDistanceFilter(distanceFilter === 5 ? null : 5)}
-        >
-          <Ionicons name="location" size={14} color={distanceFilter === 5 ? 'white' : colors.primary} />
-          <Text style={[styles.filterChipText, distanceFilter === 5 && styles.filterChipTextActive]}>&lt;5km</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, priceFilter === 'low' && styles.filterChipActive]}
-          onPress={() => setPriceFilter(priceFilter === 'low' ? null : 'low')}
-        >
-          <Ionicons name="arrow-down" size={14} color={priceFilter === 'low' ? 'white' : colors.primary} />
-          <Text style={[styles.filterChipText, priceFilter === 'low' && styles.filterChipTextActive]}>Low Price</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={[styles.filterChip, priceFilter === 'high' && styles.filterChipActive]}
-          onPress={() => setPriceFilter(priceFilter === 'high' ? null : 'high')}
-        >
-          <Ionicons name="arrow-up" size={14} color={priceFilter === 'high' ? 'white' : colors.primary} />
-          <Text style={[styles.filterChipText, priceFilter === 'high' && styles.filterChipTextActive]}>High Price</Text>
-        </TouchableOpacity>
-        <TouchableOpacity 
-          style={styles.searchIconButton}
-          onPress={() => setShowSearchInput(!showSearchInput)}
-        >
-          <Ionicons name="search" size={20} color={colors.primary} />
-        </TouchableOpacity>
+        <View style={styles.filterRow}>
+          {/* KM Dropdown */}
+          <View style={styles.kmDropdownWrapper}>
+            <TouchableOpacity
+              style={[styles.kmDropdownBtn, distanceFilter !== null && styles.kmDropdownBtnActive]}
+              onPress={() => setShowKmDropdown(!showKmDropdown)}
+            >
+              <Ionicons name="location-outline" size={13} color={distanceFilter !== null ? 'white' : colors.primary} />
+              <Text style={[styles.kmDropdownText, distanceFilter !== null && styles.kmDropdownTextActive]}>
+                {distanceFilter !== null ? `${distanceRange}km` : 'Distance'}
+              </Text>
+              <Ionicons name={showKmDropdown ? 'chevron-up' : 'chevron-down'} size={12} color={distanceFilter !== null ? 'white' : colors.primary} />
+            </TouchableOpacity>
+            {showKmDropdown && (
+              <View style={styles.kmDropdownMenu}>
+                {[5, 10, 25, 50, 100].map((km) => (
+                  <TouchableOpacity
+                    key={km}
+                    style={[styles.kmDropdownItem, distanceRange === km && distanceFilter !== null && styles.kmDropdownItemActive]}
+                    onPress={() => {
+                      setDistanceRange(km);
+                      setDistanceFilter(km);
+                      setCustomKm('');
+                      setShowKmDropdown(false);
+                    }}
+                  >
+                    <Text style={[styles.kmDropdownItemText, distanceRange === km && distanceFilter !== null && styles.kmDropdownItemTextActive]}>{km} km</Text>
+                  </TouchableOpacity>
+                ))}
+                <View style={styles.kmCustomRow}>
+                  <TextInput
+                    style={styles.kmCustomInput}
+                    placeholder="Custom km"
+                    placeholderTextColor={colors.textSecondary}
+                    value={customKm}
+                    onChangeText={(t) => {
+                      const val = t.replace(/[^0-9]/g, '');
+                      setCustomKm(val);
+                      if (val) {
+                        setDistanceRange(parseInt(val));
+                        setDistanceFilter(parseInt(val));
+                      }
+                    }}
+                    keyboardType="number-pad"
+                    maxLength={4}
+                  />
+                  <TouchableOpacity
+                    style={styles.kmCustomApply}
+                    onPress={() => setShowKmDropdown(false)}
+                  >
+                    <Text style={styles.kmCustomApplyText}>Apply</Text>
+                  </TouchableOpacity>
+                </View>
+                {distanceFilter !== null && (
+                  <TouchableOpacity
+                    style={styles.kmClearBtn}
+                    onPress={() => { setDistanceFilter(null); setCustomKm(''); setShowKmDropdown(false); }}
+                  >
+                    <Text style={styles.kmClearText}>Clear Filter</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
+          </View>
+
+          <TouchableOpacity
+            style={[styles.filterChip, priceFilter === 'low' && styles.filterChipActive]}
+            onPress={() => setPriceFilter(priceFilter === 'low' ? null : 'low')}
+          >
+            <Ionicons name="arrow-down" size={12} color={priceFilter === 'low' ? 'white' : colors.primary} />
+            <Text style={[styles.filterChipText, priceFilter === 'low' && styles.filterChipTextActive]}>Low</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterChip, priceFilter === 'high' && styles.filterChipActive]}
+            onPress={() => setPriceFilter(priceFilter === 'high' ? null : 'high')}
+          >
+            <Ionicons name="arrow-up" size={12} color={priceFilter === 'high' ? 'white' : colors.primary} />
+            <Text style={[styles.filterChipText, priceFilter === 'high' && styles.filterChipTextActive]}>High</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.searchIconButton}
+            onPress={() => setShowSearchInput(!showSearchInput)}
+          >
+            <Ionicons name="search" size={20} color={colors.primary} />
+          </TouchableOpacity>
+        </View>
       </View>
       
       {/* Expandable Search Input */}
@@ -748,12 +802,23 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.xs,
     backgroundColor: colors.primary,
   },
+  headerBrand: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  headerLogo: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    borderColor: 'rgba(255,255,255,0.6)',
+  },
   headerTitle: {
     fontSize: 18,
     fontWeight: '700',
     color: 'white',
     letterSpacing: 0.5,
-    textShadow: '0px 1px 2px rgba(0, 0, 0, 0.2)',
   },
   headerButtons: {
     flexDirection: 'row',
@@ -1101,12 +1166,116 @@ const styles = StyleSheet.create({
     marginRight: 2,
   },
   filterChipsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     paddingHorizontal: spacing.md,
     marginTop: spacing.sm,
     marginBottom: spacing.xs,
+    zIndex: 100,
+  },
+  filterRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  kmDropdownWrapper: {
+    position: 'relative',
+    zIndex: 200,
+  },
+  kmDropdownBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+    backgroundColor: colors.card,
+    borderWidth: 1,
+    borderColor: colors.primary,
+    gap: 4,
+  },
+  kmDropdownBtnActive: {
+    backgroundColor: colors.primary,
+  },
+  kmDropdownText: {
+    fontSize: 11,
+    color: colors.primary,
+    fontWeight: '600',
+  },
+  kmDropdownTextActive: {
+    color: 'white',
+  },
+  kmDropdownMenu: {
+    position: 'absolute',
+    top: 32,
+    left: 0,
+    backgroundColor: colors.card,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: colors.border,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
+    elevation: 8,
+    minWidth: 130,
+    zIndex: 300,
+    overflow: 'hidden',
+  },
+  kmDropdownItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  kmDropdownItemActive: {
+    backgroundColor: colors.primary + '15',
+  },
+  kmDropdownItemText: {
+    fontSize: 13,
+    color: colors.textPrimary,
+    fontWeight: '500',
+  },
+  kmDropdownItemTextActive: {
+    color: colors.primary,
+    fontWeight: '700',
+  },
+  kmCustomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 6,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
+  },
+  kmCustomInput: {
+    flex: 1,
+    height: 30,
+    borderWidth: 1,
+    borderColor: colors.border,
+    borderRadius: 6,
+    paddingHorizontal: 8,
+    fontSize: 12,
+    color: colors.textPrimary,
+  },
+  kmCustomApply: {
+    backgroundColor: colors.primary,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 6,
+  },
+  kmCustomApplyText: {
+    color: 'white',
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  kmClearBtn: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    alignItems: 'center',
+  },
+  kmClearText: {
+    fontSize: 12,
+    color: '#EF4444',
+    fontWeight: '600',
   },
   filterChip: {
     flexDirection: 'row',

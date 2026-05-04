@@ -32,14 +32,7 @@ const StatusViewerScreen: React.FC = () => {
   const currentStatus = userStatus.statuses[currentIndex];
 
   useEffect(() => {
-    if (currentStatus) {
-      console.log('DEBUG StatusViewer - Current Status:', {
-        id: currentStatus.id,
-        mediaType: currentStatus.media_type,
-        mediaUrl: currentStatus.media_url,
-        content: currentStatus.content,
-        hasMediaUrl: !!currentStatus.media_url
-      });
+    if (currentStatus && user) {
       statusService.viewStatus(currentStatus.id);
     }
   }, [currentIndex]);

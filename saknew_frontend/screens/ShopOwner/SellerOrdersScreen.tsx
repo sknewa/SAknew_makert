@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { MainNavigationProp } from '../../navigation/types';
 import apiClient from '../../services/apiClient';
-import messagingService from '../../services/messagingService';
+import { messagingService } from '../../services/messagingService';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 interface ShippingAddress {
@@ -42,7 +42,10 @@ interface OrderItem {
 
 interface Order {
   id: string;
-  user: { username?: string; email: string; phone?: string };
+  user: { username?: string; email: string; phone?: string } | null;
+  guest_name?: string;
+  guest_email?: string;
+  guest_phone?: string;
   order_date: string;
   order_status: string;
   payment_status: string;
@@ -101,7 +104,8 @@ const SellerOrdersScreen: React.FC = () => {
         
         const sellerOrders = allOrders.filter((order: Order) => {
         if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
-        if (order.user.email === user.email) return false;
+        // Skip own orders (for registered users only)
+        if (order.user && order.user.email === user.email) return false;
         
         const hasSellerItems = order.items?.some((item: OrderItem) => {
           const itemShopName = (item.product as any)?.shop_name?.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
@@ -159,12 +163,24 @@ const SellerOrdersScreen: React.FC = () => {
   };
 
   const handleMessageCustomer = async (order: Order) => {
+    // Guest orders — open email client instead of in-app chat
+    if (!order.user) {
+      const email = order.guest_email || order.shipping_address?.contact_name;
+      const subject = encodeURIComponent(`Your Order #${order.id.slice(-8).toUpperCase()} - SAknew Market`);
+      const body = encodeURIComponent(`Dear ${order.guest_name || 'Customer'},\n\nRegarding your order #${order.id.slice(-8).toUpperCase()}:\n\n`);
+      const mailUrl = `mailto:${email}?subject=${subject}&body=${body}`;
+      Linking.openURL(mailUrl).catch(() =>
+        Alert.alert('Error', `Could not open email client. Please email the customer at: ${email}`)
+      );
+      return;
+    }
+
+    // Registered users — open in-app chat
     try {
       const shopResponse = await apiClient.get('/api/shops/my_shop/');
       const shopId = shopResponse.data.id;
-      
       const conversation = await messagingService.createConversation(shopId);
-      navigation.navigate('Chat' as never, { 
+      navigation.navigate('Chat' as never, {
         conversationId: conversation.id,
         orderId: order.id,
         shopId: shopId
@@ -356,9 +372,9 @@ const SellerOrdersScreen: React.FC = () => {
     );
     const itemCount = shopItems.reduce((sum, item: OrderItem) => sum + item.quantity, 0);
     
-    const buyerName = order.shipping_address?.contact_name || order.user.username || 'Customer';
-    const buyerPhone = order.shipping_address?.contact_phone || order.user.phone || 'Not provided';
-    const buyerEmail = order.user.email || 'Not provided';
+    const buyerName = order.shipping_address?.contact_name || order.guest_name || order.user?.username || 'Customer';
+    const buyerPhone = order.shipping_address?.contact_phone || order.guest_phone || order.user?.phone || 'Not provided';
+    const buyerEmail = order.guest_email || order.user?.email || 'Guest Order';
     
     let deliveryAddress = 'No address provided';
     if (order.shipping_address?.full_address) {
@@ -384,7 +400,14 @@ const SellerOrdersScreen: React.FC = () => {
       <View key={order.id} style={styles.orderCard}>
         <View style={styles.orderHeader}>
           <View style={{ flex: 1 }}>
-            <Text style={styles.orderId}>#{order.id.slice(-8)}</Text>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+              <Text style={styles.orderId}>#{order.id.slice(-8)}</Text>
+              {!order.user && (
+                <View style={{ backgroundColor: '#6366F1', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                  <Text style={{ color: 'white', fontSize: 9, fontWeight: '700' }}>GUEST</Text>
+                </View>
+              )}
+            </View>
             <Text style={styles.orderDate}>{new Date(order.order_date).toLocaleDateString()}</Text>
           </View>
           <View style={[styles.statusBadge, { backgroundColor: getStatusColor(order.order_status) + '20' }]}>
@@ -540,16 +563,18 @@ const SellerOrdersScreen: React.FC = () => {
                 style={styles.messageBtn}
                 onPress={() => handleMessageCustomer(order)}
               >
-                <Ionicons name="chatbubble-outline" size={14} color={colors.primary} />
-                <Text style={styles.messageBtnText}>Message</Text>
+                <Ionicons name={order.user ? 'chatbubble-outline' : 'mail-outline'} size={14} color={colors.primary} />
+                <Text style={styles.messageBtnText}>{order.user ? 'Message' : 'Email'}</Text>
               </TouchableOpacity>
-              <TouchableOpacity 
-                style={styles.cancelOrderBtn}
-                onPress={() => handleCancelOrder(order)}
-              >
-                <Ionicons name="close-circle" size={14} color={colors.error} />
-                <Text style={styles.cancelOrderBtnText}>Cancel</Text>
-              </TouchableOpacity>
+              {order.user && (
+                <TouchableOpacity 
+                  style={styles.cancelOrderBtn}
+                  onPress={() => handleCancelOrder(order)}
+                >
+                  <Ionicons name="close-circle" size={14} color={colors.error} />
+                  <Text style={styles.cancelOrderBtnText}>Cancel</Text>
+                </TouchableOpacity>
+              )}
               <TouchableOpacity 
                 style={styles.deliveredBtn}
                 onPress={() => handleConfirmDelivery(order)}

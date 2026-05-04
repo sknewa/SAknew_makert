@@ -213,6 +213,18 @@ const ShopService = {
     }
   },
 
+  async updateShopFormData(shopSlug: string, formData: FormData): Promise<Shop> {
+    try {
+      const response = await apiClient.patch<Shop>(`/api/shops/${shopSlug}/`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      return response.data;
+    } catch (error: any) {
+      console.error(`ShopService: Failed to update shop (formdata) ${shopSlug}:`, error.response?.data || error.message);
+      throw error;
+    }
+  },
+
   /**
    * Deletes a shop.
    * @param shopSlug The slug of the shop to delete.

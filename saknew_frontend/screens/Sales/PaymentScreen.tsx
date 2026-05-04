@@ -174,7 +174,7 @@ const PaymentScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <BackButton />
+      <BackButton title="Complete Payment" />
       <ScrollView contentContainerStyle={styles.container}>
         {/* Header Section */}
         <View style={styles.header}>
@@ -430,11 +430,18 @@ const styles = StyleSheet.create({
   totalAmount: { fontSize: 16, fontWeight: '700', color: colors.primary },
   
   // Wallet Balance
-  balanceRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
-  balanceIconContainer: { width: 48, height: 48, borderRadius: 24, backgroundColor: colors.iconBg, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+  balanceRow: { 
+    flexDirection: 'row', 
+    alignItems: 'center', 
+    marginBottom: 16, 
+    backgroundColor: '#059669', 
+    padding: 20, 
+    borderRadius: 16 
+  },
+  balanceIconContainer: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
   balanceInfo: { flex: 1 },
-  balanceLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 4, fontWeight: '500' },
-  balanceAmount: { fontSize: 18, fontWeight: '700', color: colors.primary },
+  balanceLabel: { fontSize: 12, color: 'rgba(255,255,255,0.8)', marginBottom: 2, fontWeight: '600', textTransform: 'uppercase' },
+  balanceAmount: { fontSize: 24, fontWeight: '800', color: '#FFFFFF' },
   
   // Warning
   warningContainer: { flexDirection: 'row', backgroundColor: colors.warningBg, padding: 10, borderRadius: 4, borderWidth: 1, borderColor: colors.warningBorder },

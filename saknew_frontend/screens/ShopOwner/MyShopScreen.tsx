@@ -166,38 +166,38 @@ const MyShopScreen: React.FC = () => {
   }, [user, isAuthenticated, refreshing]);
   
   const fetchNewOrdersCount = useCallback(async () => {
-    if (!user?.profile?.is_seller) {
-      return;
-    }
+    if (!user?.profile?.is_seller) return;
     
     try {
       const response = await apiClient.get('/api/orders/');
       const allOrders = response.data.results || response.data || [];
-      
-      const sellerOrders = allOrders.filter((order: Order) => {
-        if (order.payment_status !== 'paid') return false;
-        if (order.user.email === user.email) return false;
-        
-        // Find the shopId for the current order item (this logic is slightly complex and relies on item.product?.shop)
-        // I will simplify the shopId determination for this filter logic to use the logged-in user's shop_id
-        const hasSellerItems = order.items?.some((item: OrderItem) => {
-          const itemShopId = typeof item.product?.shop === 'number' ? item.product.shop : item.product?.shop?.id;
-          return itemShopId === user.profile?.shop_id;
+      const shopNameToSlug = (name: string) => name.toLowerCase().replace(/['']/g, '').replace(/\s+/g, '-');
+      const myShopSlug = user.profile?.shop_slug?.toLowerCase().replace(/['']/g, '');
+
+      const sellerOrders = allOrders.filter((order: any) => {
+        // Only paid orders
+        if (order.payment_status !== 'paid' && order.payment_status !== 'Completed') return false;
+        // Skip own registered-user orders
+        if (order.user && order.user.email === user.email) return false;
+        // Check if any item belongs to this seller's shop
+        return order.items?.some((item: any) => {
+          const itemShopSlug = item.product?.shop_name
+            ? shopNameToSlug(item.product.shop_name)
+            : null;
+          return itemShopSlug === myShopSlug;
         });
-        
-        return hasSellerItems;
       });
-      
-      const activeOrders = sellerOrders.filter((order: Order) => 
-        ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(order.order_status)
+
+      setNewOrdersCount(
+        sellerOrders.filter((o: any) =>
+          ['pending', 'processing', 'approved', 'ready_for_delivery'].includes(o.order_status)
+        ).length
       );
-      
-      const completedOrders = sellerOrders.filter((order: Order) => 
-        ['completed', 'cancelled'].includes(order.order_status)
+      setCompletedOrdersCount(
+        sellerOrders.filter((o: any) =>
+          ['completed', 'cancelled'].includes(o.order_status)
+        ).length
       );
-      
-      setNewOrdersCount(activeOrders.length);
-      setCompletedOrdersCount(completedOrders.length);
     } catch (error) {
       safeError('Error fetching orders:', error);
     }
@@ -230,26 +230,25 @@ const MyShopScreen: React.FC = () => {
   }, [fetchShopData, refreshUserProfile, isAuthenticated]);
 
   const handleShareShopLink = async () => {
-    safeLog('🔍 Share button pressed');
-    safeLog('Shop data:', { slug: shop?.slug, name: shop?.name });
-    
     if (shop?.slug) {
       const webUrl = `https://samakert.netlify.app/PublicShop/${shop.slug}`;
-      const shareMessage = `🛍️ Check out my shop on Saknew Market!\n\n${shop.name}${shop.description ? `\n${shop.description}` : ''}\n\n${webUrl}`;
-      
-      safeLog('Share message:', shareMessage);
-      
+      const location = [shop.town, shop.province].filter(Boolean).join(', ');
+      const lines = [
+        `🛍️ ${shop.name}`,
+        shop.description ? `"${shop.description}"` : null,
+        location ? `📍 ${location}` : null,
+        ``,
+        `Shop now 👉 ${webUrl}`,
+        ``,
+        `Found on SAknew Market — South Africa's local marketplace`,
+      ].filter(line => line !== null).join('\n');
+
       try {
-        await Share.share({
-          message: shareMessage,
-        });
-        safeLog('✅ Share completed');
+        await Share.share({ message: lines });
       } catch (shareError: any) {
-        safeError('Share error:', shareError);
         Alert.alert('Error Sharing', `Could not share the shop link: ${shareError.message}`);
       }
     } else {
-      safeWarn('⚠️ No shop slug available');
       Alert.alert('No Shop Link', 'Cannot share link as your shop details are not available.');
     }
   };

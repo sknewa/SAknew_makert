@@ -4,6 +4,7 @@ import { getMyCart, getMyOrders } from '../services/salesService';
 import { getMyWallet, refreshWallet } from '../services/walletService';
 import { useAuth } from './AuthContext';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
+import { getGuestCart, getGuestCartCount } from '../services/guestCartService';
 
 interface BadgeContextType {
   cartCount: number;
@@ -34,8 +35,9 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
 
   const refreshBadges = async (isRetry = false) => {
     if (!user) {
-      // No user, clear all badges and stop.
-      setCartCount(0);
+      // Guest: show guest cart count
+      const guestItems = await getGuestCart();
+      setCartCount(getGuestCartCount(guestItems));
       setOrderCount(0);
       setWalletBalance('0.00');
       return;
@@ -101,13 +103,12 @@ export const BadgeProvider: React.FC<BadgeProviderProps> = ({ children }) => {
   };
 
   useEffect(() => {
-    // This effect handles the case where the user logs in or out.
-    // The 'user' dependency will trigger a re-run. If the user logs out,
-    // the initial check `if (!user)` will clear the badges.
     if (user) {
       refreshBadges();
       const interval = setInterval(refreshBadges, 30000);
       return () => clearInterval(interval);
+    } else {
+      refreshBadges(); // load guest cart count
     }
   }, [user]);
 

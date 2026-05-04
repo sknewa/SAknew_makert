@@ -27,6 +27,7 @@ import { getReviewsByProduct, Review, addCartItem } from '../../services/salesSe
 import BackButton from '../../components/BackButton';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 import { messagingService } from '../../services/messagingService';
+import { requiresSize, getSizesForCategory, getSizeType } from '../../utils/sizeUtils';
 
 const screenWidth = Dimensions.get('window').width;
 
@@ -66,17 +67,9 @@ const ProductDetailScreen = () => {
   
   const CLOTHING_SIZES = ['XS', 'S', 'M', 'L', 'XL', 'XXL'];
   
-
-  
-  const isFashionProduct = product?.category_name?.toLowerCase().includes('fashion') || 
-                          product?.category_name?.toLowerCase().includes('apparel') ||
-                          product?.category_name?.toLowerCase().includes('clothing') ||
-                          product?.category_name?.toLowerCase().includes('dress') ||
-                          product?.category_name?.toLowerCase().includes('shirt') ||
-                          product?.category_name?.toLowerCase().includes('pants') ||
-                          product?.category_name?.toLowerCase().includes('shoes') ||
-                          product?.category_name?.toLowerCase().includes('jacket') ||
-                          product?.category_name?.toLowerCase().includes('wear');
+  const sizeType = getSizeType(product?.category_name);
+  const SIZES = getSizesForCategory(product?.category_name);
+  const isFashionProduct = requiresSize(product?.category_name);
 
   // Determine if the logged-in user is the owner of this product
   const isOwner = isAuthenticated && product?.user?.id === user?.id;
@@ -539,10 +532,10 @@ const ProductDetailScreen = () => {
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <Text style={styles.modalTitle}>Select Size</Text>
-            <Text style={styles.modalSubtitle}>Please choose your size</Text>
+            <Text style={styles.modalSubtitle}>Please choose your {sizeType === 'shoes' ? 'shoe size' : 'size'}</Text>
             
             <View style={styles.modalSizeOptions}>
-              {CLOTHING_SIZES.map((size) => (
+              {SIZES.map((size) => (
                 <TouchableOpacity
                   key={size}
                   style={[

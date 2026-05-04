@@ -192,12 +192,11 @@ const WalletDashboardScreen: React.FC = () => {
       const checkPending = async () => {
         if (isAuthenticated && !authLoading) {
           try {
-            await apiClient.get('api/wallet/check-pending/');
             await refreshBadges();
+            fetchWalletData();
           } catch (err) {
-            safeError('Check pending failed:', err);
+            safeError('Refresh badges failed:', err);
           }
-          fetchWalletData();
         }
       };
       checkPending();
@@ -252,10 +251,10 @@ const WalletDashboardScreen: React.FC = () => {
       <SafeAreaView style={styles.safeArea}>
         <ScrollView contentContainerStyle={styles.scrollViewContent}>
           <View style={styles.infoContainer}>
-            <Ionicons name="lock-closed-outline" size={60} color={colors.textSecondary} />
-            <Text style={styles.title}>Access Denied</Text>
+            <Ionicons name="wallet-outline" size={60} color={colors.primary} />
+            <Text style={styles.title}>Wallet Access</Text>
             <Text style={styles.messageText}>
-              You must be logged in to view your wallet.
+              Create an account to access your digital wallet, add funds, and make secure payments.
             </Text>
             <TouchableOpacity
               style={[styles.button, styles.buttonPrimary]}
@@ -263,6 +262,13 @@ const WalletDashboardScreen: React.FC = () => {
             >
               <Ionicons name="log-in-outline" size={20} color={colors.buttonText} />
               <Text style={styles.buttonText}>Log In</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, { backgroundColor: colors.success, marginTop: 10 }]}
+              onPress={() => navigation.navigate('AuthStack', { screen: 'Register' })}
+            >
+              <Ionicons name="person-add-outline" size={20} color={colors.buttonText} />
+              <Text style={styles.buttonText}>Create Account</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

@@ -74,7 +74,7 @@ const MainTabNavigator = () => {
               return (
                 <View style={styles.iconContainer}>
                   <Ionicons name={iconName} size={20} color={color} />
-                  {isAuthenticated && <TabBarBadge count={cartCount} />}
+                  <TabBarBadge count={cartCount} />
                 </View>
               );
             case 'OrdersTab':
@@ -141,22 +141,6 @@ const MainTabNavigator = () => {
         name="CartTab" 
         component={CartScreen} 
         options={{ title: 'Cart' }}
-        listeners={({ navigation }) => ({
-          tabPress: (e) => {
-            if (!isAuthenticated) {
-              e.preventDefault();
-              setAlertConfig({
-                visible: true,
-                title: 'Login Required',
-                message: 'Please login to view your cart',
-                onConfirm: () => {
-                  setAlertConfig({ ...alertConfig, visible: false });
-                  navigation.getParent()?.navigate('Login' as any);
-                },
-              });
-            }
-          },
-        })}
       />
       <Tab.Screen 
         name="OrdersTab" 

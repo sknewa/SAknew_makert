@@ -35,6 +35,7 @@ import CreateStatusScreen from '../screens/Status/CreateStatusScreen';
 import StatusListScreen from '../screens/Status/StatusListScreen';
 import PublicShopScreen from '../screens/Shop/PublicShopScreen';
 import CategoryProductsScreen from '../screens/CategoryProductsScreen';
+import GuestCheckoutScreen from '../screens/Sales/GuestCheckoutScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import HowItWorksScreen from '../screens/HowItWorksScreen';
 import ChatScreen from '../screens/Messaging/ChatScreen';
@@ -81,45 +82,48 @@ const AppNavigator = () => {
             <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
             {/* ProductDetail, ProductManagement, EditProduct, AddPromotion are outside MainTabs as they can be navigated to from anywhere */}
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="ProductManagement" component={ProductManagementScreen} />
-            <Stack.Screen name="EditProduct" component={EditProductScreen} />
-            <Stack.Screen name="AddPromotion" component={AddPromotionScreen} />
+            <Stack.Screen name="ProductManagement" component={ProductManagementScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="EditProduct" component={EditProductScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="AddPromotion" component={AddPromotionScreen} options={{ headerShown: false }} />
             {/* Register payment, order success, and wallet add funds screens */}
             <Stack.Screen name="Payment" component={PaymentScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} />
+            <Stack.Screen name="OrderSuccess" component={OrderSuccessScreen} options={{ headerShown: false }} />
             <Stack.Screen name="AddFundsScreen" component={AddFundsScreen} options={{ headerShown: false }} />
             <Stack.Screen name="CardPayment" component={CardPaymentScreen} options={{ headerShown: false }} />
             <Stack.Screen name="RedeemVoucher" component={RedeemVoucherScreen} options={{ headerShown: false }} />
             <Stack.Screen name="WithdrawScreen" component={WithdrawScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="WalletDashboard" component={AddFundsScreen} />
-            <Stack.Screen name="OrderDetail" component={OrderDetailScreen} />
+            <Stack.Screen name="WalletDashboard" component={AddFundsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Shipping" component={ShippingScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} />
-            <Stack.Screen name="StatusViewer" component={StatusViewerScreen} />
-            <Stack.Screen name="CreateStatus" component={CreateStatusScreen} />
-            <Stack.Screen name="StatusList" component={StatusListScreen} />
+            <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="StatusViewer" component={StatusViewerScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="CreateStatus" component={CreateStatusScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="StatusList" component={StatusListScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PublicShop" component={PublicShopScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
-            <Stack.Screen name="Feedback" component={FeedbackScreen} />
-            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
+            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Chat" component={ChatScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="ConversationsList" component={ConversationsListScreen} />
+            <Stack.Screen name="ConversationsList" component={ConversationsListScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GuestCheckout" component={GuestCheckoutScreen} options={{ headerShown: false }} />
           </Stack.Group>
         ) : (
           // Unauthenticated screens (User is NOT logged in)
           <Stack.Group>
             <Stack.Screen name="MainTabs" component={MainTabNavigator} options={{ headerShown: false }} />
-            <Stack.Screen name="Login" component={LoginScreen} />
-            <Stack.Screen name="Register" component={RegisterScreen} />
-            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} />
-            <Stack.Screen name="PasswordResetRequest" component={PasswordResetRequestScreen} />
-            <Stack.Screen name="PasswordResetConfirm" component={PasswordResetConfirmScreen} />
-            <Stack.Screen name="ActivateAccount" component={ActivateAccountScreen} />
+            <Stack.Screen name="Login" component={LoginScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Register" component={RegisterScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="EmailVerification" component={EmailVerificationScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="PasswordResetRequest" component={PasswordResetRequestScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="PasswordResetConfirm" component={PasswordResetConfirmScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="ActivateAccount" component={ActivateAccountScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PublicShop" component={PublicShopScreen} options={{ headerShown: false }} />
             <Stack.Screen name="ProductDetail" component={ProductDetailScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} />
-            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} />
-            <Stack.Screen name="Feedback" component={FeedbackScreen} />
+            <Stack.Screen name="CategoryProducts" component={CategoryProductsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="HowItWorks" component={HowItWorksScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="Feedback" component={FeedbackScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="GuestCheckout" component={GuestCheckoutScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="StatusViewer" component={StatusViewerScreen} options={{ headerShown: false }} />
           </Stack.Group>
         )}
         </Stack.Navigator>

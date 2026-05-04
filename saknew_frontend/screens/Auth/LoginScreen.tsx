@@ -13,6 +13,7 @@ import {
   Platform,
   Keyboard,
   Image,
+  ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
@@ -33,297 +34,210 @@ const LoginScreen: React.FC = () => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
 
   const handleLogin = async () => {
     setError(null);
+    setEmailError(null);
+    setPasswordError(null);
     Keyboard.dismiss();
 
-    if (!email.trim() || !password.trim()) {
-      setError('Email and password are required.');
-      return;
+    // Field-level validation
+    let hasError = false;
+    if (!email.trim()) {
+      setEmailError('Email address is required.');
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError('Please enter a valid email address.');
+      hasError = true;
     }
+    if (!password.trim()) {
+      setPasswordError('Password is required.');
+      hasError = true;
+    }
+    if (hasError) return;
 
     setLoading(true);
     try {
       await login(email.trim(), password.trim());
     } catch (err: any) {
-      safeError('Login error:', err.message);
-      let userFriendlyMessage = 'An unexpected error occurred during login.';
-      
-      // Handle authentication errors
-      if (err.message.includes('Invalid') || 
-          err.message.includes('credentials') || 
-          err.message.includes('password')) {
-        userFriendlyMessage = err.message;
-      } else if (err.response && err.response.data) {
-        const data = err.response.data;
-
-        if (data.detail) {
-          userFriendlyMessage = data.detail;
-
-          // Navigate to ActivateAccountScreen when account is not active
-          if (userFriendlyMessage === 'No active account found with the given credentials') {
-            Alert.alert(
-              'Account Not Verified',
-              'Your account is not active. Please verify your email to log in. You may need to request a new activation email if yours has expired.',
-              [
-                { text: 'Cancel', style: 'cancel' },
-                {
-                  text: 'Request New Activation',
-                  onPress: () => navigation.navigate('ActivateAccount', { userEmail: email.trim() }),
-                },
-              ]
-            );
-            setLoading(false);
-            return;
-          }
-        } else if (typeof data === 'object') {
-          userFriendlyMessage = Object.values(data)
-            .flat()
-            .map(msg => String(msg))
-            .join('\n');
-        }
-      } else if (err.request) {
-        userFriendlyMessage = `Network Error: Could not connect to the server. Please check your internet connection and ensure the backend is running.`;
+      const msg: string = err?.message || '';
+      if (msg === 'INVALID_CREDENTIALS') {
+        setPasswordError('Incorrect email or password. Please try again.');
+        setError('Incorrect email or password. Please check your details and try again.');
+      } else if (msg === 'EMAIL_NOT_VERIFIED') {
+        setError('Your email is not verified yet. Please check your inbox for the verification code.');
+        setTimeout(() => navigation.navigate('ActivateAccount', { userEmail: email.trim() }), 2000);
+      } else if (msg === 'NETWORK_ERROR') {
+        setError('Cannot connect to the server. Please check your internet connection and try again.');
       } else {
-        userFriendlyMessage = `Error: ${err.message}`;
+        setError(msg || 'Login failed. Please try again.');
       }
-      setError(userFriendlyMessage);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <SafeAreaView style={globalStyles.safeContainer}>
-      <KeyboardAvoidingView
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.keyboardAvoidingContainer}
-      >
-        <View style={[globalStyles.container, styles.centerContent]}>
-          {/* Header Section */}
-          <View style={styles.header}>
-            <Image
-              source={require('../../img/Logo3.jpg')}
-              style={styles.logoImage}
-              // resizeMode="contain"
-            />
-
-            <Text style={styles.logoText}>Saknew Market</Text>
-            {/* <Text style={styles.welcomeTitle}>Welcome Back!</Text> */}
-            <Text style={styles.welcomeSubtitle}>Log in to continue your shopping experience.</Text>
+    <SafeAreaView style={s.safe}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
+        <ScrollView contentContainerStyle={s.scroll} keyboardShouldPersistTaps="handled">
+          {/* Hero */}
+          <View style={s.hero}>
+            <View style={s.logoWrap}>
+              <Image source={require('../../img/weblog.jpg')} style={s.logo} />
+            </View>
+            <Text style={s.brand}>SAMakert</Text>
+            <Text style={s.tagline}>South Africa's marketplace</Text>
           </View>
 
-          {/* Input Card */}
-          <View style={[globalStyles.card, styles.inputCard]}>
-            <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+          {/* Card */}
+          <View style={s.card}>
+            <Text style={s.cardTitle}>Welcome back 👋</Text>
+            <Text style={s.cardSub}>Sign in to continue shopping</Text>
+
+            {error && (
+              <View style={s.errorBox}>
+                <Ionicons name="alert-circle" size={16} color="#EF4444" />
+                <Text style={s.errorText}>{error}</Text>
+              </View>
+            )}
+
+            <Text style={s.label}>Email address</Text>
+            <View style={[s.inputWrap, emailError && s.inputWrapError]}>
+              <Ionicons name="mail-outline" size={18} color={emailError ? '#EF4444' : '#94A3B8'} style={s.inputIcon} />
               <TextInput
-                style={styles.inputField}
-                placeholder="Enter your email"
-                placeholderTextColor="#B0B0B0"
+                style={s.input}
+                placeholder="you@example.com"
+                placeholderTextColor="#94A3B8"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(t) => { setEmail(t); setEmailError(null); setError(null); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
-                autoCorrect={false}
                 editable={!loading}
-                underlineColorAndroid="transparent"
               />
             </View>
+            {emailError && (
+              <View style={s.fieldErrorRow}>
+                <Ionicons name="alert-circle" size={13} color="#EF4444" />
+                <Text style={s.fieldErrorText}>{emailError}</Text>
+              </View>
+            )}
 
-            <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+            <Text style={s.label}>Password</Text>
+            <View style={[s.inputWrap, passwordError && s.inputWrapError]}>
+              <Ionicons name="lock-closed-outline" size={18} color={passwordError ? '#EF4444' : '#94A3B8'} style={s.inputIcon} />
               <TextInput
-                style={styles.inputField}
-                placeholder="Enter your password"
-                placeholderTextColor="#B0B0B0"
+                style={s.input}
+                placeholder="Your password"
+                placeholderTextColor="#94A3B8"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => { setPassword(t); setPasswordError(null); setError(null); }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 textContentType="password"
-                autoCorrect={false}
                 editable={!loading}
-                underlineColorAndroid="transparent"
               />
-              <TouchableOpacity
-                style={styles.passwordVisibilityToggle}
-                onPress={() => setShowPassword(!showPassword)}
-                disabled={loading}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.iconColor}
-                />
+              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
               </TouchableOpacity>
             </View>
+            {passwordError && (
+              <View style={s.fieldErrorRow}>
+                <Ionicons name="alert-circle" size={13} color="#EF4444" />
+                <Text style={s.fieldErrorText}>{passwordError}</Text>
+              </View>
+            )}
 
-            {error && <Text style={styles.errorMessage}>{error}</Text>}
-
-            <TouchableOpacity
-              style={styles.loginButton}
-              onPress={handleLogin}
-              disabled={loading}
-            >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.loginButtonText}>Log In</Text>
-              )}
+            <TouchableOpacity onPress={() => navigation.navigate('PasswordResetRequest')} style={s.forgotWrap}>
+              <Text style={s.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
 
-            <TouchableOpacity
-              style={styles.forgotPasswordButton}
-              onPress={() => navigation.navigate('PasswordResetRequest')} // Ensure this is correct
-              disabled={loading}
-            >
-              <Text style={styles.forgotPasswordText}>Forgot password?</Text>
+            <TouchableOpacity style={[s.btn, loading && s.btnDisabled]} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
+              {loading
+                ? <ActivityIndicator color="#fff" />
+                : <Text style={s.btnText}>Sign In</Text>
+              }
             </TouchableOpacity>
           </View>
 
-          {/* Register Link */}
-          <View style={styles.registerContainer}>
-            <Text style={styles.registerText}>Don't have an account?</Text>
-            <TouchableOpacity onPress={() => navigation.navigate('Register')} disabled={loading}>
-              <Text style={styles.registerButtonText}> Register</Text>
+          <View style={s.footer}>
+            <Text style={s.footerText}>Don't have an account?</Text>
+            <TouchableOpacity onPress={() => navigation.navigate('Register')}>
+              <Text style={s.footerLink}> Create one</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 };
 
-const styles = StyleSheet.create({
-  keyboardAvoidingContainer: {
-    flex: 1,
+const s = StyleSheet.create({
+  safe:   { flex: 1, backgroundColor: '#F4F6FB' },
+  scroll: { flexGrow: 1, justifyContent: 'center', paddingHorizontal: 24, paddingVertical: 40 },
+  hero:   { alignItems: 'center', marginBottom: 32 },
+  logoWrap: {
+    width: 80, height: 80, borderRadius: 40,
+    backgroundColor: '#EEF0FF',
+    justifyContent: 'center', alignItems: 'center',
+    marginBottom: 12,
+    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 12, elevation: 6,
   },
-  centerContent: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  inputCard: {
-    width: '100%',
-    maxWidth: 400,
-    marginBottom: spacing.xl,
-  },
-  logoImage: {
-    width: 70,
-    height: 70,
-    borderRadius: 35,
-    marginBottom: 6,
-  },
-  header: {
-    marginBottom: 16,
-    alignItems: 'center',
-  },
-  logoText: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.iconColor,
-    marginBottom: 4,
-  },
-  welcomeTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: colors.textPrimary,
-    marginBottom: 4,
-  },
-  welcomeSubtitle: {
-    fontSize: 11,
-    color: colors.iconColor,
-    textAlign: 'center',
-    lineHeight: 16,
-  },
+  logo:    { width: 72, height: 72, borderRadius: 36 },
+  brand:   { fontSize: 24, fontWeight: '800', color: '#0F172A', letterSpacing: -0.5 },
+  tagline: { fontSize: 13, color: '#64748B', marginTop: 4 },
+
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 8,
-    padding: 12,
-    width: '100%',
-    maxWidth: 400,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-    marginBottom: 16,
+    backgroundColor: '#FFFFFF', borderRadius: 20, padding: 24,
+    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.1, shadowRadius: 24, elevation: 6,
+    marginBottom: 24,
   },
-  inputLabel: {
-    fontSize: 12,
-    color: colors.textPrimary,
-    marginBottom: 6,
-    fontWeight: '600',
+  cardTitle: { fontSize: 20, fontWeight: '700', color: '#0F172A', marginBottom: 4 },
+  cardSub:   { fontSize: 13, color: '#64748B', marginBottom: 20 },
+
+  errorBox: {
+    flexDirection: 'row', alignItems: 'center', gap: 8,
+    backgroundColor: '#FEE2E2', borderRadius: 10, padding: 12, marginBottom: 16,
+    borderWidth: 1, borderColor: '#FECACA',
   },
-  inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.background,
-    height: 40,
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    marginBottom: 10,
-    borderWidth: 1,
-    borderColor: '#FFFFFF',
+  errorText: { flex: 1, fontSize: 13, color: '#EF4444', fontWeight: '500' },
+
+  label:    { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6, marginTop: 4 },
+  inputWrap: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: '#F8FAFF', borderWidth: 1.5, borderColor: '#E8ECF4',
+    borderRadius: 12, paddingHorizontal: 14, marginBottom: 4, height: 50,
   },
-  inputIcon: {
-    marginRight: 8,
+  inputWrapError: {
+    borderColor: '#EF4444', backgroundColor: '#FFF5F5',
   },
-  inputField: {
-    flex: 1,
-    fontSize: 13,
-    color: colors.textPrimary,
+  fieldErrorRow: {
+    flexDirection: 'row', alignItems: 'center', marginBottom: 10, marginTop: 2,
   },
-  passwordVisibilityToggle: {
-    padding: 4,
+  fieldErrorText: {
+    fontSize: 12, color: '#EF4444', marginLeft: 4, fontWeight: '500',
   },
-  errorMessage: {
-    color: colors.error,
-    fontSize: 11,
-    textAlign: 'center',
-    marginTop: -6,
-    marginBottom: 10,
+  inputIcon: { marginRight: 10 },
+  input:    { flex: 1, fontSize: 15, color: '#0F172A' },
+  eyeBtn:   { padding: 4 },
+
+  forgotWrap: { alignSelf: 'flex-end', marginBottom: 20, marginTop: -6 },
+  forgotText: { fontSize: 13, color: '#6C63FF', fontWeight: '600' },
+
+  btn: {
+    backgroundColor: '#6C63FF', borderRadius: 14, height: 52,
+    justifyContent: 'center', alignItems: 'center',
+    shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 4,
   },
-  loginButton: {
-    backgroundColor: colors.iconColor,
-    height: 40,
-    borderRadius: 6,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 6,
-  },
-  loginButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  forgotPasswordButton: {
-    marginTop: 10,
-    alignSelf: 'center',
-  },
-  forgotPasswordText: {
-    fontSize: 11,
-    color: colors.primary,
-    fontWeight: '600',
-  },
-  registerContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginTop: 10,
-  },
-  registerText: {
-    fontSize: 12,
-    color: colors.textSecondary,
-  },
-  registerButtonText: {
-    fontSize: 13,
-    color: colors.iconColor,
-    fontWeight: '600',
-  },
+  btnDisabled: { opacity: 0.6 },
+  btnText:     { color: '#fff', fontSize: 16, fontWeight: '700' },
+
+  footer:     { flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+  footerText: { fontSize: 14, color: '#64748B' },
+  footerLink: { fontSize: 14, color: '#6C63FF', fontWeight: '700' },
 });
 
 export default LoginScreen;

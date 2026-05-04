@@ -417,6 +417,7 @@ const CreateShopScreen: React.FC = () => {
                     editable={!overallLoading}
                     onFocus={() => setFocusedField('name')}
                     onBlur={() => setFocusedField(null)}
+                    maxLength={255}
                   />
                 </View>
               </View>
@@ -474,6 +475,7 @@ const CreateShopScreen: React.FC = () => {
                       editable={!overallLoading}
                       onFocus={() => setFocusedField('country')}
                       onBlur={() => setFocusedField(null)}
+                      maxLength={100}
                     />
                   </View>
                   <View style={[styles.inputWrapper, styles.halfWidth, focusedField === 'province' && styles.inputFocused]}>
@@ -486,6 +488,7 @@ const CreateShopScreen: React.FC = () => {
                       editable={!overallLoading}
                       onFocus={() => setFocusedField('province')}
                       onBlur={() => setFocusedField(null)}
+                      maxLength={100}
                     />
                   </View>
                 </View>
@@ -499,6 +502,7 @@ const CreateShopScreen: React.FC = () => {
                     editable={!overallLoading}
                     onFocus={() => setFocusedField('town')}
                     onBlur={() => setFocusedField(null)}
+                    maxLength={100}
                   />
                 </View>
               </View>
@@ -537,6 +541,7 @@ const CreateShopScreen: React.FC = () => {
                       editable={!overallLoading}
                       onFocus={() => setFocusedField('phone')}
                       onBlur={() => setFocusedField(null)}
+                      maxLength={15}
                     />
                   </View>
                   <View style={[styles.inputWrapper, focusedField === 'email' && styles.inputFocused]}>
@@ -552,6 +557,7 @@ const CreateShopScreen: React.FC = () => {
                       editable={!overallLoading}
                       onFocus={() => setFocusedField('email')}
                       onBlur={() => setFocusedField(null)}
+                      maxLength={255}
                     />
                   </View>
                 </View>

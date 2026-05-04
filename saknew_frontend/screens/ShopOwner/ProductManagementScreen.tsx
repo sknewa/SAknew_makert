@@ -4,6 +4,7 @@ import { useRoute, useNavigation, useFocusEffect } from '@react-navigation/nativ
 import { Ionicons } from '@expo/vector-icons';
 import shopService from '../../services/shopService';
 import { getReviewsByProduct, Review } from '../../services/salesService';
+import BackButton from '../../components/BackButton';
 import { useAuth } from '../../context/AuthContext';
 import { getFullImageUrl } from '../../utils/imageHelper';
 import colors from '../../theme/colors';
@@ -148,11 +149,7 @@ const ProductManagementScreen = () => {
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}>
-          <Ionicons name="arrow-back" size={24} color={colors.textPrimary} />
-        </TouchableOpacity>
-      </View>
+      <BackButton title="Product Details" />
       <ScrollView contentContainerStyle={styles.scrollViewContent}>
         {/* Product Image */}
         <View style={styles.imageContainer}>

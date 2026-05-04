@@ -568,6 +568,7 @@ const EditProductScreen: React.FC = () => {
                 editable={!overallLoading}
                 onFocus={() => setIsNameFocused(true)}
                 onBlur={() => setIsNameFocused(false)}
+                maxLength={200}
               />
             </View>
           </View>
@@ -605,6 +606,7 @@ const EditProductScreen: React.FC = () => {
                 editable={!overallLoading}
                 onFocus={() => setIsPriceFocused(true)}
                 onBlur={() => setIsPriceFocused(false)}
+                maxLength={10}
               />
             </View>
           </View>
@@ -623,6 +625,7 @@ const EditProductScreen: React.FC = () => {
                 editable={!overallLoading}
                 onFocus={() => setIsStockFocused(true)}
                 onBlur={() => setIsStockFocused(false)}
+                maxLength={6}
               />
             </View>
           </View>

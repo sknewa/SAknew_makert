@@ -11,8 +11,12 @@ import {
   ActivityIndicator,
   StatusBar,
   RefreshControl,
-  ScrollView
+  ScrollView,
+  Share,
+  Linking,
+  ImageBackground,
 } from 'react-native';
+import { LinearGradient } from 'expo-linear-gradient';
 import { globalStyles, colors, spacing } from '../../styles/globalStyles';
 import { useNavigation, useRoute, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
@@ -28,6 +32,32 @@ import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 import { useBadges } from '../../context/BadgeContext';
 import { useAuth } from '../../context/AuthContext';
 import CustomAlert from '../../components/CustomAlert';
+
+// Derive a unique accent color from the shop name so every shop looks different
+const PALETTE = [
+  ['#6B46C1', '#9F7AEA'], // purple
+  ['#2B6CB0', '#63B3ED'], // blue
+  ['#276749', '#68D391'], // green
+  ['#C05621', '#F6AD55'], // orange
+  ['#97266D', '#F687B3'], // pink
+  ['#2C7A7B', '#81E6D9'], // teal
+  ['#744210', '#F6E05E'], // gold
+  ['#1A365D', '#90CDF4'], // navy
+];
+
+function shopColorPair(name: string): [string, string] {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return PALETTE[Math.abs(hash) % PALETTE.length];
+}
+
+// Pre-computed star positions for the galaxy default banner
+const STARS = Array.from({ length: 60 }, (_, i) => ({
+  top: `${(i * 37 + 11) % 100}%` as any,
+  left: `${(i * 53 + 7) % 100}%` as any,
+  size: i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5,
+  opacity: 0.4 + (i % 6) * 0.1,
+}));
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   const serviceProduct = p as any;
@@ -230,36 +260,144 @@ const PublicShopScreen = () => {
     fetchProducts(categorySlug === 'all' ? undefined : categorySlug);
   }, [fetchProducts]);
 
-  const renderHeader = () => (
-    <>
-      {shop && (
-        <View style={styles.combinedHeader}>
-          <View style={styles.shopContent}>
-            <Text style={styles.shopName}>
-              {shop.name}
-            </Text>
-            {shop.description && (
-              <Text style={styles.shopDescription}>{shop.description}</Text>
-            )}
-            <View style={styles.shopMetaContainer}>
-              <View style={styles.shopMetaItem}>
-                <Ionicons name="location" size={16} color={colors.primary} />
-                <Text style={styles.shopMetaText}>
-                  {shop.province || 'South Africa'}
-                  {shop.city ? `, ${shop.city}` : ''}
-                  {shop.location && shop.location !== shop.city && shop.location !== shop.province ? `, ${shop.location}` : ''}
-                </Text>
+  const handleShareShop = useCallback(async () => {
+    if (!shop) return;
+    const webUrl = `https://samakert.netlify.app/PublicShop/${shop.slug}`;
+    const location = [shop.town, shop.province].filter(Boolean).join(', ');
+    const lines = [
+      `\uD83D\uDECD\uFE0F ${shop.name}`,
+      shop.description ? `"${shop.description}"` : null,
+      location ? `\uD83D\uDCCD ${location}` : null,
+      ``,
+      `Shop now \uD83D\uDC49 ${webUrl}`,
+      ``,
+      `Found on SAknew Market \u2014 South Africa's local marketplace`,
+    ].filter(l => l !== null).join('\n');
+    try { await Share.share({ message: lines }); } catch (_) {}
+  }, [shop]);
+
+  const renderHeader = () => {
+    if (!shop) return null;
+    const [dark, light] = shopColorPair(shop.name);
+    const location = [shop.town, shop.province].filter(Boolean).join(', ');
+    const initials = shop.name.split(' ').slice(0, 2).map((w: string) => w[0]).join('').toUpperCase();
+    const socialLinks = shop.social_links || {};
+    const bannerUrl = (shop as any).banner_image_url;
+
+    const BannerContent = (
+      <>
+        {/* Dark overlay so text is always readable */}
+        <LinearGradient
+          colors={bannerUrl
+            ? ['transparent', 'rgba(0,0,0,0.25)', 'rgba(0,0,0,0.72)']
+            : [`${dark}CC`, `${dark}99`, 'rgba(0,0,0,0.82)']}
+          style={styles.bannerOverlay}
+        >
+          {/* Share button top-right */}
+          <TouchableOpacity style={styles.shareBtn} onPress={handleShareShop}>
+            <Ionicons name="share-social-outline" size={20} color="#fff" />
+          </TouchableOpacity>
+
+          {/* Shop name + location pinned to bottom of banner */}
+          <View style={styles.bannerTextBlock}>
+            <Text style={styles.shopName} numberOfLines={2}>{shop.name}</Text>
+            {location ? (
+              <View style={styles.locationRow}>
+                <Ionicons name="location" size={13} color="rgba(255,255,255,0.85)" />
+                <Text style={styles.locationText}>{location}</Text>
               </View>
-              <View style={styles.shopMetaItem}>
-                <Ionicons name="cube" size={16} color={colors.primary} />
-                <Text style={styles.shopMetaText}>{allProducts.length} Products</Text>
-              </View>
+            ) : null}
+          </View>
+        </LinearGradient>
+      </>
+    );
+
+    return (
+      <View style={styles.headerWrapper}>
+        {bannerUrl ? (
+          <ImageBackground
+            source={{ uri: bannerUrl }}
+            style={styles.headerBanner}
+            resizeMode="cover"
+          >
+            {BannerContent}
+          </ImageBackground>
+        ) : (
+          // Galaxy / universe default — deep space dots on dark background
+          <View style={[styles.headerBanner, styles.galaxyBanner]}>
+            {/* Scattered star dots */}
+            {STARS.map((s, i) => (
+              <View key={i} style={[styles.star, { top: s.top, left: s.left, width: s.size, height: s.size, opacity: s.opacity }]} />
+            ))}
+            {BannerContent}
+          </View>
+        )}
+
+        <View style={styles.shopInfoCard}>
+          {shop.description ? (
+            <Text style={styles.shopDescription}>{shop.description}</Text>
+          ) : null}
+
+          <View style={styles.shopMetaContainer}>
+            <View style={styles.shopMetaItem}>
+              <Ionicons name="cube" size={13} color={dark} />
+              <Text style={styles.shopMetaText}>{allProducts.length} Products</Text>
             </View>
           </View>
+
+          {/* Contact row */}
+          {(shop.phone_number || shop.email_contact) ? (
+            <View style={styles.contactRow}>
+              {shop.phone_number ? (
+                <TouchableOpacity
+                  style={[styles.contactBtn, { borderColor: dark }]}
+                  onPress={() => Linking.openURL(`tel:${shop.phone_number}`)}
+                >
+                  <Ionicons name="call" size={13} color={dark} />
+                  <Text style={[styles.contactBtnText, { color: dark }]}>{shop.phone_number}</Text>
+                </TouchableOpacity>
+              ) : null}
+              {shop.email_contact ? (
+                <TouchableOpacity
+                  style={[styles.contactBtn, { borderColor: dark }]}
+                  onPress={() => Linking.openURL(`mailto:${shop.email_contact}`)}
+                >
+                  <Ionicons name="mail" size={13} color={dark} />
+                  <Text style={[styles.contactBtnText, { color: dark }]}>{shop.email_contact}</Text>
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
+
+          {/* Social links */}
+          {Object.keys(socialLinks).length > 0 ? (
+            <View style={styles.socialRow}>
+              {socialLinks.facebook ? (
+                <TouchableOpacity onPress={() => Linking.openURL(socialLinks.facebook)}>
+                  <Ionicons name="logo-facebook" size={22} color="#1877F2" />
+                </TouchableOpacity>
+              ) : null}
+              {socialLinks.instagram ? (
+                <TouchableOpacity onPress={() => Linking.openURL(socialLinks.instagram)}>
+                  <Ionicons name="logo-instagram" size={22} color="#E4405F" />
+                </TouchableOpacity>
+              ) : null}
+              {socialLinks.twitter ? (
+                <TouchableOpacity onPress={() => Linking.openURL(socialLinks.twitter)}>
+                  <Ionicons name="logo-twitter" size={22} color="#1DA1F2" />
+                </TouchableOpacity>
+              ) : null}
+              {socialLinks.linkedin ? (
+                <TouchableOpacity onPress={() => Linking.openURL(socialLinks.linkedin)}>
+                  <Ionicons name="logo-linkedin" size={22} color="#0A66C2" />
+                </TouchableOpacity>
+              ) : null}
+            </View>
+          ) : null}
         </View>
-      )}
-    </>
-  );
+      </View>
+    );
+  };
 
   const renderStickyHeader = () => (
     <View style={styles.stickyHeaderContainer}>
@@ -572,57 +710,115 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
-  combinedHeader: {
+  headerWrapper: {
+    backgroundColor: colors.card,
+    marginBottom: 0,
+  },
+  headerBanner: {
+    height: 180,
+    width: '100%',
+    overflow: 'hidden',
+  },
+  galaxyBanner: {
+    backgroundColor: '#060818',
+  },
+  star: {
+    position: 'absolute',
+    borderRadius: 99,
+    backgroundColor: '#ffffff',
+  },
+  bannerOverlay: {
+    flex: 1,
+    justifyContent: 'space-between',
+    paddingTop: 12,
+    paddingHorizontal: 14,
+    paddingBottom: 14,
+  },
+  shareBtn: {
+    alignSelf: 'flex-end',
+    backgroundColor: 'rgba(0,0,0,0.35)',
+    borderRadius: 20,
+    padding: 8,
+  },
+  bannerTextBlock: {
+    marginTop: 'auto',
+  },
+  shopName: {
+    fontSize: 24,
+    fontWeight: '900',
+    color: '#ffffff',
+    letterSpacing: 0.4,
+    textShadowColor: 'rgba(0,0,0,0.6)',
+    textShadowOffset: { width: 0, height: 1 },
+    textShadowRadius: 4,
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginTop: 3,
+  },
+  locationText: {
+    fontSize: 12,
+    color: 'rgba(255,255,255,0.85)',
+    fontWeight: '500',
+  },
+  shopInfoCard: {
+    paddingHorizontal: 14,
+    paddingVertical: 10,
     backgroundColor: colors.card,
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
-    paddingBottom: 8,
-    paddingTop: 8,
-  },
-  shopContent: {
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 4,
-  },
-
-
-  shopName: {
-    fontSize: 26,
-    fontWeight: '900',
-    marginBottom: 4,
-    textAlign: 'center',
-    letterSpacing: 1.5,
-    color: '#6B46C1',
-    textShadowColor: 'rgba(0, 0, 0, 0.4)',
-    textShadowOffset: { width: 0, height: 4 },
-    textShadowRadius: 8,
   },
   shopDescription: {
     fontSize: 13,
     color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 6,
+    marginBottom: 8,
     lineHeight: 18,
-    paddingHorizontal: 12,
   },
   shopMetaContainer: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 2,
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 6,
   },
   shopMetaItem: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
     backgroundColor: colors.background,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 16,
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
   },
   shopMetaText: {
-    fontSize: 12,
+    fontSize: 11,
     color: colors.textPrimary,
     fontWeight: '600',
+  },
+  contactRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    marginBottom: 8,
+  },
+  contactBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+  },
+  contactBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+  },
+  socialRow: {
+    flexDirection: 'row',
+    gap: 14,
+    marginTop: 2,
   },
   stickyHeaderContainer: {
     backgroundColor: colors.background,

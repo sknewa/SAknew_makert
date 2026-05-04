@@ -1,91 +1,231 @@
-import { StyleSheet } from 'react-native';
+import { StyleSheet, Platform } from 'react-native';
 
 export const colors = {
-  primary: '#2ECC71',
-  accent: '#FFB300',
-  background: '#F9FAFB',
-  card: '#FFFFFF',
-  textPrimary: '#1A1A1A',
-  textSecondary: '#4F4F4F',
-  error: '#E53935',
-  border: '#DADDE1',
-  iconColor: '#5C6BC0',
-  white: '#FFFFFF',
-  successText: '#2ECC71',
-  warningAction: '#FFB300',
-  dangerAction: '#E53935',
-  infoAction: '#5C6BC0',
+  primary:       '#6C63FF',
+  primaryDark:   '#5A52D5',
+  primaryLight:  '#EEF0FF',
+  secondary:     '#FF6584',
+  accent:        '#FFB703',
+  success:       '#22C55E',
+  successLight:  '#DCFCE7',
+  warning:       '#F59E0B',
+  warningLight:  '#FEF3C7',
+  error:         '#EF4444',
+  errorLight:    '#FEE2E2',
+  info:          '#3B82F6',
+  infoLight:     '#DBEAFE',
+  background:    '#F4F6FB',
+  surface:       '#FFFFFF',
+  surfaceAlt:    '#F8FAFF',
+  border:        '#E8ECF4',
+  divider:       '#F0F2F8',
+  textPrimary:   '#0F172A',
+  textSecondary: '#64748B',
+  textMuted:     '#94A3B8',
+  textInverse:   '#FFFFFF',
+  white:         '#FFFFFF',
+  card:          '#FFFFFF',
+  dangerAction:  '#EF4444',
+  warningAction: '#F59E0B',
+  infoAction:    '#3B82F6',
+  successText:   '#22C55E',
+  errorText:     '#EF4444',
+  starColor:     '#FFB703',
+  shadowColor:   '#6C63FF',
+  iconColor:     '#64748B',
+  buttonText:    '#FFFFFF',
 };
 
 export const spacing = {
-  xs: 4,
-  sm: 8,
-  md: 16,
-  lg: 24,
-  xl: 32,
+  xs:  4,
+  sm:  8,
+  md:  16,
+  lg:  24,
+  xl:  32,
+  xxl: 48,
+};
+
+export const radius = {
+  sm:   8,
+  md:   12,
+  lg:   16,
+  xl:   24,
+  full: 999,
+};
+
+export const shadow = {
+  sm: Platform.select({
+    ios:     { shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.08, shadowRadius: 8, elevation: 2 },
+    android: { elevation: 2 },
+    default: {},
+  }),
+  md: Platform.select({
+    ios:     { shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 16, elevation: 4 },
+    android: { elevation: 4 },
+    default: {},
+  }),
+  lg: Platform.select({
+    ios:     { shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 8 }, shadowOpacity: 0.16, shadowRadius: 24, elevation: 8 },
+    android: { elevation: 8 },
+    default: {},
+  }),
 };
 
 export const globalStyles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingHorizontal: spacing.md,
-  },
-  safeContainer: {
-    flex: 1,
-    backgroundColor: colors.background,
-  },
-  content: {
-    flex: 1,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-  },
+  // ── Layout ──────────────────────────────────────────────────
+  flex1:        { flex: 1 },
+  safeContainer: { flex: 1, backgroundColor: colors.background },
+  container:    { flex: 1, backgroundColor: colors.background, paddingHorizontal: spacing.md },
+  scrollContent: { flexGrow: 1, paddingBottom: spacing.xl },
+  centered:     { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  row:          { flexDirection: 'row', alignItems: 'center' },
+  rowBetween:   { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+
+  // ── Cards ────────────────────────────────────────────────────
   card: {
-    backgroundColor: colors.card,
-    borderRadius: 12,
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
     padding: spacing.md,
     marginVertical: spacing.sm,
-    boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.1)',
-    elevation: 3,
+    ...Platform.select({
+      ios:     { shadowColor: '#6C63FF', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 3 },
+      android: { elevation: 3 },
+      default: {},
+    }),
   },
-  button: {
-    backgroundColor: colors.primary,
-    borderRadius: 8,
-    paddingVertical: spacing.md,
-    paddingHorizontal: spacing.lg,
-    alignItems: 'center',
-    marginVertical: spacing.sm,
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  input: {
+  cardFlat: {
+    backgroundColor: colors.surface,
+    borderRadius: radius.lg,
+    padding: spacing.md,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 8,
+  },
+
+  // ── Buttons ──────────────────────────────────────────────────
+  btn: {
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+  },
+  btnPrimary: {
+    backgroundColor: colors.primary,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+  },
+  btnOutline: {
+    backgroundColor: 'transparent',
+    borderRadius: radius.md,
+    paddingVertical: 13,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+    borderWidth: 1.5,
+    borderColor: colors.primary,
+  },
+  btnDanger: {
+    backgroundColor: colors.error,
+    borderRadius: radius.md,
+    paddingVertical: 14,
+    paddingHorizontal: spacing.lg,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    flexDirection: 'row' as const,
+  },
+  btnText:        { color: colors.white, fontSize: 15, fontWeight: '600' as const },
+  btnOutlineText: { color: colors.primary, fontSize: 15, fontWeight: '600' as const },
+  btnDisabled:    { opacity: 0.5 },
+
+  // ── Inputs ───────────────────────────────────────────────────
+  input: {
+    backgroundColor: colors.surfaceAlt,
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: radius.md,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 13,
+    fontSize: 15,
+    color: colors.textPrimary,
+  },
+  inputFocused: {
+    borderColor: colors.primary,
+    backgroundColor: colors.white,
+  },
+  inputLabel: {
+    fontSize: 13,
+    fontWeight: '600' as const,
+    color: colors.textSecondary,
+    marginBottom: 6,
+    marginTop: spacing.sm,
+  },
+  inputError: { borderColor: colors.error },
+
+  // ── Typography ───────────────────────────────────────────────
+  h1:       { fontSize: 28, fontWeight: '800' as const, color: colors.textPrimary, letterSpacing: -0.5 },
+  h2:       { fontSize: 22, fontWeight: '700' as const, color: colors.textPrimary },
+  h3:       { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary },
+  h4:       { fontSize: 16, fontWeight: '600' as const, color: colors.textPrimary },
+  body:     { fontSize: 15, color: colors.textPrimary, lineHeight: 22 },
+  bodySmall:{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
+  caption:  { fontSize: 11, color: colors.textMuted },
+  link:     { fontSize: 14, color: colors.primary, fontWeight: '600' as const },
+
+  // ── Badges ───────────────────────────────────────────────────
+  badge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+    alignSelf: 'flex-start' as const,
+  },
+  badgeSuccess: { backgroundColor: colors.successLight },
+  badgeError:   { backgroundColor: colors.errorLight },
+  badgeWarning: { backgroundColor: colors.warningLight },
+  badgeInfo:    { backgroundColor: colors.infoLight },
+  badgePrimary: { backgroundColor: colors.primaryLight },
+  badgeText:    { fontSize: 11, fontWeight: '700' as const },
+
+  // ── Divider ──────────────────────────────────────────────────
+  divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
+
+  // ── Section header ───────────────────────────────────────────
+  sectionHeader: {
+    fontSize: 12,
+    fontWeight: '700' as const,
+    color: colors.textMuted,
+    textTransform: 'uppercase' as const,
+    letterSpacing: 1,
+    marginBottom: spacing.sm,
+    marginTop: spacing.md,
+  },
+
+  // ── Empty state ──────────────────────────────────────────────
+  emptyState: {
+    flex: 1,
+    alignItems: 'center' as const,
+    justifyContent: 'center' as const,
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+  },
+  emptyTitle:   { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary, marginTop: spacing.md, marginBottom: spacing.sm, textAlign: 'center' as const },
+  emptySubtitle:{ fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, lineHeight: 22 },
+
+  // ── Screen header ────────────────────────────────────────────
+  screenHeader: {
+    flexDirection: 'row' as const,
+    alignItems: 'center' as const,
+    justifyContent: 'space-between' as const,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    fontSize: 16,
-    backgroundColor: colors.card,
-    marginVertical: spacing.xs,
+    backgroundColor: colors.surface,
+    borderBottomWidth: 1,
+    borderBottomColor: colors.border,
   },
-  title: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: colors.textPrimary,
-    marginBottom: spacing.md,
-  },
-  subtitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: colors.textPrimary,
-    marginBottom: spacing.sm,
-  },
-  text: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    lineHeight: 24,
-  },
+  screenTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary },
 });

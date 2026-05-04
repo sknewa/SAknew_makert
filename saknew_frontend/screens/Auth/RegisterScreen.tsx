@@ -1,26 +1,13 @@
-// saknew_frontend/screens/Auth/RegisterScreen.tsx
 import React, { useState, useCallback } from 'react';
 import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-  Keyboard,
-  Image,
+  View, Text, TextInput, TouchableOpacity, StyleSheet,
+  ActivityIndicator, SafeAreaView, KeyboardAvoidingView,
+  Platform, Keyboard, Image, ScrollView, useWindowDimensions,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import AuthService from '../../services/authService';
 import { AuthNavigationProp } from '../../navigation/types';
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView } from 'react-native'; 
-import { useWindowDimensions } from 'react-native';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 
 // Centralized colors - RECOMMENDED: Move this to a separate file (e.g., ../constants/colors.ts)
@@ -48,89 +35,65 @@ const RegisterScreen: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState<boolean>(false);
   const [showRePassword, setShowRePassword] = useState<boolean>(false);
-
-
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [rePasswordError, setRePasswordError] = useState<string | null>(null);
 
   const handleRegister = useCallback(async () => {
     setError(null);
+    setEmailError(null);
+    setPasswordError(null);
+    setRePasswordError(null);
     Keyboard.dismiss();
 
-    if (!email.trim() || !password || !rePassword) {
-      setError('All fields are required.');
-      return;
+    let hasError = false;
+    if (!email.trim()) {
+      setEmailError('Email address is required.');
+      hasError = true;
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+      setEmailError('Please enter a valid email address.');
+      hasError = true;
     }
-
-    if (password !== rePassword) {
-      setError('Passwords do not match.');
-      return;
+    if (!password) {
+      setPasswordError('Password is required.');
+      hasError = true;
+    } else if (password.length < 8) {
+      setPasswordError('Password must be at least 8 characters.');
+      hasError = true;
     }
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email.trim())) {
-      setError('Please enter a valid email address.');
-      return;
+    if (!rePassword) {
+      setRePasswordError('Please confirm your password.');
+      hasError = true;
+    } else if (password !== rePassword) {
+      setRePasswordError('Passwords do not match.');
+      hasError = true;
     }
+    if (hasError) return;
 
     setLoading(true);
     try {
-      const result = await AuthService.register({ email: email.trim(), password, re_password: rePassword });
-      
-      safeLog('Registration successful:', result);
-      safeLog('Current navigation state before redirect:', navigation.getState());
-      safeLog('Navigation object:', navigation);
-      
-      // Add window location tracking for web
-      if (typeof window !== 'undefined') {
-        safeLog('Current window location:', window.location.href);
-      }
-      
-      // Force navigation using replace to ensure it works
-      safeLog('Attempting navigation to ActivateAccount with email:', email.trim());
+      await AuthService.register({ email: email.trim(), password, re_password: rePassword });
       navigation.replace('ActivateAccount', { userEmail: email.trim() });
-      safeLog('Navigation replace call completed');
-      
-      // Check navigation state after
-      setTimeout(() => {
-        safeLog('Navigation state after redirect:', navigation.getState());
-        if (typeof window !== 'undefined') {
-          safeLog('Window location after redirect:', window.location.href);
-        }
-      }, 500);
     } catch (err: any) {
-      safeLog('AuthService registration error details:', {
-        errorType: typeof err,
-        errorConstructor: err?.constructor?.name,
-        message: err?.message,
-        response: err?.response ? {
-          status: err.response.status,
-          data: err.response.data
-        } : null,
-        hasRequest: !!err?.request
-      });
-      safeError('Registration failed', { status: err?.response?.status, code: err?.code });
-      safeError('Registration error:', err?.response?.data || err?.message || err);
-      
-      // Don't show success message on error
-      safeLog('Registration error: ' + (err?.message || 'Unknown error'));
-
-      let errorMessage = 'An unexpected error occurred during registration.';
+      let errorMessage = 'Registration failed. Please try again.';
       if (err?.response?.data) {
-        if (err.response.data.detail) {
-          errorMessage = err.response.data.detail;
-        } else if (err.response.data.email) {
-          errorMessage = Array.isArray(err.response.data.email) 
-            ? err.response.data.email.join(', ') 
-            : err.response.data.email;
-        } else if (err.response.data.password) {
-          errorMessage = Array.isArray(err.response.data.password) 
-            ? err.response.data.password.join(', ') 
-            : err.response.data.password;
-        } else if (typeof err.response.data === 'object') {
-          const messages = Object.values(err.response.data).flat();
-          errorMessage = messages.length > 0 ? messages.join(', ') : errorMessage;
+        const data = err.response.data;
+        if (data.email) {
+          const msg = Array.isArray(data.email) ? data.email[0] : data.email;
+          setEmailError(msg);
+          return;
+        } else if (data.password) {
+          const msg = Array.isArray(data.password) ? data.password[0] : data.password;
+          setPasswordError(msg);
+          return;
+        } else if (data.detail) {
+          errorMessage = data.detail;
+        } else {
+          const msgs = Object.values(data).flat();
+          errorMessage = msgs.length > 0 ? (msgs[0] as string) : errorMessage;
         }
       } else if (err?.request) {
-        errorMessage = 'Network Error: Could not connect to the server. Please check your internet connection.';
+        errorMessage = 'Cannot connect to the server. Please check your internet connection.';
       } else if (err?.message) {
         errorMessage = err.message;
       }
@@ -170,11 +133,11 @@ return (
           {/* ✅ Header Section (fixed position & conditionally padded for small devices) */}
           <View style={[styles.header, isSmallDevice && { paddingTop: 40 }]}>
             <Image
-              source={require('../../img/Logo3.jpg')}
+              source={require('../../img/weblog.jpg')}
               style={styles.logoImage}
               // resizeMode="contain"
             />
-            <Text style={styles.logoText}>Saknew Market</Text>
+            <Text style={styles.logoText}>SAMakert</Text>
             <Text style={styles.welcomeSubtitle}>Create your account to start exploring.</Text>
           </View>
 
@@ -182,14 +145,14 @@ return (
           <View style={styles.card}>
             {/* Email Input */}
             <Text style={styles.inputLabel}>Email Address</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="mail-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, emailError && styles.inputError]}>
+              <Ionicons name="mail-outline" size={20} color={emailError ? colors.error : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Enter your email"
                 placeholderTextColor="#B0B0B0"
                 value={email}
-                onChangeText={setEmail}
+                onChangeText={(t) => { setEmail(t); setEmailError(null); }}
                 autoCapitalize="none"
                 keyboardType="email-address"
                 textContentType="emailAddress"
@@ -197,69 +160,59 @@ return (
                 editable={!loading}
               />
             </View>
+            {emailError && <Text style={styles.fieldError}>{emailError}</Text>}
 
             {/* Password Input */}
             <Text style={styles.inputLabel}>Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, passwordError && styles.inputError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={passwordError ? colors.error : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
-                placeholder="Create a strong password"
+                placeholder="At least 8 characters"
                 placeholderTextColor="#B0B0B0"
                 value={password}
-                onChangeText={setPassword}
+                onChangeText={(t) => { setPassword(t); setPasswordError(null); }}
                 secureTextEntry={!showPassword}
                 autoCapitalize="none"
                 textContentType="newPassword"
                 autoCorrect={false}
                 editable={!loading}
               />
-              <TouchableOpacity
-                style={styles.passwordVisibilityToggle}
-                onPress={() => setShowPassword(!showPassword)}
-                disabled={loading}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showPassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.iconColor}
-                />
+              <TouchableOpacity style={styles.passwordVisibilityToggle} onPress={() => setShowPassword(!showPassword)} disabled={loading}>
+                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.iconColor} />
               </TouchableOpacity>
             </View>
+            {passwordError && <Text style={styles.fieldError}>{passwordError}</Text>}
 
             {/* Confirm Password Input */}
             <Text style={styles.inputLabel}>Confirm Password</Text>
-            <View style={styles.inputContainer}>
-              <Ionicons name="lock-closed-outline" size={20} color={colors.iconColor} style={styles.inputIcon} />
+            <View style={[styles.inputContainer, rePasswordError && styles.inputError]}>
+              <Ionicons name="lock-closed-outline" size={20} color={rePasswordError ? colors.error : colors.iconColor} style={styles.inputIcon} />
               <TextInput
                 style={styles.inputField}
                 placeholder="Re-enter your password"
                 placeholderTextColor="#B0B0B0"
                 value={rePassword}
-                onChangeText={setRePassword}
+                onChangeText={(t) => { setRePassword(t); setRePasswordError(null); }}
                 secureTextEntry={!showRePassword}
                 autoCapitalize="none"
                 textContentType="newPassword"
                 autoCorrect={false}
                 editable={!loading}
               />
-              <TouchableOpacity
-                style={styles.passwordVisibilityToggle}
-                onPress={() => setShowRePassword(!showRePassword)}
-                disabled={loading}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name={showRePassword ? 'eye-off-outline' : 'eye-outline'}
-                  size={20}
-                  color={colors.iconColor}
-                />
+              <TouchableOpacity style={styles.passwordVisibilityToggle} onPress={() => setShowRePassword(!showRePassword)} disabled={loading}>
+                <Ionicons name={showRePassword ? 'eye-off-outline' : 'eye-outline'} size={20} color={colors.iconColor} />
               </TouchableOpacity>
             </View>
+            {rePasswordError && <Text style={styles.fieldError}>{rePasswordError}</Text>}
 
             {/* Error Message */}
-            {error && <Text style={styles.errorMessage}>{error}</Text>}
+            {error && (
+              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#FEE2E2', borderRadius: 8, padding: 10, marginBottom: 10, borderWidth: 1, borderColor: '#FECACA' }}>
+                <Ionicons name="alert-circle" size={16} color={colors.error} />
+                <Text style={[styles.errorMessage, { flex: 1, marginBottom: 0, backgroundColor: 'transparent', padding: 0, marginLeft: 8, textAlign: 'left' }]}>{error}</Text>
+              </View>
+            )}
 
             {/* Sign Up Button */}
             <TouchableOpacity
@@ -398,10 +351,23 @@ const styles = StyleSheet.create({
   },
   errorMessage: {
     color: colors.error,
-    fontSize: 11,
+    fontSize: 12,
     textAlign: 'center',
-    marginTop: -6,
     marginBottom: 10,
+    backgroundColor: '#FEE2E2',
+    padding: 8,
+    borderRadius: 6,
+  },
+  fieldError: {
+    color: colors.error,
+    fontSize: 11,
+    marginTop: -6,
+    marginBottom: 8,
+    marginLeft: 4,
+  },
+  inputError: {
+    borderColor: colors.error,
+    backgroundColor: '#FFF5F5',
   },
   registerButton: {
     backgroundColor: colors.iconColor,

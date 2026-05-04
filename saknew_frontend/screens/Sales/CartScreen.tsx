@@ -17,44 +17,62 @@ import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../../types'; // Assuming Product type is defined in types.ts
 import { salesService } from '../../services/apiService';
 import { Cart, CartItem } from '../../services/salesService';
+import {
+  getGuestCart,
+  updateGuestCartItem,
+  removeFromGuestCart,
+  clearGuestCart,
+  getGuestCartTotal,
+  GuestCartItem,
+} from '../../services/guestCartService';
 import { MainNavigationProp } from '../../navigation/types';
 import { useBadges } from '../../context/BadgeContext';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import { useAuth } from '../../context/AuthContext';
 
 const colors = {
-  background: '#F5F5F5',
-  textPrimary: '#222',
-  textSecondary: '#999',
+  background: '#F9FAFB',
+  textPrimary: '#111827',
+  textSecondary: '#6B7280',
   card: '#FFFFFF',
-  border: '#E0E0E0',
-  primary: '#10B981',
+  border: '#F3F4F6',
+  primary: '#059669',
   buttonText: '#FFFFFF',
-  errorText: '#FF4444',
-  dangerAction: '#FF4444',
+  errorText: '#EF4444',
+  successText: '#059669',
+  dangerAction: '#EF4444',
   white: '#FFFFFF',
+  shadow: 'rgba(0, 0, 0, 0.05)',
+  shadowColor: 'rgba(0, 0, 0, 0.05)',
+  accent: '#F59E0B',
 };
 
 
 const CartScreen: React.FC = () => {
   const navigation = useNavigation<MainNavigationProp>();
   const { refreshBadges } = useBadges();
+  const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [checkoutLoading, setCheckoutLoading] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [guestCart, setGuestCart] = useState<GuestCartItem[]>([]);
 
   // Function to format currency
   const formatCurrency = (amount: number): string => {
     return `R${(amount || 0).toFixed(2)}`;
   };
 
-  // Calculate cart totals from backend cart
-  const subtotal = cart ? parseFloat(cart.total) : 0;
-  // Removed shipping calculation
+  // Calculate cart totals
+  const subtotal = isAuthenticated
+    ? (cart ? parseFloat(cart.total) : 0)
+    : getGuestCartTotal(guestCart);
   const total = subtotal;
-  const totalItems = cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0;
+  const totalItems = isAuthenticated
+    ? (cart ? cart.items.reduce((sum, item) => sum + item.quantity, 0) : 0)
+    : guestCart.reduce((sum, item) => sum + item.quantity, 0);
+  const hasItems = isAuthenticated ? (cart?.items?.length ?? 0) > 0 : guestCart.length > 0;
 
   useFocusEffect(
   useCallback(() => {
@@ -65,121 +83,68 @@ const CartScreen: React.FC = () => {
 
 
 // Update handleQuantityChange to refresh immediately
-const handleQuantityChange = async (productId: number, newQuantity: number) => {
+const handleQuantityChange = async (productId: number, newQuantity: number, size?: string) => {
   try {
-    if (newQuantity <= 0) {
-      await salesService.removeCartItem(productId);
-    } else {
+    if (newQuantity <= 0) return handleRemoveItem(productId, size);
+    if (isAuthenticated) {
       await salesService.updateCartItemQuantity(productId, newQuantity);
+    } else {
+      await updateGuestCartItem(productId, newQuantity, size);
     }
-    // Immediately refresh cart and badges
-    await fetchCart();
+    fetchCart();
   } catch (err: any) {
     setError(err?.response?.data?.detail || 'Failed to update cart item.');
   }
 };
 
 
-  // Handle item removal (calls backend)
-  const handleRemoveItem = async (productId: number) => {
-    safeLog('🗑️ [CartScreen.handleRemoveItem] START - Product ID:', productId);
-    safeLog('🗑️ [CartScreen.handleRemoveItem] Current cart state:', JSON.stringify(cart, null, 2));
-    
-    // Use window.confirm for web, Alert for mobile
+  // Handle item removal
+  const handleRemoveItem = async (productId: number, size?: string) => {
     const isWeb = typeof window !== 'undefined' && window.confirm;
-    
     if (isWeb) {
-      safeLog('🌐 [CartScreen.handleRemoveItem] Using window.confirm for web');
       const confirmed = window.confirm('Are you sure you want to remove this item from your cart?');
-      safeLog('🌐 [CartScreen.handleRemoveItem] User response:', confirmed);
-      
-      if (!confirmed) {
-        safeLog('❌ [CartScreen.handleRemoveItem] User cancelled deletion');
-        return;
-      }
-      
-      safeLog('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
-      await performRemoval(productId);
+      if (!confirmed) return;
+      await performRemoval(productId, size);
     } else {
-      safeLog('📱 [CartScreen.handleRemoveItem] Using Alert for mobile');
       Alert.alert(
         "Remove Item",
         "Are you sure you want to remove this item from your cart?",
         [
-          { 
-            text: "Cancel", 
-            style: "cancel",
-            onPress: () => safeLog('❌ [CartScreen.handleRemoveItem] User cancelled deletion')
-          },
-          {
-            text: "Remove",
-            onPress: () => {
-              safeLog('✅ [CartScreen.handleRemoveItem] User confirmed deletion');
-              performRemoval(productId);
-            },
-            style: "destructive",
-          },
+          { text: "Cancel", style: "cancel" },
+          { text: "Remove", onPress: () => performRemoval(productId, size), style: "destructive" },
         ],
         { cancelable: true }
       );
     }
   };
 
-  const performRemoval = async (productId: number) => {
-    safeLog('📤 [CartScreen.performRemoval] START - productId:', productId);
+  const performRemoval = async (productId: number, size?: string) => {
     try {
-      safeLog('🔧 [CartScreen.performRemoval] Calling salesService.removeCartItem...');
-      const result = await salesService.removeCartItem(productId);
-      safeLog('✅ [CartScreen.performRemoval] salesService.removeCartItem returned successfully');
-      safeLog('✅ [CartScreen.performRemoval] Result:', JSON.stringify(result, null, 2));
-      
-      safeLog('🔄 [CartScreen.performRemoval] About to refresh cart and badges');
+      if (isAuthenticated) {
+        await salesService.removeCartItem(productId);
+      } else {
+        await removeFromGuestCart(productId, size);
+      }
       await fetchCart();
-      safeLog('✅ [CartScreen.performRemoval] fetchCart completed');
-      safeLog('✅ [CartScreen.performRemoval] END - Item removed successfully');
     } catch (err: any) {
-      safeLog('❌ [CartScreen.performRemoval] ERROR occurred');
-      safeLog('❌ [CartScreen.performRemoval] Error object:', err);
-      safeLog('❌ [CartScreen.performRemoval] Error message:', err?.message);
-      safeLog('❌ [CartScreen.performRemoval] Error response:', err?.response);
-      safeLog('❌ [CartScreen.performRemoval] Error response data:', err?.response?.data);
-      safeLog('❌ [CartScreen.performRemoval] Error response status:', err?.response?.status);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to remove item.');
     }
   };
 
   // Handle clearing entire cart
   const handleClearCart = async () => {
-    safeLog('🗑️ [CartScreen.handleClearCart] START - Clearing entire cart');
-    
     const isWeb = typeof window !== 'undefined' && window.confirm;
-    
     if (isWeb) {
       const confirmed = window.confirm('Are you sure you want to remove all items from your cart?');
-      if (!confirmed) {
-        safeLog('❌ [CartScreen.handleClearCart] User cancelled');
-        return;
-      }
-      safeLog('✅ [CartScreen.handleClearCart] User confirmed');
+      if (!confirmed) return;
       await performClearCart();
     } else {
       Alert.alert(
         "Clear Cart",
         "Are you sure you want to remove all items from your cart?",
         [
-          { 
-            text: "Cancel", 
-            style: "cancel",
-            onPress: () => safeLog('❌ [CartScreen.handleClearCart] User cancelled')
-          },
-          {
-            text: "Clear All",
-            onPress: () => {
-              safeLog('✅ [CartScreen.handleClearCart] User confirmed');
-              performClearCart();
-            },
-            style: "destructive",
-          },
+          { text: "Cancel", style: "cancel" },
+          { text: "Clear All", onPress: () => performClearCart(), style: "destructive" },
         ]
       );
     }
@@ -187,15 +152,13 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
 
   const performClearCart = async () => {
     try {
-      safeLog('📤 [CartScreen.performClearCart] Calling salesService.clearCart');
-      await salesService.clearCart();
-      safeLog('✅ [CartScreen.performClearCart] clearCart successful');
-      
-      safeLog('🔄 [CartScreen.performClearCart] Refreshing cart');
+      if (isAuthenticated) {
+        await salesService.clearCart();
+      } else {
+        await clearGuestCart();
+      }
       await fetchCart();
-      safeLog('✅ [CartScreen.performClearCart] END - Cart cleared successfully');
     } catch (err: any) {
-      safeLog('❌ [CartScreen.performClearCart] ERROR:', err?.response?.data);
       Alert.alert('Error', err?.response?.data?.detail || 'Failed to clear cart.');
     }
   };
@@ -210,32 +173,32 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
     navigation.navigate('Shipping');
   };
 
+  const handleGuestCheckout = () => {
+    if (guestCart.length === 0) {
+      Alert.alert("Cart Empty", "Your cart is empty.");
+      return;
+    }
+    (navigation as any).navigate('GuestCheckout', { cartItems: guestCart, cartTotal: getGuestCartTotal(guestCart).toFixed(2) });
+  };
+
   const handleContinueShopping = () => {
     (navigation as any).navigate('BottomTabs'); // Navigate to Home tab
   };
 
-  // Fetch cart from backend
+  // Fetch cart from backend or guest cart
   const fetchCart = async () => {
-    safeLog('🔄 [CartScreen.fetchCart] START - Fetching cart from backend');
-    // Only show full loading indicator on first mount, use refreshing for subsequent updates
     if (!cart) setLoading(true);
     setError(null);
     try {
-      safeLog('📤 [CartScreen.fetchCart] Calling salesService.getMyCart');
-      const backendCart = await salesService.getMyCart();
-      safeLog('✅ [CartScreen.fetchCart] Cart received:', JSON.stringify(backendCart, null, 2));
-      safeLog('✅ [CartScreen.fetchCart] Cart items count:', backendCart?.items?.length || 0);
-      
-      setCart(backendCart);
-      safeLog('✅ [CartScreen.fetchCart] Cart state updated');
-      safeLog(`🛒 [CartScreen.fetchCart] Summary: ${backendCart?.items?.length || 0} items, Total: ${backendCart?.total}`);
-      
-      // Refresh badges when cart is updated
-      safeLog('🔄 [CartScreen.fetchCart] Refreshing badges');
+      if (isAuthenticated) {
+        const backendCart = await salesService.getMyCart();
+        setCart(backendCart);
+      } else {
+        const items = await getGuestCart();
+        setGuestCart(items);
+      }
       await refreshBadges();
-      safeLog('✅ [CartScreen.fetchCart] END - Badges refreshed');
     } catch (err: any) {
-      safeLog('❌ [CartScreen.fetchCart] ERROR:', err?.response?.data || err?.message);
       setError('Failed to load cart.');
     } finally {
       setLoading(false);
@@ -283,13 +246,12 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
   return (
     <SafeAreaView style={styles.safeArea}>
       <FlatList
-        data={cart && cart.items ? cart.items : []}
         keyExtractor={item => item.product.id.toString()}
         ListHeaderComponent={
           <View style={styles.cartContent}>
             <View style={styles.headerRow}>
-              <Text style={styles.pageTitle}>Your Cart</Text>
-              {cart && cart.items.length > 0 && (
+              <Text style={styles.pageTitle}>Your Cart {totalItems > 0 ? `(${totalItems})` : ''}</Text>
+              {hasItems && (
                 <TouchableOpacity
                   onPress={handleClearCart}
                   style={styles.clearCartBtn}
@@ -300,7 +262,7 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                 </TouchableOpacity>
               )}
             </View>
-            {(!cart || cart.items.length === 0) && (
+            {!hasItems && (
               <View style={styles.emptyCartContainer}>
                 <Ionicons name="cart-outline" size={80} color={colors.textSecondary} />
                 <Text style={styles.emptyCartMessage}>Your cart is empty.</Text>
@@ -315,34 +277,20 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
             )}
           </View>
         }
-        renderItem={({ item }) => {
-          safeLog('💰 [CartScreen.renderItem] Rendering product:', item.product.name);
-          safeLog('💰 [CartScreen.renderItem] Original price:', item.product.price);
-          safeLog('💰 [CartScreen.renderItem] Display price:', item.product.display_price);
-          safeLog('💰 [CartScreen.renderItem] Has promotion:', !!item.product.promotion);
-          safeLog('💰 [CartScreen.renderItem] Discount %:', item.product.discount_percentage_value);
-          safeLog('💰 [CartScreen.renderItem] Quantity:', item.quantity);
-          const unitPrice = parseFloat(item.product.display_price || item.product.price || '0');
-          const lineTotal = unitPrice * item.quantity;
-          safeLog('💰 [CartScreen.renderItem] Calculated unit price:', unitPrice);
-          safeLog('💰 [CartScreen.renderItem] Calculated line total:', lineTotal);
-          
-          return (
-          <View key={item.product.id} style={styles.cartItem}>
+        data={isAuthenticated
+          ? (cart?.items ?? [])
+          : guestCart.map((g, i) => ({ ...g, id: i, product_id: g.product.id, line_total: String(parseFloat(g.product.display_price || g.product.price || '0') * g.quantity) }))
+        }
+        keyExtractor={(item: any) => `${item.product?.id}-${item.size ?? ''}`}
+        renderItem={({ item }: { item: any }) => (
+          <View style={styles.cartItem}>
             <View style={styles.quantityBorder}>
               <View style={styles.scrollData}>
                 <View style={styles.itemHeader}>
                   <Text style={styles.productName}>{item.product.name}</Text>
                   <TouchableOpacity
-                    onPress={() => {
-                      safeLog('🖱️ [CartScreen.renderItem] Trash icon PRESSED');
-                      safeLog('🖱️ [CartScreen.renderItem] Product name:', item.product.name);
-                      safeLog('🖱️ [CartScreen.renderItem] Product ID:', item.product.id);
-                      safeLog('🖱️ [CartScreen.renderItem] Calling handleRemoveItem...');
-                      handleRemoveItem(item.product.id);
-                    }}
+                    onPress={() => handleRemoveItem(item.product.id, item.size)}
                     style={styles.deleteBtn}
-                    accessibilityLabel={`Remove ${item.product.name} from cart`}
                   >
                     <Ionicons name="trash" size={20} color={colors.dangerAction} />
                   </TouchableOpacity>
@@ -354,31 +302,24 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                   />
                   <View style={styles.quantityControls}>
                     <TouchableOpacity
-                      onPress={() => handleQuantityChange(item.product.id, item.quantity - 1)}
+                      onPress={() => handleQuantityChange(item.product.id, item.quantity - 1, item.size)}
                       style={styles.decreaseBtn}
                       disabled={item.quantity <= 1}
-                      accessibilityLabel={`Decrease quantity of ${item.product.name}`}
                     >
                       <Text style={styles.quantityBtnText}>−</Text>
                     </TouchableOpacity>
-                    <Text style={styles.quantityInput} accessibilityLabel={`Quantity of ${item.product.name}`}>
-                      {item.quantity}
-                    </Text>
+                    <Text style={styles.quantityInput}>{item.quantity}</Text>
                     <TouchableOpacity
-                      onPress={() => handleQuantityChange(item.product.id, item.quantity + 1)}
+                      onPress={() => handleQuantityChange(item.product.id, item.quantity + 1, item.size)}
                       style={styles.increaseBtn}
-                      accessibilityLabel={`Increase quantity of ${item.product.name}`}
                     >
                       <Text style={styles.quantityBtnText}>+</Text>
                     </TouchableOpacity>
                   </View>
                 </View>
-                {item.product.stock === 0 && (
-                  <Text style={{ color: colors.errorText, fontWeight: 'bold', marginTop: 4 }}>
-                    Out of Stock
-                  </Text>
+                {item.size && (
+                  <Text style={{ fontSize: 11, color: colors.textSecondary, marginTop: 2 }}>Size: {item.size}</Text>
                 )}
-                {/* Show promotion badge if product has active promotion */}
                 {item.product.promotion && (
                   <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8, marginBottom: 4 }}>
                     <Ionicons name="pricetag" size={16} color={colors.errorText} />
@@ -388,29 +329,23 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                   </View>
                 )}
                 <Text style={styles.unitPriceDisplay}>
-                  <Text style={styles.detailLabel}>Unit Price:</Text>{' '}
-                  {item.product.promotion && (
-                    <Text style={{ textDecorationLine: 'line-through', color: colors.textSecondary, marginRight: 8 }}>
-                      {formatCurrency(parseFloat(item.product.price || '0'))}
-                    </Text>
-                  )}
+                  <Text style={styles.detailLabel}>Unit Price: </Text>
                   <Text style={styles.unitPrice}>
-                    {formatCurrency(parseFloat(item.product.display_price || item.product.price || '0'))}
+                    R{parseFloat(item.product.display_price || item.product.price || '0').toFixed(2)}
                   </Text>
                 </Text>
                 <Text style={styles.lineTotalDisplay}>
-                  <Text style={styles.detailLabel}>Line Total:</Text>{' '}
+                  <Text style={styles.detailLabel}>Line Total: </Text>
                   <Text style={styles.lineTotal}>
-                    {formatCurrency((parseFloat(item.product.display_price || item.product.price || '0')) * item.quantity)}
+                    R{(parseFloat(item.product.display_price || item.product.price || '0') * item.quantity).toFixed(2)}
                   </Text>
                 </Text>
               </View>
             </View>
           </View>
-        );
-        }}
+        )}
         ListFooterComponent={
-          cart && cart.items && cart.items.length > 0 ? (
+          hasItems ? (
             <View style={styles.cartSummaryBox}>
               <View style={styles.cartSummaryRow}>
                 <Text style={styles.cartSummaryLabel}>Subtotal</Text>
@@ -420,18 +355,37 @@ const handleQuantityChange = async (productId: number, newQuantity: number) => {
                 <Text style={styles.cartSummaryLabel}>Total</Text>
                 <Text style={styles.cartSummaryValue}>{formatCurrency(total)}</Text>
               </View>
-              <TouchableOpacity
-                onPress={handleCheckout}
-                style={styles.checkoutButton}
-                accessibilityLabel="Proceed to Checkout"
-                disabled={checkoutLoading}
-              >
-                {checkoutLoading ? (
-                  <ActivityIndicator size="small" color={colors.white} />
-                ) : (
-                  <Text style={styles.checkoutButtonText}>Checkout</Text>
-                )}
-              </TouchableOpacity>
+              {isAuthenticated ? (
+                <TouchableOpacity
+                  onPress={handleCheckout}
+                  style={styles.checkoutButton}
+                  disabled={checkoutLoading}
+                >
+                  {checkoutLoading ? (
+                    <ActivityIndicator size="small" color={colors.white} />
+                  ) : (
+                    <Text style={styles.checkoutButtonText}>Checkout</Text>
+                  )}
+                </TouchableOpacity>
+              ) : (
+                <>
+                  <TouchableOpacity
+                    onPress={() => (navigation as any).navigate('GuestCheckout', {
+                      cartItems: guestCart,
+                      cartTotal: total.toFixed(2),
+                    })}
+                    style={[styles.checkoutButton, { backgroundColor: '#6366F1' }]}
+                  >
+                    <Text style={styles.checkoutButtonText}>Checkout as Guest (Card)</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => navigation.navigate('Login' as any)}
+                    style={[styles.checkoutButton, { backgroundColor: colors.primary, marginTop: 8 }]}
+                  >
+                    <Text style={styles.checkoutButtonText}>Login to Checkout</Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           ) : null
         }
@@ -585,9 +539,14 @@ const styles = StyleSheet.create({
   },
   cartItem: {
     backgroundColor: colors.card,
-    borderRadius: 4,
-    padding: 12,
-    marginBottom: 10,
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 12,
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 8,
+    elevation: 3,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -643,15 +602,15 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginRight: 12,
     resizeMode: 'cover',
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#F3F4F6',
     borderWidth: 1,
     borderColor: colors.border,
   },
   quantityControls: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.card,
-    borderRadius: 4,
+    backgroundColor: '#F9FAFB',
+    borderRadius: 8,
     borderWidth: 1,
     borderColor: colors.border,
     justifyContent: 'space-between',
@@ -702,9 +661,9 @@ const styles = StyleSheet.create({
   // Cart Summary Styles
   cartSummaryBox: {
     backgroundColor: colors.card,
-    borderRadius: 4,
-    padding: 12,
-    marginTop: 12,
+    borderRadius: 16,
+    padding: 20,
+    marginTop: 16,
     borderWidth: 1,
     borderColor: colors.border,
   },
@@ -717,25 +676,27 @@ const styles = StyleSheet.create({
   cartSummaryLabel: {
     fontSize: 12,
     color: colors.textSecondary,
-    fontWeight: '500',
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
   cartSummaryValue: {
-    fontSize: 13,
-    color: colors.primary,
-    fontWeight: '700',
+    fontSize: 16,
+    color: colors.textPrimary,
+    fontWeight: '800',
   },
   checkoutButton: {
     backgroundColor: colors.primary,
-    paddingVertical: 10,
-    borderRadius: 4,
+    paddingVertical: 14,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 8,
+    marginTop: 12,
     width: '100%',
   },
   checkoutButtonText: {
     color: colors.white,
-    fontSize: 14,
+    fontSize: 16,
     fontWeight: '600',
   },
 });

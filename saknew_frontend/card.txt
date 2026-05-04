@@ -1,0 +1,27 @@
+Card Number: 4000000000000002
+
+Expiry: 12/25 (any future date)
+
+CVV: 123
+
+Cardholder Name: Test User
+
+Mastercard:
+
+Card Number: 5200000000000015
+
+Expiry: 12/25 (any future date)
+
+CVV: 123
+
+Cardholder Name: Test User
+
+American Express:
+
+Card Number: 378282246310005
+
+Expiry: 12/25 (any future date)
+
+CVV: 1234 (4 digits for Amex)
+
+Cardholder Name: Test User

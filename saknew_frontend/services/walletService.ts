@@ -21,10 +21,34 @@ export interface Transaction {
   updated_at: string;
 }
 
+export interface CardDepositRequest {
+  amount: number;
+  card_number: string;
+  card_expiry: string;
+  card_cvv: string;
+  card_holder: string;
+}
+
+export interface CardDepositResponse {
+  success: boolean;
+  message: string;
+  transaction_id?: number;
+  amount_added?: string;
+  new_balance?: string;
+  error?: string;
+}
+
 export const getMyWallet = async (): Promise<Wallet> => {
   safeLog('Calling wallet API: /api/wallet/wallets/my-wallet/');
   const response = await apiClient.get('/api/wallet/wallets/my-wallet/');
   safeLog('Wallet API response:', response.data);
+  return response.data;
+};
+
+export const getQuickWallet = async (): Promise<{balance: string; user_email: string; recent_transactions: Transaction[]}> => {
+  safeLog('Calling quick wallet API: /api/wallet/quick-wallet/');
+  const response = await apiClient.get('/api/wallet/quick-wallet/');
+  safeLog('Quick wallet API response:', response.data);
   return response.data;
 };
 
@@ -61,18 +85,51 @@ export const getMyTransactions = async (): Promise<Transaction[]> => {
   }
 };
 
+// MAIN: Card payment deposit (money goes to your business account)
+export const depositWithCard = async (cardData: CardDepositRequest): Promise<CardDepositResponse> => {
+  safeLog('💳 CARD DEPOSIT: Processing card payment for R' + cardData.amount);
+  try {
+    const response = await apiClient.post('/api/wallet/card-deposit/', cardData);
+    safeLog('💳 CARD DEPOSIT: Success response:', response.data);
+    return response.data;
+  } catch (error: any) {
+    safeError('💳 CARD DEPOSIT ERROR:', error.message);
+    safeError('💳 CARD DEPOSIT: Error response:', error?.response?.data);
+    
+    // Return error in expected format
+    return {
+      success: false,
+      error: error?.response?.data?.error || 'payment_failed',
+      message: error?.response?.data?.message || 'Payment failed. Please try again.'
+    };
+  }
+};
 
-// Add funds to wallet via bank transfer
-export const addFunds = async (amount: number): Promise<any> => {
-  safeLog('💰 WALLET API: Initiating deposit for R' + amount);
-  const response = await apiClient.post('/api/wallet/deposit/', { amount });
-  safeLog('💰 WALLET API: Response received:', response.data);
+// Alternative: PayFast redirect payment
+export const depositWithPayFast = async (amount: number): Promise<{payment_url: string; payment_id: string}> => {
+  safeLog('💰 PAYFAST DEPOSIT: Creating payment for R' + amount);
+  const response = await apiClient.post('/api/wallet/payfast-deposit/', { amount });
+  safeLog('💰 PAYFAST DEPOSIT: Response received:', response.data);
   return response.data;
 };
 
-export const getYocoPublicKey = async (): Promise<string> => {
-  const response = await apiClient.get('/api/wallet/yoco-public-key/');
-  return response.data.public_key;
+// Legacy: Simple bank transfer deposit
+export const requestDeposit = async (amount: number, bankReference?: string) => {
+  safeLog('🏦 BANK DEPOSIT: Requesting deposit for R' + amount);
+  const response = await apiClient.post('/api/wallet/simple-deposit/', { 
+    amount,
+    bank_reference: bankReference || ''
+  });
+  safeLog('🏦 BANK DEPOSIT: Response received:', response.data);
+  return response.data;
+};
+
+// Legacy PayFast deposit (keep for backward compatibility)
+export const addFunds = async (amount: number): Promise<any> => {
+  safeLog('💰 WALLET API: Initiating PayFast deposit for R' + amount);
+  const response = await apiClient.post('/api/wallet/deposit/', { amount });
+  safeLog('💰 WALLET API: Response received:', response.data);
+  return response.data;
 };
 
 // Force refresh wallet (clears any cache)
@@ -86,4 +143,50 @@ export const refreshWallet = async (): Promise<Wallet> => {
   });
   safeLog('Force refresh wallet response:', response.data);
   return response.data;
+};
+
+// Utility: Format card number for display
+export const formatCardNumber = (cardNumber: string): string => {
+  return cardNumber.replace(/\s/g, '').replace(/(\d{4})(?=\d)/g, '$1 ');
+};
+
+// Utility: Validate card number (basic Luhn algorithm)
+export const validateCardNumber = (cardNumber: string): boolean => {
+  const num = cardNumber.replace(/\s/g, '');
+  if (!/^\d{13,19}$/.test(num)) return false;
+  
+  let sum = 0;
+  let isEven = false;
+  
+  for (let i = num.length - 1; i >= 0; i--) {
+    let digit = parseInt(num[i]);
+    
+    if (isEven) {
+      digit *= 2;
+      if (digit > 9) digit -= 9;
+    }
+    
+    sum += digit;
+    isEven = !isEven;
+  }
+  
+  return sum % 10 === 0;
+};
+
+// Utility: Validate expiry date
+export const validateExpiryDate = (expiry: string): boolean => {
+  if (!/^\d{2}\/\d{2}$/.test(expiry)) return false;
+  
+  const [month, year] = expiry.split('/').map(Number);
+  if (month < 1 || month > 12) return false;
+  
+  const now = new Date();
+  const currentYear = now.getFullYear() % 100;
+  const currentMonth = now.getMonth() + 1;
+  
+  if (year < currentYear || (year === currentYear && month < currentMonth)) {
+    return false;
+  }
+  
+  return true;
 };
