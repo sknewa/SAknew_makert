@@ -660,7 +660,7 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   headerBanner: {
-    height: 320,
+    height: 240,
     width: '100%',
     overflow: 'hidden',
   },
@@ -674,9 +674,9 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     flex: 1,
-    paddingTop: 20,
+    paddingTop: 12,
     paddingHorizontal: 20,
-    paddingBottom: 0,   // gradient bleeds to edge, no padding needed
+    paddingBottom: 0,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -684,12 +684,10 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     width: '100%',
     paddingHorizontal: 16,
-    // push content up slightly so it sits in the dark zone, not the fade zone
-    marginBottom: 32,
+    marginBottom: 20,
   },
 
   // ── 3D calm shop name ──
-  // Three absolutely-stacked Text nodes create depth + lift + main
   shopNameWrapper: {
     position: 'relative',
     alignItems: 'center',
@@ -911,14 +909,10 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   categorySection: {
-    marginBottom: 2,
+    marginBottom: 0,
     backgroundColor: '#FFFFFF',
     paddingVertical: spacing.sm,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.04,
-    shadowRadius: 3,
-    elevation: 1,
+    elevation: 0,
   },
   categoryTitle: {
     fontSize: 15,

@@ -250,17 +250,20 @@ const handleQuantityChange = async (productId: number, newQuantity: number, size
         ListHeaderComponent={
           <View style={styles.cartContent}>
             <View style={styles.headerRow}>
-              <Text style={styles.pageTitle}>Your Cart {totalItems > 0 ? `(${totalItems})` : ''}</Text>
-              {hasItems && (
+              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+                <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
+              </TouchableOpacity>
+              <Text style={styles.pageTitle}>Cart {totalItems > 0 ? `(${totalItems})` : ''}</Text>
+              {hasItems ? (
                 <TouchableOpacity
                   onPress={handleClearCart}
                   style={styles.clearCartBtn}
                   accessibilityLabel="Clear all items from cart"
                 >
-                  <Ionicons name="trash-outline" size={20} color={colors.dangerAction} />
-                  <Text style={styles.clearCartText}>Clear Cart</Text>
+                  <Ionicons name="trash-outline" size={18} color={colors.dangerAction} />
+                  <Text style={styles.clearCartText}>Clear</Text>
                 </TouchableOpacity>
-              )}
+              ) : <View style={{ width: 60 }} />}
             </View>
             {!hasItems && (
               <View style={styles.emptyCartContainer}>
@@ -448,12 +451,18 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 25,
+    marginBottom: 16,
+  },
+  backBtn: {
+    padding: 4,
+    width: 36,
   },
   pageTitle: {
-    fontSize: 18,
+    fontSize: 17,
     fontWeight: '700',
     color: colors.textPrimary,
+    flex: 1,
+    textAlign: 'center',
   },
   clearCartBtn: {
     flexDirection: 'row',
