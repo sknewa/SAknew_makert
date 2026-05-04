@@ -29,6 +29,7 @@ import StatusSection from '../../components/StatusSection';
 import * as Location from 'expo-location';
 import { safeError } from '../../utils/securityUtils';
 import { messagingService } from '../../services/messagingService';
+import { useBadges } from '../../context/BadgeContext';
 
 /**
  * Converts a product from the service layer type to the app's product type.
@@ -57,6 +58,7 @@ const calculateDistance = (lat1: number, lon1: number, lat2: number, lon2: numbe
 
 const HomeScreen = () => {
   const { logout, loading, isAuthenticated } = useAuth();
+  const { refreshBadges } = useBadges();
   const navigation = useNavigation<MainNavigationProp>();
   const [products, setProducts] = useState<AppProduct[]>([]);
   const [productsLoading, setProductsLoading] = useState(true);
@@ -599,6 +601,7 @@ const HomeScreen = () => {
                 categoryName={categoryName}
                 products={products}
                 navigation={navigation}
+                onCartUpdated={refreshBadges}
               />
             )}
             style={styles.productsContainer}
@@ -626,7 +629,7 @@ const HomeScreen = () => {
                       keyExtractor={(item) => item.id.toString()}
                       renderItem={({ item }) => (
                         <View style={styles.horizontalProductCard}>
-                          <ProductCard product={item} isShopOwner={false} navigation={navigation} shopLatitude={(item as any).shop_latitude} shopLongitude={(item as any).shop_longitude} />
+                          <ProductCard product={item} isShopOwner={false} navigation={navigation} shopLatitude={(item as any).shop_latitude} shopLongitude={(item as any).shop_longitude} onCartUpdated={refreshBadges} />
                         </View>
                       )}
                     />
@@ -646,7 +649,7 @@ const HomeScreen = () => {
                       keyExtractor={(item) => item.id.toString()}
                       renderItem={({ item }) => (
                         <View style={styles.horizontalProductCard}>
-                          <ProductCard product={item} isShopOwner={false} navigation={navigation} shopLatitude={(item as any).shop_latitude} shopLongitude={(item as any).shop_longitude} />
+                          <ProductCard product={item} isShopOwner={false} navigation={navigation} shopLatitude={(item as any).shop_latitude} shopLongitude={(item as any).shop_longitude} onCartUpdated={refreshBadges} />
                         </View>
                       )}
                     />
@@ -657,6 +660,7 @@ const HomeScreen = () => {
                     categoryName="?? Trending Now"
                     products={trendingProducts}
                     navigation={navigation}
+                    onCartUpdated={refreshBadges}
                   />
                 )}
               </>
@@ -712,12 +716,14 @@ interface CategorySectionProps {
   categoryName: string;
   products: AppProduct[];
   navigation: MainNavigationProp;
+  onCartUpdated?: () => void;
 }
 
 const CategorySection: React.FC<CategorySectionProps> = React.memo(({
   categoryName,
   products,
   navigation,
+  onCartUpdated,
 }) => {
   const [showAll, setShowAll] = useState(false);
   const categorySlug = products.length > 0 ? products[0].category_slug : null;
@@ -749,6 +755,7 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
                 navigation={navigation}
                 shopLatitude={(item as any).shop_latitude}
                 shopLongitude={(item as any).shop_longitude}
+                onCartUpdated={onCartUpdated}
               />
             </View>
           )}
@@ -770,6 +777,7 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
             navigation={navigation}
             shopLatitude={(item as any).shop_latitude}
             shopLongitude={(item as any).shop_longitude}
+            onCartUpdated={onCartUpdated}
           />
         )}
         keyExtractor={(item) => item.id.toString()}
@@ -816,7 +824,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: {
     fontSize: 18,
-    fontWeight: '700',
+    fontFamily: 'Poppins-Bold',
     color: 'white',
     letterSpacing: 0.5,
   },
@@ -833,7 +841,7 @@ const styles = StyleSheet.create({
   howItWorksText: {
     color: 'white',
     fontSize: 8,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginTop: 2,
   },
   logoutButton: {
@@ -844,7 +852,7 @@ const styles = StyleSheet.create({
   logoutText: {
     color: '#DC3545',
     fontSize: 8,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginTop: 2,
   },
   loginButton: {
@@ -855,7 +863,7 @@ const styles = StyleSheet.create({
   loginText: {
     color: 'white',
     fontSize: 8,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginTop: 2,
   },
   registerButton: {
@@ -866,7 +874,7 @@ const styles = StyleSheet.create({
   registerText: {
     color: 'white',
     fontSize: 8,
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginTop: 2,
   },
   searchContainer: {
@@ -907,7 +915,8 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     marginTop: 12,
-    fontSize: 16,
+    fontSize: 14,
+    fontFamily: 'Inter-Regular',
     color: colors.textSecondary,
   },
   errorContainer: {
@@ -931,7 +940,7 @@ const styles = StyleSheet.create({
   },
   retryButtonText: {
     color: 'white',
-    fontWeight: 'bold',
+    fontFamily: 'Inter-SemiBold',
   },
   categoriesContainer: {
     paddingHorizontal: spacing.md,
@@ -1012,7 +1021,7 @@ const styles = StyleSheet.create({
   },
   categoryTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
@@ -1053,7 +1062,7 @@ const styles = StyleSheet.create({
   emptyText: {
     marginTop: 12,
     fontSize: 18,
-    fontWeight: 'bold',
+    fontFamily: 'Poppins-SemiBold',
     color: colors.textPrimary,
     marginBottom: 8,
   },
@@ -1072,7 +1081,7 @@ const styles = StyleSheet.create({
   },
   refreshButtonText: {
     color: 'white',
-    fontWeight: '600',
+    fontFamily: 'Inter-SemiBold',
     marginLeft: 6,
   },
   messageButton: {
@@ -1110,7 +1119,7 @@ const styles = StyleSheet.create({
   messageButtonText: {
     color: '#10B981',
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 4,
     textAlign: 'center',
   },
@@ -1131,7 +1140,7 @@ const styles = StyleSheet.create({
   feedbackButtonText: {
     color: '#10B981',
     fontSize: 9,
-    fontWeight: '700',
+    fontFamily: 'Inter-Bold',
     marginTop: 4,
     textAlign: 'center',
     lineHeight: 11,
@@ -1157,7 +1166,7 @@ const styles = StyleSheet.create({
   },
   recommendationTitle: {
     fontSize: 16,
-    fontWeight: '600',
+    fontFamily: 'Poppins-SemiBold',
     color: colors.textPrimary,
     marginLeft: 6,
   },

@@ -30,24 +30,22 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
     statusesCount: userStatus.statuses?.length
   });
   
-  // Fetch shop name if user has a shop
+  // Fetch shop name if user has a shop — show nothing if no shop
   useEffect(() => {
     const fetchShopName = async () => {
       if (user.profile?.shop_slug) {
         try {
           const shop = await shopService.getShopBySlug(user.profile.shop_slug);
           setShopName(shop.name);
-        } catch (error) {
-          safeLog('Failed to fetch shop name:', error);
-          setShopName(user.username); // Fallback to username
+        } catch {
+          setShopName('');
         }
       } else {
-        setShopName(user.username); // Fallback to username if no shop
+        setShopName(''); // no shop → no label
       }
     };
-    
     fetchShopName();
-  }, [user.profile?.shop_slug, user.username]);
+  }, [user.profile?.shop_slug]);
   
   if (isMyStatus) {
     return (
@@ -62,9 +60,11 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
                     return (
                       <>
                         <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />
-                        <View style={styles.usernameOverlay}>
-                          <Text style={styles.usernameText}>{shopName}</Text>
-                        </View>
+                        {shopName ? (
+                          <View style={styles.usernameOverlay}>
+                            <Text style={styles.usernameText} numberOfLines={1}>{shopName}</Text>
+                          </View>
+                        ) : null}
                       </>
                     );
                   })()
@@ -78,9 +78,11 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
                       isLooping={false}
                       isMuted
                     />
-                    <View style={styles.usernameOverlay}>
-                      <Text style={styles.usernameText}>{shopName}</Text>
-                    </View>
+                    {shopName ? (
+                      <View style={styles.usernameOverlay}>
+                        <Text style={styles.usernameText} numberOfLines={1}>{shopName}</Text>
+                      </View>
+                    ) : null}
                     <View style={styles.videoIcon}>
                       <Ionicons name="play" size={20} color="#fff" />
                     </View>
@@ -117,9 +119,11 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
                 return (
                   <>
                     <Image source={{ uri: imageUrl }} style={styles.mediaPreview} />
-                    <View style={styles.usernameOverlay}>
-                      <Text style={styles.usernameText}>{shopName}</Text>
-                    </View>
+                    {shopName ? (
+                      <View style={styles.usernameOverlay}>
+                        <Text style={styles.usernameText} numberOfLines={1}>{shopName}</Text>
+                      </View>
+                    ) : null}
                   </>
                 );
               })()
@@ -133,9 +137,11 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
                   isLooping={false}
                   isMuted
                 />
-                <View style={styles.usernameOverlay}>
-                  <Text style={styles.usernameText}>{shopName}</Text>
-                </View>
+                {shopName ? (
+                  <View style={styles.usernameOverlay}>
+                    <Text style={styles.usernameText} numberOfLines={1}>{shopName}</Text>
+                  </View>
+                ) : null}
                 <View style={styles.videoIcon}>
                   <Ionicons name="play" size={20} color="#fff" />
                 </View>
