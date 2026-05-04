@@ -12,7 +12,7 @@ import {
   RefreshControl,
   Modal,
 } from 'react-native';
-import { useNavigation, useFocusEffect } from '@react-navigation/native';
+import { useNavigation, useFocusEffect, useRoute } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { Product } from '../../types'; // Assuming Product type is defined in types.ts
 import { salesService } from '../../services/apiService';
@@ -49,6 +49,8 @@ const colors = {
 
 const CartScreen: React.FC = () => {
   const navigation = useNavigation<MainNavigationProp>();
+  const route = useRoute();
+  const fromShopSlug = (route.params as any)?.fromShopSlug as string | undefined;
   const { refreshBadges } = useBadges();
   const { isAuthenticated } = useAuth();
   const [cart, setCart] = useState<Cart | null>(null);
@@ -250,7 +252,16 @@ const handleQuantityChange = async (productId: number, newQuantity: number, size
         ListHeaderComponent={
           <View style={styles.cartContent}>
             <View style={styles.headerRow}>
-              <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+              <TouchableOpacity
+                onPress={() => {
+                  if (fromShopSlug) {
+                    navigation.navigate('PublicShop', { shopSlug: fromShopSlug });
+                  } else {
+                    navigation.goBack();
+                  }
+                }}
+                style={styles.backBtn}
+              >
                 <Ionicons name="arrow-back" size={22} color={colors.textPrimary} />
               </TouchableOpacity>
               <Text style={styles.pageTitle}>Cart {totalItems > 0 ? `(${totalItems})` : ''}</Text>

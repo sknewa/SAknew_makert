@@ -576,7 +576,7 @@ const PublicShopScreen = () => {
 
       <TouchableOpacity
         style={styles.floatingCartBtn}
-        onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab', params: { hideTabBar: true } } as any)}
+        onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab', params: { hideTabBar: true, fromShopSlug: shopSlug } } as any)}
         activeOpacity={0.85}
       >
         <View style={styles.floatingIconCircle}>
