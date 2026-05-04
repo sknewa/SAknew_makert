@@ -284,22 +284,17 @@ const PublicShopScreen = () => {
     const bannerUrl = (shop as any).banner_image_url;
 
     const BannerInner = (
-      // Two-layer gradient: first a colour tint, then a strong dark vignette
-      // This dims ANY image (bright or dark) to a consistent readable level
       <LinearGradient
         colors={[
-          bannerUrl ? 'rgba(0,0,0,0.38)' : `${dark}DD`,
-          'rgba(0,0,0,0.55)',
-          'rgba(0,0,0,0.78)',
+          bannerUrl ? 'rgba(0,0,0,0.32)' : `${dark}DD`,
+          'rgba(0,0,0,0.52)',
+          'rgba(0,0,0,0.76)',
+          // fade into the page background colour at the very bottom
+          '#F0F0EE',
         ]}
-        locations={[0, 0.45, 1]}
+        locations={[0, 0.38, 0.72, 1]}
         style={styles.bannerOverlay}
       >
-        {/* Share — top right */}
-        <TouchableOpacity style={styles.shareBtn} onPress={handleShareShop}>
-          <Ionicons name="share-social-outline" size={18} color="#fff" />
-        </TouchableOpacity>
-
         {/* ── All shop info, fully centred ── */}
         <View style={styles.bannerCenter}>
 
@@ -513,24 +508,21 @@ const PublicShopScreen = () => {
   );
 
   return (
-    <SafeAreaView style={globalStyles.safeContainer}>
-      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
+    <SafeAreaView style={styles.safeArea}>
+      <StatusBar barStyle="light-content" backgroundColor="#060818" />
       
       {error ? (
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={60} color={colors.error} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryButton} onPress={() => {
-            setError(null);
-            fetchShopData();
-          }}>
-            <Text style={styles.retryButtonText}>Go Back</Text>
+          <TouchableOpacity style={styles.retryButton} onPress={() => { setError(null); fetchShopData(); }}>
+            <Text style={styles.retryButtonText}>Try Again</Text>
           </TouchableOpacity>
         </View>
       ) : productsLoading && !refreshing ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colors.primary} />
-          <Text style={styles.loadingText}>Loading products...</Text>
+          <Text style={styles.loadingText}>Loading shop...</Text>
         </View>
       ) : (
         <FlatList
@@ -549,14 +541,10 @@ const PublicShopScreen = () => {
           }}
           stickyHeaderIndices={[1]}
           style={styles.productsContainer}
+          contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           refreshControl={
-            <RefreshControl
-              refreshing={refreshing}
-              onRefresh={onRefresh}
-              colors={[colors.primary]}
-              tintColor={colors.primary}
-            />
+            <RefreshControl refreshing={refreshing} onRefresh={onRefresh} colors={[colors.primary]} tintColor={colors.primary} />
           }
           ListEmptyComponent={
             categorySections.length === 0 ? (
@@ -571,109 +559,16 @@ const PublicShopScreen = () => {
           }
         />
       )}
-      
-      {/* Bottom Navigation */}
-      <View style={styles.bottomNav}>
-        <TouchableOpacity style={styles.navItem} onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}>
-          <Ionicons name="home-outline" size={24} color={colors.textSecondary} />
-          <Text style={styles.navText}>Home</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {
-          if (!isAuthenticated) {
-            setAlertConfig({
-              visible: true,
-              title: 'Login Required',
-              message: 'Please login to view your cart',
-              onConfirm: () => {
-                setAlertConfig({ ...alertConfig, visible: false });
-                navigation.navigate('Login' as any);
-              },
-            });
-          } else {
-            navigation.navigate('MainTabs', { screen: 'CartTab' });
-          }
-        }}>
-          <View>
-            <Ionicons name="cart-outline" size={24} color={colors.textSecondary} />
-            {isAuthenticated && cartCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{cartCount > 99 ? '99+' : cartCount}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.navText}>Cart</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {
-          if (!isAuthenticated) {
-            setAlertConfig({
-              visible: true,
-              title: 'Login Required',
-              message: 'Please login to view your orders',
-              onConfirm: () => {
-                setAlertConfig({ ...alertConfig, visible: false });
-                navigation.navigate('Login' as any);
-              },
-            });
-          } else {
-            navigation.navigate('MainTabs', { screen: 'OrdersTab' });
-          }
-        }}>
-          <View>
-            <Ionicons name="receipt-outline" size={24} color={colors.textSecondary} />
-            {isAuthenticated && orderCount > 0 && (
-              <View style={styles.badge}>
-                <Text style={styles.badgeText}>{orderCount > 99 ? '99+' : orderCount}</Text>
-              </View>
-            )}
-          </View>
-          <Text style={styles.navText}>Orders</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {
-          if (!isAuthenticated) {
-            setAlertConfig({
-              visible: true,
-              title: 'Login Required',
-              message: 'Please login to access your wallet',
-              onConfirm: () => {
-                setAlertConfig({ ...alertConfig, visible: false });
-                navigation.navigate('Login' as any);
-              },
-            });
-          } else {
-            navigation.navigate('MainTabs', { screen: 'WalletTab' });
-          }
-        }}>
-          <Ionicons name="wallet-outline" size={24} color={colors.textSecondary} />
-          <Text style={styles.navText}>Wallet</Text>
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.navItem} onPress={() => {
-          if (!isAuthenticated) {
-            setAlertConfig({
-              visible: true,
-              title: 'Login Required',
-              message: 'Please login to manage your shop',
-              onConfirm: () => {
-                setAlertConfig({ ...alertConfig, visible: false });
-                navigation.navigate('Login' as any);
-              },
-            });
-          } else {
-            navigation.navigate('MainTabs', { screen: 'ShopTab' });
-          }
-        }}>
-          <Ionicons name="storefront-outline" size={24} color={colors.textSecondary} />
-          <Text style={styles.navText}>Shop</Text>
-        </TouchableOpacity>
-      </View>
-      
-      <CustomAlert
-        visible={alertConfig.visible}
-        title={alertConfig.title}
-        message={alertConfig.message}
-        onCancel={() => setAlertConfig({ ...alertConfig, visible: false })}
-        onConfirm={alertConfig.onConfirm}
-        confirmText="Login"
-      />
+
+      {/* Floating "Main Market" button — bottom centre */}
+      <TouchableOpacity
+        style={styles.floatingBtn}
+        onPress={() => navigation.navigate('MainTabs', { screen: 'HomeTab' })}
+        activeOpacity={0.85}
+      >
+        <Ionicons name="storefront" size={16} color="#fff" />
+        <Text style={styles.floatingBtnText}>Main Market</Text>
+      </TouchableOpacity>
     </SafeAreaView>
   );
 };
@@ -730,6 +625,10 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
 });
 
 const styles = StyleSheet.create({
+  safeArea: {
+    flex: 1,
+    backgroundColor: '#F0F0EE', // dark-white dimmed tone
+  },
   headerWrapper: {
     backgroundColor: '#060818',
     marginBottom: 0,
@@ -749,24 +648,18 @@ const styles = StyleSheet.create({
   },
   bannerOverlay: {
     flex: 1,
-    paddingTop: 14,
+    paddingTop: 20,
     paddingHorizontal: 20,
-    paddingBottom: 24,
+    paddingBottom: 0,   // gradient bleeds to edge, no padding needed
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  shareBtn: {
-    position: 'absolute',
-    top: 14,
-    right: 14,
-    backgroundColor: 'rgba(0,0,0,0.40)',
-    borderRadius: 20,
-    padding: 8,
   },
   bannerCenter: {
     alignItems: 'center',
     width: '100%',
     paddingHorizontal: 16,
+    // push content up slightly so it sits in the dark zone, not the fade zone
+    marginBottom: 32,
   },
 
   // ── 3D calm shop name ──
@@ -849,7 +742,9 @@ const styles = StyleSheet.create({
     borderColor: 'rgba(255,255,255,0.25)',
   },
   stickyHeaderContainer: {
-    backgroundColor: colors.background,
+    backgroundColor: '#F0F0EE',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E4E4E2',
   },
   filterChipsContainer: {
     flexDirection: 'row',
@@ -984,23 +879,24 @@ const styles = StyleSheet.create({
   },
   productsContainer: {
     flex: 1,
-    paddingHorizontal: 0,
+    backgroundColor: '#F0F0EE',
+  },
+  listContent: {
+    paddingBottom: 90, // space for floating button
   },
   categorySection: {
-    marginBottom: 0,
-    backgroundColor: colors.card,
+    marginBottom: 2,
+    backgroundColor: '#FFFFFF',
     paddingVertical: spacing.sm,
-    marginHorizontal: 0,
-    borderRadius: 0,
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04,
+    shadowRadius: 3,
+    elevation: 1,
   },
   categoryTitle: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 15,
+    fontFamily: 'Poppins-SemiBold',
     color: colors.textPrimary,
     marginBottom: spacing.sm,
     paddingHorizontal: spacing.sm,
@@ -1063,45 +959,33 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     marginLeft: 6,
   },
-  bottomNav: {
-    flexDirection: 'row',
-    backgroundColor: colors.card,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-    paddingVertical: 8,
-    paddingBottom: 12,
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-  },
-  navItem: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  navText: {
-    fontSize: 10,
-    color: colors.textSecondary,
-    marginTop: 4,
-  },
-  badge: {
+  // Floating Main Market button
+  floatingBtn: {
     position: 'absolute',
-    right: -8,
-    top: -4,
-    backgroundColor: '#E74C3C',
-    borderRadius: 10,
-    minWidth: 18,
-    height: 18,
-    justifyContent: 'center',
+    bottom: 24,
+    alignSelf: 'center',
+    left: '50%',
+    transform: [{ translateX: -80 }],
+    width: 160,
+    flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 4,
+    justifyContent: 'center',
+    gap: 7,
+    backgroundColor: colors.primary,
+    paddingVertical: 13,
+    paddingHorizontal: 22,
+    borderRadius: 30,
+    shadowColor: colors.primary,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 0.35,
+    shadowRadius: 12,
+    elevation: 10,
   },
-  badgeText: {
-    color: 'white',
-    fontSize: 10,
-    fontWeight: 'bold',
+  floatingBtnText: {
+    color: '#fff',
+    fontSize: 13,
+    fontFamily: 'Poppins-SemiBold',
+    letterSpacing: 0.3,
   },
 });
 
