@@ -1,11 +1,25 @@
 // theme/typography.ts
+// Poppins  → headings, titles, shop names, buttons
+// Inter    → body text, labels, inputs, captions
+
+export const fonts = {
+  // Poppins — headings & display
+  heading:          'Poppins-Bold',
+  headingMedium:    'Poppins-SemiBold',
+  headingLight:     'Poppins-Medium',
+  headingExtraBold: 'Poppins-ExtraBold',
+
+  // Inter — body & UI
+  body:       'Inter-Regular',
+  bodyMedium: 'Inter-Medium',
+  bodySemi:   'Inter-SemiBold',
+  bodyBold:   'Inter-Bold',
+};
+
 const typography = {
-  fontFamily: 'System',
-  fontWeightRegular:   '400' as const,
-  fontWeightMedium:    '500' as const,
-  fontWeightSemiBold:  '600' as const,
-  fontWeightBold:      '700' as const,
-  fontWeightExtraBold: '800' as const,
+  // Font families
+  fontHeading:  fonts.heading,
+  fontBody:     fonts.body,
 
   fontSizeXS:     11,
   fontSizeS:      12,

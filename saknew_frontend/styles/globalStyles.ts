@@ -1,4 +1,5 @@
 import { StyleSheet, Platform } from 'react-native';
+import { fonts } from '../theme/typography';
 
 export const colors = {
   primary:       '#6C63FF',
@@ -139,8 +140,8 @@ export const globalStyles = StyleSheet.create({
     justifyContent: 'center' as const,
     flexDirection: 'row' as const,
   },
-  btnText:        { color: colors.white, fontSize: 15, fontWeight: '600' as const },
-  btnOutlineText: { color: colors.primary, fontSize: 15, fontWeight: '600' as const },
+  btnText:        { color: colors.white, fontSize: 15, fontFamily: fonts.headingMedium },
+  btnOutlineText: { color: colors.primary, fontSize: 15, fontFamily: fonts.headingMedium },
   btnDisabled:    { opacity: 0.5 },
 
   // ── Inputs ───────────────────────────────────────────────────
@@ -152,6 +153,7 @@ export const globalStyles = StyleSheet.create({
     paddingHorizontal: spacing.md,
     paddingVertical: 13,
     fontSize: 15,
+    fontFamily: fonts.body,
     color: colors.textPrimary,
   },
   inputFocused: {
@@ -160,7 +162,7 @@ export const globalStyles = StyleSheet.create({
   },
   inputLabel: {
     fontSize: 13,
-    fontWeight: '600' as const,
+    fontFamily: fonts.bodySemi,
     color: colors.textSecondary,
     marginBottom: 6,
     marginTop: spacing.sm,
@@ -168,14 +170,14 @@ export const globalStyles = StyleSheet.create({
   inputError: { borderColor: colors.error },
 
   // ── Typography ───────────────────────────────────────────────
-  h1:       { fontSize: 28, fontWeight: '800' as const, color: colors.textPrimary, letterSpacing: -0.5 },
-  h2:       { fontSize: 22, fontWeight: '700' as const, color: colors.textPrimary },
-  h3:       { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary },
-  h4:       { fontSize: 16, fontWeight: '600' as const, color: colors.textPrimary },
-  body:     { fontSize: 15, color: colors.textPrimary, lineHeight: 22 },
-  bodySmall:{ fontSize: 13, color: colors.textSecondary, lineHeight: 20 },
-  caption:  { fontSize: 11, color: colors.textMuted },
-  link:     { fontSize: 14, color: colors.primary, fontWeight: '600' as const },
+  h1:       { fontSize: 28, fontFamily: fonts.headingExtraBold, color: colors.textPrimary, letterSpacing: -0.5 },
+  h2:       { fontSize: 22, fontFamily: fonts.heading, color: colors.textPrimary },
+  h3:       { fontSize: 18, fontFamily: fonts.heading, color: colors.textPrimary },
+  h4:       { fontSize: 16, fontFamily: fonts.headingMedium, color: colors.textPrimary },
+  body:     { fontSize: 15, fontFamily: fonts.body, color: colors.textPrimary, lineHeight: 22 },
+  bodySmall:{ fontSize: 13, fontFamily: fonts.body, color: colors.textSecondary, lineHeight: 20 },
+  caption:  { fontSize: 11, fontFamily: fonts.body, color: colors.textMuted },
+  link:     { fontSize: 14, fontFamily: fonts.bodySemi, color: colors.primary },
 
   // ── Badges ───────────────────────────────────────────────────
   badge: {
@@ -189,7 +191,7 @@ export const globalStyles = StyleSheet.create({
   badgeWarning: { backgroundColor: colors.warningLight },
   badgeInfo:    { backgroundColor: colors.infoLight },
   badgePrimary: { backgroundColor: colors.primaryLight },
-  badgeText:    { fontSize: 11, fontWeight: '700' as const },
+  badgeText:    { fontSize: 11, fontFamily: fonts.bodyBold },
 
   // ── Divider ──────────────────────────────────────────────────
   divider: { height: 1, backgroundColor: colors.divider, marginVertical: spacing.sm },
@@ -197,7 +199,7 @@ export const globalStyles = StyleSheet.create({
   // ── Section header ───────────────────────────────────────────
   sectionHeader: {
     fontSize: 12,
-    fontWeight: '700' as const,
+    fontFamily: fonts.bodyBold,
     color: colors.textMuted,
     textTransform: 'uppercase' as const,
     letterSpacing: 1,
@@ -213,8 +215,8 @@ export const globalStyles = StyleSheet.create({
     paddingVertical: spacing.xxl,
     paddingHorizontal: spacing.xl,
   },
-  emptyTitle:   { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary, marginTop: spacing.md, marginBottom: spacing.sm, textAlign: 'center' as const },
-  emptySubtitle:{ fontSize: 14, color: colors.textSecondary, textAlign: 'center' as const, lineHeight: 22 },
+  emptyTitle:   { fontSize: 18, fontFamily: fonts.heading, color: colors.textPrimary, marginTop: spacing.md, marginBottom: spacing.sm, textAlign: 'center' as const },
+  emptySubtitle:{ fontSize: 14, fontFamily: fonts.body, color: colors.textSecondary, textAlign: 'center' as const, lineHeight: 22 },
 
   // ── Screen header ────────────────────────────────────────────
   screenHeader: {
@@ -227,5 +229,5 @@ export const globalStyles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: colors.border,
   },
-  screenTitle: { fontSize: 18, fontWeight: '700' as const, color: colors.textPrimary },
+  screenTitle: { fontSize: 18, fontFamily: fonts.heading, color: colors.textPrimary },
 });
