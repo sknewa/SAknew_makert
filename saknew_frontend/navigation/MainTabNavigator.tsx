@@ -140,7 +140,24 @@ const MainTabNavigator = () => {
       <Tab.Screen 
         name="CartTab" 
         component={CartScreen} 
-        options={{ title: 'Cart' }}
+        options={({ route }) => ({
+          title: 'Cart',
+          tabBarStyle: (route.params as any)?.hideTabBar
+            ? { display: 'none' }
+            : {
+                backgroundColor: colors.card,
+                borderTopWidth: StyleSheet.hairlineWidth,
+                borderTopColor: colors.border,
+                elevation: 4,
+                shadowColor: colors.shadowColor,
+                shadowOffset: { width: 0, height: -1 },
+                shadowOpacity: 0.08,
+                shadowRadius: 3,
+                height: Platform.OS === 'ios' ? 70 : 56,
+                paddingBottom: Platform.OS === 'ios' ? 12 : 6,
+                paddingTop: 6,
+              },
+        })}
       />
       <Tab.Screen 
         name="OrdersTab" 

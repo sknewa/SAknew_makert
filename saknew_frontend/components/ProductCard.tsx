@@ -25,6 +25,7 @@ interface ProductCardProps {
   onProductDeleted?: () => void;
   shopLatitude?: string | null;
   shopLongitude?: string | null;
+  isInShop?: boolean;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -35,7 +36,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   onPress,
   onProductDeleted,
   shopLatitude,
-  shopLongitude
+  shopLongitude,
+  isInShop,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -241,12 +243,12 @@ const ProductCard: React.FC<ProductCardProps> = ({
         
         {/* stock badge removed */}
         
-        {!isShopOwner && (
+        {!isShopOwner && !isInShop && (
           <View style={styles.shopNameBadge}>
             <TouchableOpacity 
               onPress={(e) => {
                 e.stopPropagation();
-                const shopSlug = product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-');
+                const shopSlug = product.shop_name.toLowerCase().replace(/[''\ s]/g, '-').replace(/-+/g, '-');
                 navigation?.navigate('PublicShop', { shopSlug });
               }}
             >

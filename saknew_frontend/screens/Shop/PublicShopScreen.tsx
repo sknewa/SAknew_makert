@@ -72,7 +72,7 @@ const PublicShopScreen = () => {
   const navigation = useNavigation<MainNavigationProp>();
   const route = useRoute();
   const { shopSlug } = route.params as { shopSlug: string };
-  const { cartCount, orderCount, walletBalance } = useBadges();
+  const { cartCount, orderCount, walletBalance, refreshBadges } = useBadges();
   const { isAuthenticated } = useAuth();
   const [alertConfig, setAlertConfig] = useState({ visible: false, title: '', message: '', onConfirm: () => {} });
   
@@ -536,6 +536,8 @@ const PublicShopScreen = () => {
                 categoryName={item.categoryName}
                 products={item.products}
                 navigation={navigation}
+                isInShop
+                onCartUpdated={refreshBadges}
               />
             );
           }}
@@ -574,7 +576,7 @@ const PublicShopScreen = () => {
 
       <TouchableOpacity
         style={styles.floatingCartBtn}
-        onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab' })}
+        onPress={() => navigation.navigate('MainTabs', { screen: 'CartTab', params: { hideTabBar: true } } as any)}
         activeOpacity={0.85}
       >
         <View style={styles.floatingIconCircle}>
@@ -595,12 +597,16 @@ interface CategorySectionProps {
   categoryName: string;
   products: AppProduct[];
   navigation: MainNavigationProp;
+  isInShop?: boolean;
+  onCartUpdated?: () => void;
 }
 
 const CategorySection: React.FC<CategorySectionProps> = React.memo(({
   categoryName,
   products,
   navigation,
+  isInShop,
+  onCartUpdated,
 }) => {
   const categorySlug = products.length > 0 ? products[0].category_slug : null;
 
@@ -625,6 +631,8 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
             navigation={navigation}
             shopLatitude={(item as any).shop_latitude}
             shopLongitude={(item as any).shop_longitude}
+            isInShop={isInShop}
+            onCartUpdated={onCartUpdated}
           />
         )}
         keyExtractor={(item) => item.id.toString()}
