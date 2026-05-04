@@ -25,6 +25,7 @@ import ShippingScreen from '../screens/Sales/ShippingScreen';
 import PaymentScreen from '../screens/Sales/PaymentScreen';
 import OrderSuccessScreen from '../screens/Sales/OrderSuccessScreen';
 import AddFundsScreen from '../screens/Wallet/AddFundsScreen';
+import WalletDashboardScreen from '../screens/Wallet/WalletDashboardScreen';
 import CardPaymentScreen from '../screens/Wallet/CardPaymentScreen';
 import RedeemVoucherScreen from '../screens/Wallet/RedeemVoucherScreen';
 import WithdrawScreen from '../screens/Wallet/WithdrawScreen';
@@ -92,7 +93,7 @@ const AppNavigator = () => {
             <Stack.Screen name="CardPayment" component={CardPaymentScreen} options={{ headerShown: false }} />
             <Stack.Screen name="RedeemVoucher" component={RedeemVoucherScreen} options={{ headerShown: false }} />
             <Stack.Screen name="WithdrawScreen" component={WithdrawScreen} options={{ headerShown: false }} />
-            <Stack.Screen name="WalletDashboard" component={AddFundsScreen} options={{ headerShown: false }} />
+            <Stack.Screen name="WalletDashboard" component={WalletDashboardScreen} options={{ headerShown: false }} />
             <Stack.Screen name="OrderDetail" component={OrderDetailScreen} options={{ headerShown: false }} />
             <Stack.Screen name="Shipping" component={ShippingScreen} options={{ headerShown: false }} />
             <Stack.Screen name="PurchaseDetail" component={PurchaseDetailScreen} options={{ headerShown: false }} />

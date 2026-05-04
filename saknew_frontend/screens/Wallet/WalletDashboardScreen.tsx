@@ -119,6 +119,7 @@ const WalletDashboardScreen: React.FC = () => {
   const { walletBalance, refreshBadges } = useBadges();
 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [walletData, setWalletData] = useState<Wallet | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -140,14 +141,13 @@ const WalletDashboardScreen: React.FC = () => {
       }
       safeLog('🔍 DEBUG: Fetching wallet data for user:', user.id);
       
-      // Refresh badges (including wallet balance) and get transactions
-      safeLog('🔍 DEBUG: Calling refreshBadges()');
+      // Refresh badges AND directly fetch wallet for fresh balance
       await refreshBadges();
-      safeLog('🔍 DEBUG: refreshBadges() completed');
-      
-      safeLog('🔍 DEBUG: Calling getMyTransactions()');
-      const txnsResponse = await getMyTransactions();
-      safeLog('🔍 DEBUG: Transactions response:', txnsResponse);
+      const [wallet, txnsResponse] = await Promise.all([
+        getMyWallet(),
+        getMyTransactions(),
+      ]);
+      setWalletData(wallet);
       
       // Sort transactions by date (newest first)
       safeLog('🔍 DEBUG: Sorting transactions');
@@ -173,7 +173,7 @@ const WalletDashboardScreen: React.FC = () => {
       setRefreshing(false);
       safeLog('🔍 DEBUG: === FETCH WALLET DATA END ===');
     }
-  }, [user, refreshBadges, refreshing]);
+  }, [user, refreshBadges]);
 
   useFocusEffect(
     useCallback(() => {
@@ -306,7 +306,7 @@ const WalletDashboardScreen: React.FC = () => {
           {/* Wallet Balance Card */}
           <View style={styles.balanceCard}>
             <Text style={styles.balanceLabel}>Current Balance</Text>
-            <Text style={styles.balanceValue}>{formatCurrency(walletBalance)}</Text>
+            <Text style={styles.balanceValue}>{formatCurrency(walletData?.balance ?? walletBalance)}</Text>
             <View style={styles.balanceActions}>
               <TouchableOpacity style={styles.actionButton} onPress={handleAddFunds}>
                 <Ionicons name="add-circle-outline" size={24} color={colors.infoAction} />

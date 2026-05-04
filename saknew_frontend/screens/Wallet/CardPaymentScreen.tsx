@@ -4,15 +4,18 @@ import {
   ActivityIndicator, Alert, SafeAreaView, Platform, ScrollView,
 } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
+import { MainNavigationProp } from '../../navigation/types';
 import { colors } from '../../styles/globalStyles';
 import BackButton from '../../components/BackButton';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../../services/apiClient';
+import { useBadges } from '../../context/BadgeContext';
 
 const QUICK_AMOUNTS = [50, 100, 200, 500];
 
 const CardPaymentScreen: React.FC = () => {
-  const navigation = useNavigation();
+  const navigation = useNavigation<MainNavigationProp>();
+  const { refreshBadges } = useBadges();
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
   const [cardName, setCardName] = useState('');
@@ -69,7 +72,7 @@ const CardPaymentScreen: React.FC = () => {
     try {
       console.log('💳 Processing direct payment...');
       
-      const response = await apiClient.post('/api/wallet/deposit/', {
+      const response = await apiClient.post('/api/wallet/card-deposit/', {
         amount: amt,
         card_number: cardNumber.replace(/\s/g, ''),
         card_expiry: cardExpiry,
@@ -80,10 +83,12 @@ const CardPaymentScreen: React.FC = () => {
       console.log('💳 Payment response:', response.data);
       
       if (response.data.success) {
+        // Refresh wallet balance immediately before navigating back
+        await refreshBadges();
         Alert.alert(
-          'Payment Successful!',
-          `R${amt} has been added to your wallet. New balance: R${response.data.new_balance}`,
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
+          'Payment Successful! 🎉',
+          `R${amt.toFixed(2)} has been added to your wallet.\nNew balance: R${response.data.new_balance}`,
+          [{ text: 'OK', onPress: () => navigation.navigate('MainTabs' as any, { screen: 'WalletTab' } as any) }]
         );
       } else {
         Alert.alert('Payment Failed', response.data.message || 'Unable to process payment.');

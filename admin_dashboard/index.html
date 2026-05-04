@@ -1,130 +1,237 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Saknew Market - Admin Dashboard</title>
-    <link rel="stylesheet" href="styles.css">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SAknew Market — Admin</title>
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-    <div class="dashboard">
-        <aside class="sidebar">
-            <div class="logo">
-                <h2>🛍️ Saknew Admin</h2>
-            </div>
-            <nav class="nav">
-                <a href="#overview" class="nav-item active" onclick="showSection('overview')">📊 Overview</a>
-                <a href="#users" class="nav-item" onclick="showSection('users')">👥 Users</a>
-                <a href="#shops" class="nav-item" onclick="showSection('shops')">🏪 Shops</a>
-                <a href="#transactions" class="nav-item" onclick="showSection('transactions')">💳 Transactions</a>
-                <a href="#feedback" class="nav-item" onclick="showSection('feedback')">💬 Feedback</a>
-            </nav>
-        </aside>
 
-        <main class="main-content">
-            <header class="header">
-                <h1 id="page-title">Dashboard Overview</h1>
-                <button class="refresh-btn" id="refresh-btn" onclick="refreshData()">🔄 Refresh</button>
-            </header>
+<!-- LOGIN SCREEN -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo">🛍️</div>
+    <h1 class="login-title">SAknew Admin</h1>
+    <p class="login-sub">Sign in to your admin dashboard</p>
+    <div id="login-error" class="login-error hidden"></div>
+    <input id="login-email" type="email" placeholder="Admin email" class="login-input" />
+    <input id="login-password" type="password" placeholder="Password" class="login-input" />
+    <button id="login-btn" onclick="doLogin()">Sign In</button>
+  </div>
+</div>
 
-            <section id="overview-section" class="section active">
-                <div class="stats-grid">
-                    <div class="stat-card">
-                        <div class="stat-icon">👥</div>
-                        <div class="stat-info">
-                            <h3 id="total-users">0</h3>
-                            <p>Total Users</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">🏪</div>
-                        <div class="stat-info">
-                            <h3 id="total-shops">0</h3>
-                            <p>Active Shops</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💳</div>
-                        <div class="stat-info">
-                            <h3 id="total-transactions">0</h3>
-                            <p>Transactions</p>
-                        </div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-icon">💰</div>
-                        <div class="stat-info">
-                            <h3 id="total-revenue">R 0</h3>
-                            <p>Total Revenue</p>
-                        </div>
-                    </div>
-                </div>
-            </section>
-
-            <section id="users-section" class="section">
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Email</th>
-                                <th>Name</th>
-                                <th>Type</th>
-                                <th>Joined</th>
-                            </tr>
-                        </thead>
-                        <tbody id="users-table-body">
-                            <tr><td colspan="5">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section id="shops-section" class="section">
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>ID</th>
-                                <th>Shop Name</th>
-                                <th>Owner</th>
-                                <th>Products</th>
-                                <th>Created</th>
-                            </tr>
-                        </thead>
-                        <tbody id="shops-table-body">
-                            <tr><td colspan="5">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section id="transactions-section" class="section">
-                <div class="table-container">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Order ID</th>
-                                <th>User</th>
-                                <th>Amount</th>
-                                <th>Status</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody id="transactions-table-body">
-                            <tr><td colspan="5">Loading...</td></tr>
-                        </tbody>
-                    </table>
-                </div>
-            </section>
-
-            <section id="feedback-section" class="section">
-                <div class="feedback-grid" id="feedback-container">
-                    <p>Loading feedback...</p>
-                </div>
-            </section>
-        </main>
+<!-- DASHBOARD -->
+<div id="dashboard" class="hidden">
+  <aside class="sidebar">
+    <div class="sidebar-logo">
+      <span class="logo-icon">🛍️</span>
+      <span class="logo-text">SAknew Admin</span>
     </div>
+    <div class="admin-badge" id="admin-name">Admin</div>
+    <nav class="nav">
+      <a class="nav-item active" onclick="show('overview',this)">
+        <span class="nav-icon">📊</span> Overview
+      </a>
+      <a class="nav-item" onclick="show('users',this)">
+        <span class="nav-icon">👥</span> Users
+      </a>
+      <a class="nav-item" onclick="show('shops',this)">
+        <span class="nav-icon">🏪</span> Shops
+      </a>
+      <a class="nav-item" onclick="show('products',this)">
+        <span class="nav-icon">📦</span> Products
+      </a>
+      <a class="nav-item" onclick="show('orders',this)">
+        <span class="nav-icon">🧾</span> Orders
+      </a>
+      <a class="nav-item" onclick="show('transactions',this)">
+        <span class="nav-icon">💳</span> Transactions
+      </a>
+      <a class="nav-item" onclick="show('withdrawals',this)">
+        <span class="nav-icon">🏦</span> Withdrawals
+      </a>
+      <a class="nav-item" onclick="show('feedback',this)">
+        <span class="nav-icon">💬</span> Feedback
+      </a>
+    </nav>
+    <button class="logout-btn" onclick="doLogout()">⬅ Logout</button>
+  </aside>
 
-    <script src="script.js"></script>
+  <main class="main">
+    <header class="topbar">
+      <div>
+        <h2 id="page-title">Overview</h2>
+        <span id="last-updated" class="last-updated"></span>
+      </div>
+      <button class="refresh-btn" onclick="loadAll()">🔄 Refresh</button>
+    </header>
+
+    <!-- OVERVIEW -->
+    <section id="sec-overview" class="sec active">
+      <div class="stats-grid">
+        <div class="stat-card blue">
+          <div class="stat-top"><span class="stat-label">Total Users</span><span class="stat-icon">👥</span></div>
+          <div class="stat-val" id="s-users">—</div>
+          <div class="stat-sub" id="s-users-sub"></div>
+        </div>
+        <div class="stat-card green">
+          <div class="stat-top"><span class="stat-label">Total Revenue</span><span class="stat-icon">💰</span></div>
+          <div class="stat-val" id="s-revenue">—</div>
+          <div class="stat-sub" id="s-revenue-sub"></div>
+        </div>
+        <div class="stat-card purple">
+          <div class="stat-top"><span class="stat-label">Total Orders</span><span class="stat-icon">🧾</span></div>
+          <div class="stat-val" id="s-orders">—</div>
+          <div class="stat-sub" id="s-orders-sub"></div>
+        </div>
+        <div class="stat-card orange">
+          <div class="stat-top"><span class="stat-label">Active Shops</span><span class="stat-icon">🏪</span></div>
+          <div class="stat-val" id="s-shops">—</div>
+          <div class="stat-sub" id="s-shops-sub"></div>
+        </div>
+        <div class="stat-card teal">
+          <div class="stat-top"><span class="stat-label">Wallet Balance</span><span class="stat-icon">👛</span></div>
+          <div class="stat-val" id="s-wallet">—</div>
+          <div class="stat-sub" id="s-wallet-sub"></div>
+        </div>
+        <div class="stat-card red">
+          <div class="stat-top"><span class="stat-label">Pending Withdrawals</span><span class="stat-icon">🏦</span></div>
+          <div class="stat-val" id="s-withdrawals">—</div>
+          <div class="stat-sub" id="s-withdrawals-sub"></div>
+        </div>
+        <div class="stat-card indigo">
+          <div class="stat-top"><span class="stat-label">Active Products</span><span class="stat-icon">📦</span></div>
+          <div class="stat-val" id="s-products">—</div>
+          <div class="stat-sub" id="s-products-sub"></div>
+        </div>
+        <div class="stat-card yellow">
+          <div class="stat-top"><span class="stat-label">Pending Orders</span><span class="stat-icon">⏳</span></div>
+          <div class="stat-val" id="s-pending">—</div>
+          <div class="stat-sub" id="s-pending-sub"></div>
+        </div>
+      </div>
+
+      <div class="row-2">
+        <div class="mini-card">
+          <h3 class="mini-title">📈 Revenue Breakdown</h3>
+          <div class="mini-row"><span>Today</span><strong id="rev-today">—</strong></div>
+          <div class="mini-row"><span>This Week</span><strong id="rev-week">—</strong></div>
+          <div class="mini-row"><span>This Month</span><strong id="rev-month">—</strong></div>
+          <div class="mini-row"><span>All Time</span><strong id="rev-total">—</strong></div>
+        </div>
+        <div class="mini-card">
+          <h3 class="mini-title">👥 User Growth</h3>
+          <div class="mini-row"><span>New Today</span><strong id="usr-today">—</strong></div>
+          <div class="mini-row"><span>New This Week</span><strong id="usr-week">—</strong></div>
+          <div class="mini-row"><span>New This Month</span><strong id="usr-month">—</strong></div>
+          <div class="mini-row"><span>Sellers</span><strong id="usr-sellers">—</strong></div>
+        </div>
+        <div class="mini-card">
+          <h3 class="mini-title">📦 Inventory</h3>
+          <div class="mini-row"><span>Total Products</span><strong id="inv-total">—</strong></div>
+          <div class="mini-row"><span>Active</span><strong id="inv-active">—</strong></div>
+          <div class="mini-row"><span>Out of Stock</span><strong id="inv-oos" style="color:#EF4444">—</strong></div>
+          <div class="mini-row"><span>Stock Value</span><strong id="inv-val">—</strong></div>
+        </div>
+        <div class="mini-card">
+          <h3 class="mini-title">🧾 Order Status</h3>
+          <div class="mini-row"><span>Pending</span><strong id="ord-pending" style="color:#F59E0B">—</strong></div>
+          <div class="mini-row"><span>Processing</span><strong id="ord-processing" style="color:#3B82F6">—</strong></div>
+          <div class="mini-row"><span>Completed</span><strong id="ord-completed" style="color:#10B981">—</strong></div>
+          <div class="mini-row"><span>Cancelled</span><strong id="ord-cancelled" style="color:#EF4444">—</strong></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- USERS -->
+    <section id="sec-users" class="sec">
+      <div class="search-bar">
+        <input id="search-users" type="text" placeholder="🔍 Search users..." oninput="filterTable('users-tbody','search-users')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>Email</th><th>Name</th><th>Role</th><th>Verified</th><th>Joined</th></tr></thead>
+          <tbody id="users-tbody"><tr><td colspan="6" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- SHOPS -->
+    <section id="sec-shops" class="sec">
+      <div class="search-bar">
+        <input id="search-shops" type="text" placeholder="🔍 Search shops..." oninput="filterTable('shops-tbody','search-shops')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>Shop Name</th><th>Owner</th><th>Products</th><th>Active</th><th>Out of Stock</th><th>Created</th></tr></thead>
+          <tbody id="shops-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- PRODUCTS -->
+    <section id="sec-products" class="sec">
+      <div class="search-bar">
+        <input id="search-products" type="text" placeholder="🔍 Search products..." oninput="filterTable('products-tbody','search-products')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>Product</th><th>Shop</th><th>Category</th><th>Price</th><th>Stock</th><th>Status</th></tr></thead>
+          <tbody id="products-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- ORDERS -->
+    <section id="sec-orders" class="sec">
+      <div class="search-bar">
+        <input id="search-orders" type="text" placeholder="🔍 Search orders..." oninput="filterTable('orders-tbody','search-orders')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>Order ID</th><th>Customer</th><th>Type</th><th>Amount</th><th>Status</th><th>Payment</th><th>Date</th></tr></thead>
+          <tbody id="orders-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- TRANSACTIONS -->
+    <section id="sec-transactions" class="sec">
+      <div class="search-bar">
+        <input id="search-transactions" type="text" placeholder="🔍 Search transactions..." oninput="filterTable('transactions-tbody','search-transactions')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>User</th><th>Type</th><th>Amount</th><th>Status</th><th>Description</th><th>Date</th></tr></thead>
+          <tbody id="transactions-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- WITHDRAWALS -->
+    <section id="sec-withdrawals" class="sec">
+      <div class="search-bar">
+        <input id="search-withdrawals" type="text" placeholder="🔍 Search withdrawals..." oninput="filterTable('withdrawals-tbody','search-withdrawals')" />
+      </div>
+      <div class="table-wrap">
+        <table class="tbl">
+          <thead><tr><th>#</th><th>User</th><th>Amount</th><th>Status</th><th>Bank Details</th><th>Date</th><th>Action</th></tr></thead>
+          <tbody id="withdrawals-tbody"><tr><td colspan="7" class="loading">Loading...</td></tr></tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- FEEDBACK -->
+    <section id="sec-feedback" class="sec">
+      <div class="feedback-grid" id="feedback-grid">
+        <p class="loading">Loading feedback...</p>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<script src="script.js"></script>
 </body>
 </html>

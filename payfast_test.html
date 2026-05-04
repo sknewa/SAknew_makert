@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>PayFast Test</title>
+</head>
+<body>
+    <h1>PayFast Test Form</h1>
+    <form method="POST" action="https://sandbox.payfast.co.za/eng/process">
+        <input type="hidden" name="merchant_id" value="10000100">
+        <input type="hidden" name="merchant_key" value="46f0cd694581a">
+        <input type="hidden" name="return_url" value="https://samakert.com/wallet">
+        <input type="hidden" name="cancel_url" value="https://samakert.com/wallet">
+        <input type="hidden" name="notify_url" value="https://saknew-market-backend-f8738ecec7fa.herokuapp.com/api/wallet/payfast-webhook/">
+        <input type="hidden" name="name_first" value="Test">
+        <input type="hidden" name="email_address" value="test@example.com">
+        <input type="hidden" name="amount" value="100.00">
+        <input type="hidden" name="item_name" value="Wallet Deposit">
+        <input type="hidden" name="item_description" value="Wallet deposit of R100.0">
+        <input type="hidden" name="payment_method" value="cc">
+        <input type="hidden" name="custom_str1" value="123">
+        <input type="hidden" name="signature" value="">
+        
+        <button type="submit">Test PayFast Payment</button>
+    </form>
+    
+    <script>
+        // Calculate signature
+        const data = {
+            merchant_id: '10000100',
+            merchant_key: '46f0cd694581a',
+            return_url: 'https://samakert.com/wallet',
+            cancel_url: 'https://samakert.com/wallet',
+            notify_url: 'https://saknew-market-backend-f8738ecec7fa.herokuapp.com/api/wallet/payfast-webhook/',
+            name_first: 'Test',
+            email_address: 'test@example.com',
+            amount: '100.00',
+            item_name: 'Wallet Deposit',
+            item_description: 'Wallet deposit of R100.0',
+            payment_method: 'cc',
+            custom_str1: '123'
+        };
+        
+        // Sort and create parameter string
+        const sortedKeys = Object.keys(data).sort();
+        const paramString = sortedKeys.map(key => `${key}=${data[key]}`).join('&');
+        
+        console.log('Parameter string:', paramString);
+        
+        // For now, just log the data
+        console.log('PayFast data:', data);
+    </script>
+</body>
+</html>
