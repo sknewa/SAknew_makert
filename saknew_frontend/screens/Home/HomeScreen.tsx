@@ -14,7 +14,7 @@ import {
   RefreshControl,
   Dimensions
 } from 'react-native';
-import { globalStyles, colors, spacing } from '../../styles/globalStyles';
+import { globalStyles, colors, spacing, radius, shadow } from '../../styles/globalStyles';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuth } from '../../context/AuthContext';
@@ -38,7 +38,9 @@ import { useBadges } from '../../context/BadgeContext';
  * @returns A product object conforming to the AppProduct interface.
  */
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - 8) / 3;
+// Reduce product card size to fit more cards per row (4 columns)
+const PRODUCT_COLUMNS = 4;
+const productCardWidth = Math.floor((screenWidth - (PRODUCT_COLUMNS + 1) * 2) / PRODUCT_COLUMNS);
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   return {
@@ -319,22 +321,154 @@ const HomeScreen = () => {
     }
   }, [isAuthenticated]);
 
+  // Process trending products with distance filtering and smart sorting
+  const processTrendingProducts = useCallback((products: any[], userLocation?: {latitude: number; longitude: number} | null) => {
+    try {
+      if (!products || products.length === 0) {
+        console.log('📊 No products to process for trending');
+        return [];
+      }
+
+      console.log('📊 Processing trending products - Initial count:', products.length);
+
+      // Step 1: Filter products within 100km
+      let filteredProducts = products;
+      if (userLocation) {
+        filteredProducts = products.filter(product => {
+          try {
+            const shopLat = product.shop_latitude || product.shop?.latitude;
+            const shopLon = product.shop_longitude || product.shop?.longitude;
+
+            if (!shopLat || !shopLon) {
+              console.log('📍 Product missing location:', product.id, product.name);
+              return false;
+            }
+
+            const distance = calculateDistance(
+              userLocation.latitude,
+              userLocation.longitude,
+              parseFloat(shopLat),
+              parseFloat(shopLon)
+            );
+
+            const withinRange = distance <= 100;
+            if (withinRange) {
+              console.log('📍 Product within 100km:', product.id, product.name, `${distance.toFixed(1)}km`);
+            }
+
+            return withinRange; // Within 100km
+          } catch (error) {
+            console.warn('Error calculating distance for product:', product.id, error);
+            return false; // Exclude products with distance calculation errors
+          }
+        });
+
+        console.log('📊 After 100km filter:', filteredProducts.length);
+      } else {
+        console.log('📍 No user location available, skipping distance filter');
+      }
+
+      // Step 2: Sort by trending algorithm (most bought -> most reviews -> most liked)
+      const sortedProducts = filteredProducts.sort((a, b) => {
+        try {
+          // Primary: Most bought (purchases_count, sales_count, or order_count)
+          const aPurchases = a.purchases_count || a.sales_count || a.order_count || 0;
+          const bPurchases = b.purchases_count || b.sales_count || b.order_count || 0;
+
+          if (aPurchases !== bPurchases) {
+            return bPurchases - aPurchases; // Higher purchases first
+          }
+
+          // Secondary: Most reviews (reviews_count or review_count)
+          const aReviews = a.reviews_count || a.review_count || 0;
+          const bReviews = b.reviews_count || b.review_count || 0;
+
+          if (aReviews !== bReviews) {
+            return bReviews - aReviews; // Higher reviews first
+          }
+
+          // Tertiary: Most liked (likes_count or like_count)
+          const aLikes = a.likes_count || a.like_count || 0;
+          const bLikes = b.likes_count || b.like_count || 0;
+
+          if (aLikes !== bLikes) {
+            return bLikes - aLikes; // Higher likes first
+          }
+
+          // Fallback: Most viewed (if available)
+          const aViews = a.view_count || 0;
+          const bViews = b.view_count || 0;
+
+          return bViews - aViews; // Higher views first
+
+        } catch (error) {
+          console.warn('Error sorting products:', error);
+          return 0; // Keep original order on error
+        }
+      });
+
+      console.log('📊 Top 8 trending products after sorting:');
+      sortedProducts.slice(0, 8).forEach((product, index) => {
+        const purchases = product.purchases_count || product.sales_count || product.order_count || 0;
+        const reviews = product.reviews_count || product.review_count || 0;
+        const likes = product.likes_count || product.like_count || 0;
+        console.log(`  ${index + 1}. ${product.name} (Purchases: ${purchases}, Reviews: ${reviews}, Likes: ${likes})`);
+      });
+
+      // Step 3: Take top 8 products and convert to app format
+      return sortedProducts.slice(0, 8).map(convertServiceProduct);
+
+    } catch (error) {
+      console.warn('Error processing trending products:', error);
+      // Return empty array on error to prevent crashes
+      return [];
+    }
+  }, []);
+
   // Fetch personalized recommendations
   const fetchRecommendations = useCallback(async () => {
     if (!isAuthenticated) return;
     try {
-      const [forYou, recentlyViewed, trending] = await Promise.all([
+      // Fetch more products for better trending algorithm
+      const [forYou, recentlyViewed, trendingResponse] = await Promise.all([
         shopService.getForYouProducts(),
         shopService.getRecentlyViewedProducts(),
-        shopService.getRecommendedProducts(1, 20, userLocation?.latitude, userLocation?.longitude)
+        shopService.getRecommendedProducts(1, 50, userLocation?.latitude, userLocation?.longitude)
       ]);
-      
+
       setForYouProducts(Array.isArray(forYou) ? forYou.map(convertServiceProduct) : []);
       setRecentlyViewedProducts(Array.isArray(recentlyViewed) ? recentlyViewed.map(convertServiceProduct) : []);
-      const trendingResults = Array.isArray(trending) ? trending : trending.results || [];
-      setTrendingProducts(trendingResults.slice(0, 8).map(convertServiceProduct));
+
+      // Process trending products with new algorithm
+      const allProducts = Array.isArray(trendingResponse) ? trendingResponse : trendingResponse.results || [];
+      console.log('📊 Raw trending products from API:', allProducts.length);
+
+      // If no products from API, show empty trending section
+      if (allProducts.length === 0) {
+        console.log('📊 No trending products from API, setting empty array');
+        setTrendingProducts([]);
+        return;
+      }
+
+      // Filter products within 100km and apply trending algorithm
+      const processedTrendingProducts = processTrendingProducts(allProducts, userLocation);
+      console.log('🔥 Processed trending products:', processedTrendingProducts.length);
+
+      // If algorithm filtered everything out, show top products without distance filter as fallback
+      if (processedTrendingProducts.length === 0 && userLocation) {
+        console.log('📊 Distance filter removed all products, using fallback without distance filter');
+        const fallbackProducts = processTrendingProducts(allProducts, null); // No location filter
+        setTrendingProducts(fallbackProducts);
+      } else {
+        setTrendingProducts(processedTrendingProducts);
+      }
+
     } catch (err) {
-      // Recommendations not critical
+      console.warn('Error fetching recommendations:', err);
+      // Set empty arrays on error to prevent crashes
+      setForYouProducts([]);
+      setRecentlyViewedProducts([]);
+      setTrendingProducts([]);
     }
   }, [isAuthenticated, userLocation]);
 
@@ -655,9 +789,9 @@ const HomeScreen = () => {
                     />
                   </View>
                 )}
-                {trendingProducts.length > 0 && (
+                {isAuthenticated && (
                   <CategorySection
-                    categoryName="?? Trending Now"
+                    categoryName="🔥 Trending Now"
                     products={trendingProducts}
                     navigation={navigation}
                     onCartUpdated={refreshBadges}
@@ -741,26 +875,42 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
 
   if (isTrending) {
     return (
-      <View style={styles.categorySection}>
-        <Text style={styles.categoryTitle}>{categoryName}</Text>
-        <FlatList
-          data={products}
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          renderItem={({ item }) => (
-            <View style={styles.horizontalProductCard}>
-              <ProductCard
-                product={item}
-                isShopOwner={false}
-                navigation={navigation}
-                shopLatitude={(item as any).shop_latitude}
-                shopLongitude={(item as any).shop_longitude}
-                onCartUpdated={onCartUpdated}
-              />
+      <View style={[styles.categorySection, styles.trendingSection]}>
+        <View style={styles.trendingHeader}>
+          <View style={styles.trendingBadge}>
+            <Ionicons name="flame" size={16} color={colors.navy} />
+            <Text style={styles.trendingTitle}>{categoryName}</Text>
+          </View>
+        </View>
+        <View style={styles.trendingContent}>
+          {products.length > 0 ? (
+            <FlatList
+              data={products}
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              renderItem={({ item }) => (
+                <View style={styles.horizontalProductCard}>
+                  <View style={styles.trendingProductCardContainer}>
+                    <ProductCard
+                      product={item}
+                      isShopOwner={false}
+                      navigation={navigation}
+                      shopLatitude={(item as any).shop_latitude}
+                      shopLongitude={(item as any).shop_longitude}
+                      onCartUpdated={onCartUpdated}
+                    />
+                  </View>
+                </View>
+              )}
+              keyExtractor={(item) => item.id.toString()}
+            />
+          ) : (
+            <View style={styles.trendingEmptyState}>
+              <Ionicons name="sparkles" size={24} color={colors.textMuted} />
+              <Text style={styles.trendingEmptyText}>Finding trending products near you...</Text>
             </View>
           )}
-          keyExtractor={(item) => item.id.toString()}
-        />
+        </View>
       </View>
     );
   }
@@ -781,7 +931,7 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
           />
         )}
         keyExtractor={(item) => item.id.toString()}
-        numColumns={3}
+        numColumns={PRODUCT_COLUMNS}
         scrollEnabled={false}
         contentContainerStyle={styles.categoryGrid}
       />
@@ -1008,7 +1158,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
   categorySection: {
-    marginBottom: 0,
+    marginBottom: spacing.md,
     backgroundColor: colors.card,
     paddingVertical: spacing.sm,
     marginHorizontal: 0,
@@ -1028,6 +1178,65 @@ const styles = StyleSheet.create({
   },
   categoryGrid: {
     paddingBottom: spacing.xs,
+  },
+  trendingSection: {
+    backgroundColor: 'rgba(255,235,204,0.15)',
+    borderRadius: radius.lg,
+    paddingTop: 0,
+    paddingBottom: 0,
+    paddingLeft: 1,
+    paddingRight: 1,
+    borderWidth: 1,
+    borderColor: 'rgba(255,184,28,0.25)',
+    marginHorizontal: spacing.sm,
+    marginBottom: spacing.md,
+    // Slightly taller than the image only so the price row is cropped but badges remain visible
+    height: productCardWidth * 1.12,
+    flexDirection: 'column',
+    overflow: 'hidden',
+    position: 'relative',
+    ...shadow.sm,
+  },
+  trendingHeader: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    zIndex: 2,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 0,
+  },
+  trendingContent: {
+    flex: 1,
+    justifyContent: 'center',
+  },
+  trendingEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: spacing.md,
+  },
+  trendingEmptyText: {
+    color: colors.textMuted,
+    fontSize: 14,
+    fontFamily: 'Poppins-Regular',
+    marginTop: spacing.xs,
+    textAlign: 'center',
+  },
+  trendingBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(255,184,28,0.3)',
+    borderRadius: radius.full,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    opacity: 0.85,
+  },
+  trendingTitle: {
+    color: colors.navy,
+    fontSize: 12,
+    fontFamily: 'Poppins-SemiBold',
+    marginLeft: spacing.xs,
   },
   viewMoreButton: {
     flexDirection: 'row',
@@ -1173,6 +1382,14 @@ const styles = StyleSheet.create({
   horizontalProductCard: {
     width: productCardWidth,
     marginRight: 2,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  trendingProductCardContainer: {
+    // Crop to image height so the price row is not visible
+    height: productCardWidth * 1.12,
+    width: productCardWidth,
+    overflow: 'hidden',
   },
   filterChipsContainer: {
     paddingHorizontal: spacing.md,
