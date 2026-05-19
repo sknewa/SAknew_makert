@@ -21,6 +21,8 @@ import ProductImageItem from '../../components/ProductImageItem';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 import { useAuth } from '../../context/AuthContext';
 import { messagingService } from '../../services/messagingService';
+import themeColors from '../../theme/colors';
+import { textStyles } from '../../theme/typography';
 
 // Define route parameters for ProductDetailScreen
 type ProductDetailRouteParams = {
@@ -90,12 +92,10 @@ const ProductDetailScreen = () => {
     fetchProductDetails();
   }, [fetchProductDetails]);
 
+  // small runtime info via safeLog (no-op in prod when logger disabled)
   useEffect(() => {
-    console.log('=== ProductDetailScreen Debug ===');
-    console.log('isAuthenticated:', isAuthenticated);
-    console.log('product:', product ? product.name : 'null');
-    console.log('product.shop:', product?.shop);
-  }, [isAuthenticated, product]);
+    safeLog('ProductDetailScreen mount', { isAuthenticated, productId });
+  }, [isAuthenticated, productId]);
 
   const handleMessageSeller = async () => {
     if (!isAuthenticated) {
@@ -138,7 +138,7 @@ const ProductDetailScreen = () => {
     return (
       <SafeAreaView style={styles.safeArea}>
         <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color={colors.primary} />
+          <ActivityIndicator size="large" color={themeColors.primary} />
           <Text style={styles.loadingText}>Loading product details...</Text>
         </View>
       </SafeAreaView>
@@ -208,14 +208,7 @@ const ProductDetailScreen = () => {
 
           <View style={styles.stockContainer}>
             <Text style={styles.stockInfo}>In Stock: {product.stock}</Text>
-            {console.log('Rendering message button')}
-            <TouchableOpacity 
-              onPress={() => {
-                console.log('Message button clicked');
-                handleMessageSeller();
-              }} 
-              style={styles.messageButton}
-            >
+            <TouchableOpacity onPress={handleMessageSeller} style={styles.messageButton}>
               <Ionicons name="chatbubble-outline" size={24} color="#667eea" />
               <Text style={styles.messageText}>Message Seller</Text>
             </TouchableOpacity>
@@ -234,17 +227,7 @@ const ProductDetailScreen = () => {
   );
 };
 
-const colors = {
-  primary: '#4CAF50', // Green
-  accent: '#FFC107', // Orange/Amber
-  background: '#F0F2F5', // Light gray
-  card: '#FFFFFF',
-  textPrimary: '#333333',
-  textSecondary: '#666666',
-  error: '#EF5350', // Red
-  border: '#E0E0E0',
-  white: '#FFFFFF',
-};
+const colors = themeColors;
 
 const styles = StyleSheet.create({
   safeArea: {
@@ -335,18 +318,18 @@ const styles = StyleSheet.create({
     elevation: 3,
   },
   productName: {
-    fontSize: 26,
-    fontWeight: 'bold',
+    ...textStyles.productName,
+    fontSize: 22,
     color: colors.textPrimary,
     marginBottom: 8,
   },
   productShop: {
-    fontSize: 16,
+    ...textStyles.caption,
     color: colors.textSecondary,
     marginBottom: 5,
   },
   productCategory: {
-    fontSize: 16,
+    ...textStyles.caption,
     color: colors.textSecondary,
     marginBottom: 15,
   },
@@ -356,8 +339,8 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   currentPrice: {
-    fontSize: 24,
-    fontWeight: 'bold',
+    ...textStyles.productPrice,
+    fontSize: 22,
     color: colors.primary,
     marginRight: 10,
   },
@@ -392,7 +375,7 @@ const styles = StyleSheet.create({
   messageButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#F0EBFF',
+    backgroundColor: colors.surfaceAlt,
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 8,
@@ -400,17 +383,17 @@ const styles = StyleSheet.create({
   messageText: {
     marginLeft: 6,
     fontSize: 14,
-    color: '#667eea',
+    color: colors.infoAction,
     fontWeight: '600',
   },
   descriptionTitle: {
+    ...textStyles.sectionTitle,
     fontSize: 18,
-    fontWeight: 'bold',
     color: colors.textPrimary,
     marginBottom: 10,
   },
   productDescription: {
-    fontSize: 16,
+    ...textStyles.body,
     color: colors.textSecondary,
     lineHeight: 24,
     marginBottom: 30,

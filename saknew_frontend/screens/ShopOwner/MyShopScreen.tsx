@@ -14,10 +14,12 @@ import {
   RefreshControl,
   TextInput,
   Modal,
+  ImageBackground,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { ShopOwnerStackParamList } from '../../navigation/ShopOwnerNavigator';
 import ProductCard from '../../components/ProductCard';
@@ -32,7 +34,7 @@ import { Order, OrderItem } from '../../types';
 // Import shopService directly
 import shopService from '../../services/shopService';
 import apiClient from '../../services/apiClient';
-import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+// logging utilities removed from this screen per request
 
 const colors = {
   background: '#F5F5F5',
@@ -51,6 +53,14 @@ const colors = {
   warningAction: '#FF9800',
   white: '#FFFFFF',
 };
+
+// Pre-computed star positions for the galaxy default banner
+const STARS = Array.from({ length: 60 }, (_, i) => ({
+  top: `${(i * 37 + 11) % 100}%` as any,
+  left: `${(i * 53 + 7) % 100}%` as any,
+  size: i % 5 === 0 ? 3 : i % 3 === 0 ? 2 : 1.5,
+  opacity: 0.4 + (i % 6) * 0.1,
+}));
 
 const screenWidth = Dimensions.get('window').width;
 const productCardWidth = (screenWidth - (20 * 2) - (10 * 2)) / 2;
@@ -98,7 +108,6 @@ const MyShopScreen: React.FC = () => {
   }, []);
 
   const fetchShopData = useCallback(async () => {
-    safeLog('🔄 [MyShopScreen] fetchShopData called');
     if (!refreshing) setLoading(true);
     setError(null);
     
@@ -200,7 +209,7 @@ const MyShopScreen: React.FC = () => {
         ).length
       );
     } catch (error) {
-      safeError('Error fetching orders:', error);
+      // Error handled silently
     }
   }, [user]);
 
@@ -270,6 +279,8 @@ const MyShopScreen: React.FC = () => {
                       user?.profile?.is_seller && 
                       shop?.user?.id === user?.id && 
                       shop?.slug === user?.profile?.shop_slug;
+
+  const shopBannerUrl = shop ? ((shop as any).banner_image_url || (shop as any).banner_image || (shop as any).banner) : null;
 
   if (authLoading || loading) {
     return (
@@ -373,121 +384,223 @@ const MyShopScreen: React.FC = () => {
         }
       >
         <View style={styles.container}>
-          {/* Shop Header Section */}
-          <View style={styles.shopHeader}>
-            <View style={styles.shopNameRow}>
-              <Text style={styles.shopName}>{shop.name}</Text>
-              
-              {isShopOwner && (
-                <View style={styles.shopActions}>
+          {shopBannerUrl ? (
+            <ImageBackground
+              source={{ uri: shopBannerUrl }}
+              style={styles.shopHeader}
+              imageStyle={styles.shopHeaderImage}
+              resizeMode="cover"
+            >
+              <LinearGradient
+                colors={['rgba(0,0,0,0.24)', 'rgba(0,0,0,0.64)']}
+                style={styles.shopHeaderOverlay}
+              />
+              <View style={styles.shopHeaderInner}>
+                <View style={styles.shopNameRow}>
+                  <Text style={styles.shopName}>{shop.name}</Text>
+                  {isShopOwner && (
+                    <View style={styles.shopActions}>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          handleShareShopLink();
+                        }}
+                      >
+                        <Ionicons name="share-social-outline" size={16} color={colors.shareAction} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          navigation.navigate('EditShop', { shopSlug: shop.slug });
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={16} color={colors.infoAction} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.dangerAction} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
+                {shop.description && (
+                  <Text style={styles.shopDescription}>{shop.description}</Text>
+                )}
+                {isShopOwner && (
+                  <View style={styles.ownerTag}>
+                    <Ionicons name="star" size={14} color={colors.warningAction} />
+                    <Text style={styles.ownerTagText}>You are the owner</Text>
+                  </View>
+                )}
+                <View style={styles.statsRow}>
                   <TouchableOpacity 
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      safeLog('📤 [MyShopScreen] Share shop button pressed');
-                      handleShareShopLink();
-                    }}
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products', products: [] } as any)}
                   >
-                    <Ionicons name="share-social-outline" size={16} color={colors.shareAction} />
+                    <Text style={styles.statLabel}>Total</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="cube-outline" size={14} color={colors.primary} />
+                      <Text style={styles.statText}>{products.length}</Text>
+                    </View>
                   </TouchableOpacity>
                   <TouchableOpacity 
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      safeLog('✏️ [MyShopScreen] Edit shop button pressed');
-                      navigation.navigate('EditShop', { shopSlug: shop.slug });
-                    }}
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock', products: [] } as any)}
                   >
-                    <Ionicons name="create-outline" size={16} color={colors.infoAction} />
+                    <Text style={styles.statLabel}>In Stock</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="checkmark-circle-outline" size={14} color={colors.successText} />
+                      <Text style={styles.statText}>{products.filter(p => p.stock > 0).length}</Text>
+                    </View>
                   </TouchableOpacity>
-                  
                   <TouchableOpacity 
-                    style={styles.iconButton}
-                    activeOpacity={0.7}
-                    onPress={() => {
-                      safeLog('🗑️ [MyShopScreen] Delete shop button pressed');
-                      setShowDeleteModal(true);
-                    }}
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock', products: [] } as any)}
                   >
-                    <Ionicons name="trash-outline" size={16} color={colors.dangerAction} />
+                    <Text style={styles.statLabel}>Out</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="alert-circle-outline" size={14} color={colors.errorText} />
+                      <Text style={styles.statText}>{products.filter(p => p.stock === 0).length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('SellerOrders')}
+                  >
+                    <Text style={styles.statLabel}>Orders</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="bag-handle-outline" size={14} color={colors.infoAction} />
+                      <Text style={styles.statText}>{newOrdersCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('SellerOrders')}
+                  >
+                    <Text style={styles.statLabel}>Completed</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="checkmark-done-outline" size={14} color={colors.successText} />
+                      <Text style={styles.statText}>{completedOrdersCount}</Text>
+                    </View>
                   </TouchableOpacity>
                 </View>
-              )}
-            </View>
-            
-            {/* Shop Description */}
-            {shop.description && (
-              <Text style={styles.shopDescription}>{shop.description}</Text>
-            )}
-            
-            {isShopOwner && (
-              <View style={styles.ownerTag}>
-                <Ionicons name="star" size={14} color={colors.warningAction} />
-                <Text style={styles.ownerTagText}>You are the owner</Text>
               </View>
-            )}
-
-            {/* Shop Stats Section */}
-            <View style={styles.statsRow}>
-              <TouchableOpacity 
-                style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products', products: [] } as any)}
-              >
-                <Text style={styles.statLabel}>Total</Text>
-                <View style={styles.statValueRow}>
-                  <Ionicons name="cube-outline" size={14} color={colors.primary} />
-                  <Text style={styles.statText}>{products.length}</Text>
+            </ImageBackground>
+          ) : (
+            <View style={[styles.shopHeader, styles.galaxyBanner]}>
+              {STARS.map((s, i) => (
+                <View key={i} style={[styles.star, { top: s.top, left: s.left, width: s.size, height: s.size, opacity: s.opacity }]} />
+              ))}
+              <LinearGradient
+                colors={['rgba(0,0,0,0.24)', 'rgba(0,0,0,0.64)']}
+                style={styles.shopHeaderOverlay}
+              />
+              <View style={styles.shopHeaderInner}>
+                <View style={styles.shopNameRow}>
+                  <Text style={styles.shopName}>{shop.name}</Text>
+                  {isShopOwner && (
+                    <View style={styles.shopActions}>
+                      <TouchableOpacity 
+                          style={styles.iconButton}
+                          activeOpacity={0.7}
+                          onPress={() => {
+                            handleShareShopLink();
+                          }}
+                        >
+                        <Ionicons name="share-social-outline" size={16} color={colors.shareAction} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          navigation.navigate('EditShop', { shopSlug: shop.slug });
+                        }}
+                      >
+                        <Ionicons name="create-outline" size={16} color={colors.infoAction} />
+                      </TouchableOpacity>
+                      <TouchableOpacity 
+                        style={styles.iconButton}
+                        activeOpacity={0.7}
+                        onPress={() => {
+                          setShowDeleteModal(true);
+                        }}
+                      >
+                        <Ionicons name="trash-outline" size={16} color={colors.dangerAction} />
+                      </TouchableOpacity>
+                    </View>
+                  )}
                 </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock', products: [] } as any)}
-              >
-                <Text style={styles.statLabel}>In Stock</Text>
-                <View style={styles.statValueRow}>
-                  <Ionicons name="checkmark-circle-outline" size={14} color={colors.successText} />
-                  <Text style={styles.statText}>{products.filter(p => p.stock > 0).length}</Text>
+                {shop.description && (
+                  <Text style={styles.shopDescription}>{shop.description}</Text>
+                )}
+                {isShopOwner && (
+                  <View style={styles.ownerTag}>
+                    <Ionicons name="star" size={14} color={colors.warningAction} />
+                    <Text style={styles.ownerTagText}>You are the owner</Text>
+                  </View>
+                )}
+                <View style={styles.statsRow}>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'all', categoryName: 'All Products', products: [] } as any)}
+                  >
+                    <Text style={styles.statLabel}>Total</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="cube-outline" size={14} color={colors.primary} />
+                      <Text style={styles.statText}>{products.length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'in-stock', categoryName: 'In Stock', products: [] } as any)}
+                  >
+                    <Text style={styles.statLabel}>In Stock</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="checkmark-circle-outline" size={14} color={colors.successText} />
+                      <Text style={styles.statText}>{products.filter(p => p.stock > 0).length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock', products: [] } as any)}
+                  >
+                    <Text style={styles.statLabel}>Out</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="alert-circle-outline" size={14} color={colors.errorText} />
+                      <Text style={styles.statText}>{products.filter(p => p.stock === 0).length}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('SellerOrders')}
+                  >
+                    <Text style={styles.statLabel}>Orders</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="bag-handle-outline" size={14} color={colors.infoAction} />
+                      <Text style={styles.statText}>{newOrdersCount}</Text>
+                    </View>
+                  </TouchableOpacity>
+                  <TouchableOpacity 
+                    style={styles.statItem}
+                    onPress={() => navigation.navigate('SellerOrders')}
+                  >
+                    <Text style={styles.statLabel}>Completed</Text>
+                    <View style={styles.statValueRow}>
+                      <Ionicons name="checkmark-done-outline" size={14} color={colors.successText} />
+                      <Text style={styles.statText}>{completedOrdersCount}</Text>
+                    </View>
+                  </TouchableOpacity>
                 </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.statItem}
-                onPress={() => navigation.navigate('CategoryProductsScreen', { categorySlug: 'out-of-stock', categoryName: 'Out of Stock', products: [] } as any)}
-              >
-                <Text style={styles.statLabel}>Out</Text>
-                <View style={styles.statValueRow}>
-                  <Ionicons name="alert-circle-outline" size={14} color={colors.errorText} />
-                  <Text style={styles.statText}>{products.filter(p => p.stock === 0).length}</Text>
-                </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.statItem}
-                onPress={() => navigation.navigate('SellerOrders')}
-              >
-                <Text style={styles.statLabel}>Orders</Text>
-                <View style={styles.statValueRow}>
-                  <Ionicons name="bag-handle-outline" size={14} color={colors.infoAction} />
-                  <Text style={styles.statText}>{newOrdersCount}</Text>
-                </View>
-              </TouchableOpacity>
-              
-              <TouchableOpacity 
-                style={styles.statItem}
-                onPress={() => navigation.navigate('SellerOrders')}
-              >
-                <Text style={styles.statLabel}>Completed</Text>
-                <View style={styles.statValueRow}>
-                  <Ionicons name="checkmark-done-outline" size={14} color={colors.successText} />
-                  <Text style={styles.statText}>{completedOrdersCount}</Text>
-                </View>
-              </TouchableOpacity>
+              </View>
             </View>
-
-
-          </View>
-
+          )}
           {/* Search Bar */}
           <View style={styles.searchContainer}>
             <Ionicons name="search-outline" size={20} color={colors.textSecondary} style={styles.searchIcon} />
@@ -595,10 +708,9 @@ const MyShopScreen: React.FC = () => {
                                 navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
                               }
                             }}
-                            onProductDeleted={() => {
-                              safeLog('🔄 [MyShopScreen] onProductDeleted callback triggered for product:', product.id);
-                              fetchShopData();
-                            }}
+                               onProductDeleted={() => {
+                                 fetchShopData();
+                               }}
                             shopLatitude={shop.latitude}
                             shopLongitude={shop.longitude}
                           />
@@ -644,7 +756,7 @@ const MyShopScreen: React.FC = () => {
                               }
                             }}
                             onProductDeleted={() => {
-                              safeLog('🔄 [MyShopScreen] onProductDeleted callback triggered for ungrouped product:', product.id);
+
                               fetchShopData();
                             }}
                             shopLatitude={shop.latitude}
@@ -682,7 +794,6 @@ const MyShopScreen: React.FC = () => {
                     await refreshUserProfile();
                   }
                 } catch (err: any) {
-                  safeError('Delete failed:', err);
                   Alert.alert('Delete Failed', 'Could not delete shop. Please try again.');
                 }
               }}>
@@ -787,21 +898,46 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 3,
   },
+  shopHeaderImage: {
+    borderRadius: 12,
+  },
+  shopHeaderOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    borderRadius: 12,
+    backgroundColor: 'rgba(0, 0, 0, 0.30)',
+  },
+  shopHeaderInner: {
+    paddingHorizontal: 10,
+    paddingVertical: 12,
+  },
+  shopActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  galaxyBanner: {
+    position: 'relative',
+    backgroundColor: '#0D1B2A',
+    overflow: 'hidden',
+  },
+  star: {
+    position: 'absolute',
+    backgroundColor: 'rgba(255, 255, 255, 0.8)',
+    borderRadius: 999,
+  },
   shopNameRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
   shopName: {
-    fontSize: 22,
-    fontWeight: '800',
-    color: colors.textPrimary,
+    fontSize: 26,
+    fontWeight: '900',
+    color: '#FFFFFF',
     flexShrink: 1,
     marginRight: 10,
-  },
-  shopActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    textShadowColor: 'rgba(0, 0, 0, 0.5)',
+    textShadowOffset: { width: 1, height: 1 },
+    textShadowRadius: 3,
   },
   iconButton: {
     padding: 8,

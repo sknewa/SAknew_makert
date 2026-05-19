@@ -63,6 +63,8 @@ export interface Shop {
   out_of_stock_products?: number;
   available_products_count?: number;
   out_of_stock_products_count?: number;
+  banner_image?: string | null;
+  banner_image_url?: string | null;
 }
 
 export interface ProductImage {

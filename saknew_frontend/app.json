@@ -24,7 +24,26 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.saknew.market",
+      "buildNumber": "1.0.0",
+      "requireFullScreen": false,
+      "infoPlist": {
+        "NSCameraUsageDescription": "This app needs camera access to take product photos",
+        "NSLocationWhenInUseUsageDescription": "This app needs location access to show nearby products and shops",
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs location access to show nearby products and shops",
+        "NSPhotoLibraryUsageDescription": "This app needs photo library access to select product images",
+        "CFBundleDisplayName": "SAMakert",
+        "CFBundleName": "SAMakert",
+        "CFBundleShortVersionString": "1.0.0",
+        "CFBundleVersion": "1.0.0",
+        "UILaunchStoryboardName": "SplashScreen",
+        "UIRequiresFullScreen": false,
+        "UIViewControllerBasedStatusBarAppearance": true
+      },
+      "associatedDomains": [],
+      "entitlements": {},
+      "scheme": "samakert"
     },
     "android": {
       "adaptiveIcon": {

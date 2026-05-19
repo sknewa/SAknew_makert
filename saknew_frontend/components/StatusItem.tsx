@@ -96,7 +96,7 @@ const StatusItem: React.FC<StatusItemProps> = ({ userStatus, isMyStatus = false,
             ) : (
               <View style={styles.myStatusContent}>
                 <Ionicons name="add" size={24} color="#25D366" />
-                <Text style={styles.myStatusText}>My Status</Text>
+                <Text style={styles.myStatusText}>My Ads</Text>
               </View>
             )}
             <TouchableOpacity style={styles.addButton} onPress={onAddPress || onPress}>

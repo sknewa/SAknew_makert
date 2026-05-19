@@ -385,6 +385,7 @@ const EditShopScreen: React.FC = () => {
     name, description, country, province, town,
     phoneNumber, emailContact, socialLinks,
     derivedLatitude, derivedLongitude,
+    bannerUri,
     navigation, refreshUserProfile, shopSlug
   ]);
 
@@ -416,16 +417,16 @@ const EditShopScreen: React.FC = () => {
               disabled={overallLoading}
               activeOpacity={0.7}
             >
-              <Ionicons name="arrow-back-outline" size={28} color={colors.textPrimary} />
+              <Ionicons name="arrow-back-outline" size={24} color={colors.textPrimary} />
             </TouchableOpacity>
 
             {/* Header Section */}
             <View style={styles.header}>
-              <Ionicons name="storefront-outline" size={60} color={colors.primary} style={styles.headerIcon} />
-              <Text style={styles.title}>Edit Your Shop</Text>
-              <Text style={styles.subtitle}>
-                Update your shop details below.
-              </Text>
+              <Ionicons name="storefront-outline" size={24} color={colors.primary} style={styles.headerIcon} />
+              <View>
+                <Text style={styles.title}>Edit Your Shop</Text>
+                <Text style={styles.subtitle}>Update your shop details below</Text>
+              </View>
             </View>
 
             <View style={styles.formCard}>
@@ -705,218 +706,89 @@ const EditShopScreen: React.FC = () => {
 };
 
 const styles = StyleSheet.create({
+  // Banner
   bannerPicker: {
-    width: '100%',
-    height: 140,
-    borderRadius: 10,
-    overflow: 'hidden',
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
-    position: 'relative',
+    width: '100%', height: 130, borderRadius: 4, overflow: 'hidden',
+    marginBottom: 16, borderWidth: 1, borderColor: colors.border, position: 'relative',
   },
-  bannerPreview: {
-    width: '100%',
-    height: '100%',
-  },
+  bannerPreview: { width: '100%', height: '100%' },
   bannerPlaceholder: {
-    flex: 1,
-    backgroundColor: '#F0F2F5',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: 4,
+    flex: 1, backgroundColor: colors.surfaceAlt,
+    justifyContent: 'center', alignItems: 'center', gap: 4,
   },
-  bannerPlaceholderText: {
-    fontSize: 13,
-    color: '#888',
-    fontWeight: '600',
-  },
-  bannerPlaceholderSub: {
-    fontSize: 10,
-    color: '#aaa',
-  },
+  bannerPlaceholderText: { fontSize: 12, color: colors.textSecondary, fontWeight: '600' },
+  bannerPlaceholderSub: { fontSize: 10, color: colors.textMuted },
   bannerEditBadge: {
-    position: 'absolute',
-    bottom: 8,
-    right: 8,
-    backgroundColor: 'rgba(0,0,0,0.55)',
-    borderRadius: 14,
-    padding: 6,
+    position: 'absolute', bottom: 8, right: 8,
+    backgroundColor: 'rgba(0,0,0,0.55)', borderRadius: 14, padding: 6,
   },
-  safeArea: {
-    flex: 1,
-    backgroundColor: colors.backgroundLight,
-  },
-  keyboardAvoidingContainer: {
-    flex: 1,
-  },
-  scrollViewContent: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: 20,
-  },
-  container: {
-    width: '90%',
-    maxWidth: 500,
-    alignItems: 'center',
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  backButton: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 50 : 20,
-    left: 0,
-    zIndex: 10,
-    padding: 5,
-  },
-  header: {
-    marginBottom: 40,
-    alignItems: 'center',
-  },
-  headerIcon: {
-    marginBottom: 10,
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: colors.primary,
-    marginBottom: 10,
-    textAlign: 'center',
-  },
-  subtitle: {
-    fontSize: 16,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 30,
-    lineHeight: 22,
-  },
+
+  // Layout
+  safeArea: { flex: 1, backgroundColor: colors.background },
+  keyboardAvoidingContainer: { flex: 1 },
+  scrollViewContent: { flexGrow: 1, padding: 16, paddingBottom: 32 },
+  container: { flex: 1 },
+  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  subtitle: { fontSize: 12, color: colors.textSecondary, marginTop: 4 },
+
+  // Back button
+  backButton: { marginBottom: 12, padding: 4, alignSelf: 'flex-start' },
+
+  // Header
+  header: { flexDirection: 'row', alignItems: 'center', marginBottom: 16 },
+  headerIcon: { marginRight: 10 },
+  title: { fontSize: 18, fontWeight: '700', color: colors.textPrimary },
+
+  // Card
   formCard: {
-    backgroundColor: colors.card,
-    borderRadius: 15,
-    padding: 25,
-    width: '100%',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.1,
-    shadowRadius: 10,
-    elevation: 8,
+    backgroundColor: colors.card, borderRadius: 4,
+    padding: 16, marginBottom: 12,
+    borderWidth: 1, borderColor: colors.border,
   },
-  inputLabel: {
-    fontSize: 16,
-    color: colors.textPrimary,
-    marginBottom: 8,
-    fontWeight: '600',
-  },
-  requiredIndicator: {
-    color: colors.error,
-    fontWeight: 'bold',
-  },
+
+  // Inputs
+  inputLabel: { fontSize: 12, color: colors.textSecondary, marginBottom: 6, fontWeight: '600', textTransform: 'uppercase' },
+  requiredIndicator: { color: colors.error, fontWeight: 'bold' },
   inputContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.backgroundLight,
-    height: 55,
-    borderRadius: 10,
-    paddingHorizontal: 15,
-    marginBottom: 20,
-    borderWidth: 1,
-    borderColor: colors.border,
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: colors.surfaceAlt, height: 44,
+    borderRadius: 4, paddingHorizontal: 12, marginBottom: 14,
+    borderWidth: 1, borderColor: colors.border,
   },
-  inputFocused: {
-    borderColor: colors.focusedBorder,
-    backgroundColor: colors.backgroundDark,
-  },
-  inputIcon: {
-    marginRight: 10,
-  },
-  inputField: {
-    flex: 1,
-    fontSize: 16,
-    color: colors.textPrimary,
-  },
-  textAreaContainer: {
-    height: 100,
-    alignItems: 'flex-start',
-    paddingTop: 15,
-    paddingBottom: 15,
-  },
-  textAreaField: {
-    height: '100%',
-    textAlignVertical: 'top',
-  },
-  locationInfoText: {
-    fontSize: 14,
-    color: colors.textSecondary,
-    textAlign: 'center',
-    marginBottom: 15,
-  },
+  inputFocused: { borderColor: colors.primary },
+  inputIcon: { marginRight: 8 },
+  inputField: { flex: 1, fontSize: 14, color: colors.textPrimary },
+  textAreaContainer: { height: 88, alignItems: 'flex-start', paddingTop: 10, paddingBottom: 10 },
+  textAreaField: { height: '100%', textAlignVertical: 'top' },
+
+  // Location
+  locationInfoText: { fontSize: 12, color: colors.textSecondary, marginBottom: 12 },
   locationButtonsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    marginBottom: 20,
-    width: '100%',
-    flexWrap: 'wrap',
+    flexDirection: 'row', flexWrap: 'wrap',
+    gap: 8, marginBottom: 14,
   },
   locationButton: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 15,
-    borderRadius: 10,
-    flexShrink: 1,
-    minWidth: 150,
-    marginHorizontal: 5,
-    marginBottom: 10,
+    flex: 1, minWidth: 140, flexDirection: 'row', alignItems: 'center',
+    justifyContent: 'center', paddingVertical: 10, paddingHorizontal: 12,
+    borderRadius: 4, backgroundColor: colors.primary,
   },
-  clearLocationButton: {
-    backgroundColor: colors.backgroundDark,
-    borderColor: colors.border,
-    borderWidth: 1,
-  },
-  locationButtonText: {
-    color: '#fff',
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginLeft: 5,
-  },
-  buttonIcon: {
-    marginRight: 5,
-  },
+  clearLocationButton: { backgroundColor: colors.surfaceAlt, borderWidth: 1, borderColor: colors.border },
+  locationButtonText: { color: '#fff', fontSize: 13, fontWeight: '600', marginLeft: 4 },
+  buttonIcon: { marginRight: 4 },
+
+  // Section header
   sectionHeader: {
-    marginTop: 20,
-    marginBottom: 10,
-    fontSize: 20,
-    fontWeight: '700',
-    color: colors.primary,
-    textAlign: 'center',
-    width: '100%',
+    fontSize: 13, fontWeight: '700', color: colors.textPrimary,
+    marginTop: 8, marginBottom: 10, textTransform: 'uppercase',
   },
-  errorMessage: {
-    color: colors.error,
-    fontSize: 14,
-    textAlign: 'center',
-    marginTop: -10,
-    marginBottom: 15,
-  },
+
+  // Error & submit
+  errorMessage: { color: colors.error, fontSize: 12, marginBottom: 12 },
   updateShopButton: {
-    backgroundColor: colors.primary,
-    height: 55,
-    borderRadius: 10,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginTop: 10,
+    backgroundColor: colors.primary, height: 48,
+    borderRadius: 4, justifyContent: 'center', alignItems: 'center', marginTop: 8,
   },
-  updateShopButtonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
+  updateShopButtonText: { color: '#fff', fontSize: 15, fontWeight: '700' },
 });
 
 export default EditShopScreen;

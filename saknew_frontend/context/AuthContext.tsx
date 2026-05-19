@@ -2,6 +2,8 @@ import React, { createContext, useState, useContext, ReactNode, useEffect } from
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { API_BASE_URL } from '../config';
 import { safeLog, safeError } from '../utils/securityUtils';
+import { Alert } from 'react-native'; // Import Alert for user feedback
+import AuthService from '../services/authService'; // Import AuthService
 import { getGuestCart, clearGuestCart } from '../services/guestCartService';
 import apiClient from '../services/apiClient';
 
@@ -31,18 +33,6 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-const apiFetch = async (path: string, options: RequestInit = {}) => {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
-    ...options,
-    headers: { 'Content-Type': 'application/json', ...options.headers },
-  });
-  if (!response.ok) {
-    const err = await response.json().catch(() => ({}));
-    throw new Error(err.detail || `Request failed: ${response.status}`);
-  }
-  return response.json();
-};
-
 export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -50,11 +40,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
 
   const fetchProfile = async (accessToken: string): Promise<User> =>
     apiFetch('api/accounts/me/', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      headers: { Authorization: `Bearer ${accessToken}` }, // This apiFetch is still needed for profile fetching
     });
 
   useEffect(() => {
-    const checkAuthState = async () => {
+    const checkAuthState = async () => { // This checkAuthState uses the local apiFetch
       try {
         const accessToken = await AsyncStorage.getItem('access_token');
         if (accessToken) {
@@ -82,13 +72,11 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
   const login = async (email: string, password: string) => {
     setLoading(true);
     try {
-      const data = await apiFetch('api/accounts/login/', {
-        method: 'POST',
-        body: JSON.stringify({ email, password }),
-      });
-      const { access, refresh } = data;
-      await AsyncStorage.setItem('access_token', access);
-      await AsyncStorage.setItem('refresh_token', refresh);
+      // Use AuthService.login which leverages apiClient and its error handling
+      const loginResponse = await AuthService.login(email, password);
+      
+      const access = loginResponse.access;
+      // Refresh token is already stored by AuthService.login
       const profile = await fetchProfile(access);
       setUser(profile);
       setIsAuthenticated(true);
@@ -111,56 +99,53 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
         // Silent fail — cart merge is best-effort
       }
     } catch (error: any) {
-      const msg: string = error?.message || '';
-      // Map backend messages to user-friendly ones
-      if (
-        msg.includes('No active account') ||
-        msg.includes('no active account') ||
-        msg.includes('credentials') ||
-        msg.includes('401') ||
-        msg.includes('Invalid')
-      ) {
-        // Could be wrong password OR no account — backend returns same 401 for both
-        throw new Error('INVALID_CREDENTIALS');
-      } else if (
-        msg.includes('verify') ||
-        msg.includes('not active') ||
-        msg.includes('not verified') ||
-        msg.includes('email_verified')
-      ) {
-        throw new Error('EMAIL_NOT_VERIFIED');
-      } else if (
-        msg.includes('Network') ||
-        msg.includes('fetch') ||
-        msg.includes('Failed to fetch') ||
-        msg.includes('connect')
-      ) {
-        throw new Error('NETWORK_ERROR');
-      } else {
-        throw new Error(msg || 'LOGIN_FAILED');
-      }
+      safeError('Login failed in AuthContext:', error);
+      Alert.alert('Login Failed', error.message || 'An unexpected error occurred.');
+      // Re-throw the error so the calling component can also handle it if needed
+      throw error;
     } finally {
       setLoading(false);
     }
   };
 
+  // This apiFetch is still needed for profile fetching, but it should also use apiClient
+  const apiFetch = async (path: string, options: RequestInit = {}) => {
+    try {
+      const response = await apiClient.get(path, { headers: options.headers });
+      return response.data;
+    } catch (error: any) {
+      safeError(`apiFetch failed for ${path}:`, error);
+      throw new Error(error.response?.data?.detail || error.message || `Request failed for ${path}`);
+    }
+  };
+
   const logout = async () => {
-    await AsyncStorage.multiRemove(['access_token', 'refresh_token']);
-    setUser(null);
-    setIsAuthenticated(false);
+    try {
+      await AuthService.logout(); // Use AuthService.logout
+    } catch (error) {
+      safeError('Logout failed in AuthContext:', error);
+    } finally {
+      setUser(null);
+      setIsAuthenticated(false);
+    }
   };
 
   const handleUnauthorized = async (): Promise<boolean> => {
     const refreshToken = await AsyncStorage.getItem('refresh_token');
     if (!refreshToken) { await logout(); return false; }
     try {
-      const { access } = await apiFetch('api/auth/jwt/refresh/', {
-        method: 'POST',
-        body: JSON.stringify({ refresh: refreshToken }),
+      // Use apiClient directly for refresh token, as AuthService.refreshToken also uses it
+      const refreshResponse = await apiClient.post('api/auth/jwt/refresh/', {
+        refresh: refreshToken,
       });
-      await AsyncStorage.setItem('access_token', access);
-      return true;
-    } catch {
+      const access = refreshResponse.data?.access;
+      if (access) {
+        await AsyncStorage.setItem('access_token', access);
+        return true;
+      }
+      throw new Error('No new access token from refresh');
+    } catch (error) {
+      safeError('Token refresh failed in AuthContext:', error);
       await logout();
       return false;
     }
@@ -170,9 +155,10 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     const accessToken = await AsyncStorage.getItem('access_token');
     if (!accessToken) return;
     try {
-      const profile = await fetchProfile(accessToken);
+      const profile = await fetchProfile(accessToken); // This fetchProfile uses the local apiFetch
       setUser(profile);
-    } catch {
+    } catch (error) {
+      safeError('Failed to refresh user profile:', error);
       await handleUnauthorized();
     }
   };

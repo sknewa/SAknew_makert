@@ -3,7 +3,7 @@ import React from 'react';
 // Corrected import: Use NativeStackNavigationProp from native-stack
 import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { View, Text, TouchableOpacity, Image, StyleSheet, SafeAreaView, Platform, StatusBar } from 'react-native';
-import { useNavigation, RouteProp } from '@react-navigation/native'; // Import RouteProp
+import { useNavigation, RouteProp, useRoute } from '@react-navigation/native'; // Import RouteProp and useRoute
 import { useAuth } from '../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import apiClient from '../services/apiClient';
@@ -72,7 +72,13 @@ const ShopOwnerStack = createNativeStackNavigator<ShopOwnerStackParamList>();
 const ShopOwnerCustomHeader = () => {
   const { user, isAuthenticated } = useAuth();
   const navigation = useNavigation<ShopOwnerNavigationProp>();
+  const route = useRoute(); // Get current route
   const [pendingOrdersCount, setPendingOrdersCount] = React.useState(0);
+
+  // Helper function to check if a route is active
+  const isRouteActive = (routeName: string) => {
+    return route.name === routeName;
+  };
 
   React.useEffect(() => {
     const fetchPendingOrders = async () => {
@@ -138,8 +144,11 @@ const ShopOwnerCustomHeader = () => {
           activeOpacity={0.7}
         >
           <View style={styles.navLinkContent}>
-            <Ionicons name="storefront" size={18} color="#FFB81C" />
-            <Text style={[styles.navLinkText, { color: '#FFB81C', fontWeight: '800' }]}>MyShop</Text>
+            <Ionicons name="storefront" size={18} color={isRouteActive('MyShop') ? "#FFB81C" : colors.navLinkText} />
+            <Text style={[styles.navLinkText, { 
+              color: isRouteActive('MyShop') ? "#FFB81C" : colors.navLinkText, 
+              fontWeight: isRouteActive('MyShop') ? '800' : '600' 
+            }]}>MyShop</Text>
           </View>
         </TouchableOpacity>
 
@@ -152,8 +161,8 @@ const ShopOwnerCustomHeader = () => {
                 activeOpacity={0.7}
               >
                 <View style={styles.navLinkContent}>
-                    <Ionicons name="add-circle-outline" size={18} color={colors.navLinkText} />
-                  <Text style={styles.navLinkText}>Add</Text>
+                    <Ionicons name="add-circle-outline" size={18} color={isRouteActive('AddProduct') ? "#FFB81C" : colors.navLinkText} />
+                  <Text style={[styles.navLinkText, { color: isRouteActive('AddProduct') ? "#FFB81C" : colors.navLinkText }]}>Add</Text>
                 </View>
               </TouchableOpacity>
 
@@ -167,8 +176,8 @@ const ShopOwnerCustomHeader = () => {
                     activeOpacity={0.7}
                   >
                     <View style={styles.navLinkContent}>
-                      <Ionicons name="stats-chart-outline" size={18} color={colors.navLinkText} />
-                      <Text style={styles.navLinkText}>Stats</Text>
+                      <Ionicons name="stats-chart-outline" size={18} color={isRouteActive('ShopStatistics') ? "#FFB81C" : colors.navLinkText} />
+                      <Text style={[styles.navLinkText, { color: isRouteActive('ShopStatistics') ? "#FFB81C" : colors.navLinkText }]}>Stats</Text>
                     </View>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -178,14 +187,14 @@ const ShopOwnerCustomHeader = () => {
                   >
                     <View style={styles.navLinkContent}>
                       <View style={{ position: 'relative' }}>
-                        <Ionicons name="receipt-outline" size={18} color={colors.navLinkText} />
+                        <Ionicons name="receipt-outline" size={18} color={isRouteActive('SellerOrders') ? "#FFB81C" : colors.navLinkText} />
                         {pendingOrdersCount > 0 && (
                           <View style={styles.badge}>
                             <Text style={styles.badgeText}>{pendingOrdersCount}</Text>
                           </View>
                         )}
                       </View>
-                      <Text style={styles.navLinkText}>Orders</Text>
+                      <Text style={[styles.navLinkText, { color: isRouteActive('SellerOrders') ? "#FFB81C" : colors.navLinkText }]}>Orders</Text>
                     </View>
                   </TouchableOpacity>
                 </>

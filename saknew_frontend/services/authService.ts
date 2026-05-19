@@ -92,22 +92,43 @@ const AuthService = {
       secureLogger.log('Login successful, tokens stored');
       return normalizedResponse;
     } catch (error: any) {
-      // Handle 401 Unauthorized errors specifically
-      if (error.response && error.response.status === 401) {
-        secureLogger.error('Login failed - Invalid credentials');
-        
-        // Check the exact error format from the backend
-        if (error.response.data && typeof error.response.data === 'string') {
-          throw new Error(error.response.data);
-        } else if (error.response.data && error.response.data.detail) {
-          throw new Error(error.response.data.detail);
-        } else {
-          throw new Error('Invalid email or password. Please try again.');
-        }
-      }
-      
       secureLogger.error('Login failed', { status: error.response?.status });
-      throw error;
+
+      // Extract the most helpful error message from the backend response
+      let errorMessage = 'Login failed. Please check your credentials and try again.';
+      let errorType = 'UNKNOWN_ERROR';
+      
+      if (error.response && error.response.data) {
+        if (typeof error.response.data === 'string') {
+          errorMessage = error.response.data;
+        } else if (error.response.data.detail) {
+          errorMessage = error.response.data.detail;
+        }
+        
+        // Determine error type based on backend message
+        if (errorMessage.includes('No account found') || errorMessage.includes('register first')) {
+          errorType = 'ACCOUNT_NOT_FOUND';
+          console.log('Detected ACCOUNT_NOT_FOUND error:', errorMessage);
+        } else if (errorMessage.includes('Incorrect password') || errorMessage.includes('wrong password')) {
+          errorType = 'WRONG_PASSWORD';
+          console.log('Detected WRONG_PASSWORD error:', errorMessage);
+        } else if (errorMessage.includes('not verified') || errorMessage.includes('verify your email')) {
+          errorType = 'EMAIL_NOT_VERIFIED';
+          console.log('Detected EMAIL_NOT_VERIFIED error:', errorMessage);
+        } else {
+          console.log('Unknown error type for message:', errorMessage);
+        }
+      } else if (error.message) {
+        errorMessage = error.message;
+      }
+
+      const errorToThrow = new Error(errorMessage);
+      // Attach error type and full response for advanced UI handling
+      (errorToThrow as any).errorType = errorType;
+      if (error.response) {
+        (errorToThrow as any).response = error.response;
+      }
+      throw errorToThrow;
     }
   },
 

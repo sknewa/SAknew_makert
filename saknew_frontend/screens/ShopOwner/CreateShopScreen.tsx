@@ -26,7 +26,11 @@ import * as Location from 'expo-location';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
 
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
-  UIManager.setLayoutAnimationEnabledExperimental(true);
+  try {
+    UIManager.setLayoutAnimationEnabledExperimental(true);
+  } catch (error) {
+    console.warn('Failed to enable layout animation on Android:', error);
+  }
 }
 
 const colors = {

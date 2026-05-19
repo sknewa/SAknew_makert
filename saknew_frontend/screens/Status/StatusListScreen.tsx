@@ -77,7 +77,7 @@ const StatusListScreen: React.FC = () => {
         <TouchableOpacity onPress={() => navigation.goBack()}>
           <Ionicons name="arrow-back" size={24} color="#000" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>My Status Updates</Text>
+        <Text style={styles.headerTitle}>My Ads Updates</Text>
         <TouchableOpacity onPress={() => navigation.navigate('CreateStatus' as any)}>
           <Ionicons name="add" size={24} color="#25D366" />
         </TouchableOpacity>

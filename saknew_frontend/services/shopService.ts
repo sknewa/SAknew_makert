@@ -216,7 +216,7 @@ const ShopService = {
   async updateShopFormData(shopSlug: string, formData: FormData): Promise<Shop> {
     try {
       const response = await apiClient.patch<Shop>(`/api/shops/${shopSlug}/`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
+        headers: { 'Content-Type': undefined }, // let Axios set multipart boundary automatically
       });
       return response.data;
     } catch (error: any) {

@@ -17,11 +17,4 @@ export const DJOSER_FRONTEND_DOMAIN = extra.DJOSER_FRONTEND_DOMAIN || 'samakert.
 export const DEBUG = __DEV__;
 export const APP_ENV = DEBUG ? 'development' : 'production';
 
-// Log configuration in development
-if (DEBUG) {
-  console.log('App Environment:', APP_ENV);
-  console.log('SERVER_IP (from config.ts):', SERVER_IP);
-  console.log('SERVER_PORT (from config.ts):', SERVER_PORT);
-  console.log('API_BASE_URL (from config.ts):', API_BASE_URL);
-  console.log('IMAGE_BASE_URL (from config.ts):', IMAGE_BASE_URL);
-}
+// Avoid console logging here; logging is handled globally in `index.ts`.

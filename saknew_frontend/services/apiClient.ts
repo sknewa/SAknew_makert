@@ -93,7 +93,9 @@ apiClient.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Only attempt refresh if it's a 401 error and NOT a login request
+    const isLoginRequest = originalRequest.url?.includes('/api/accounts/login/');
+    if (error.response?.status === 401 && !originalRequest._retry && !isLoginRequest) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

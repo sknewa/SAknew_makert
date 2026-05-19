@@ -14,7 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requiresSize, getSizesForCategory, getSizeType } from '../utils/sizeUtils';
 
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - 8) / 3;
+// Match HomeScreen: 4 columns layout
+const PRODUCT_COLUMNS = 4;
+const productCardWidth = Math.floor((screenWidth - (PRODUCT_COLUMNS + 1) * 2) / PRODUCT_COLUMNS);
 
 interface ProductCardProps {
   product: Product;
@@ -190,7 +192,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
             style={styles.imageScroller}
             onScroll={(event) => {
               const contentOffsetX = event.nativeEvent.contentOffset.x;
-              const newIndex = Math.round(contentOffsetX / (productCardWidth - 10));
+              const newIndex = Math.round(contentOffsetX / productCardWidth);
               setCurrentImageIndex(newIndex);
             }}
             scrollEventThrottle={16}
@@ -310,6 +312,17 @@ const ProductCard: React.FC<ProductCardProps> = ({
       {isShopOwner && (
         <View style={styles.productDetails}>
           <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
+          <View style={styles.priceRow}>
+            <View style={styles.priceContainer}>
+              <Text style={styles.productPrice}>R{product.display_price}</Text>
+              {product.promotion && product.price !== product.display_price && (
+                <Text style={styles.originalPrice}>R{product.price}</Text>
+              )}
+            </View>
+            <Text style={[styles.stockText, product.stock === 0 && styles.outOfStockLabel]}>
+              {product.stock === 0 ? 'Out of stock' : `Stock: ${product.stock}`}
+            </Text>
+          </View>
           <View style={styles.ownerActions}>
             <TouchableOpacity
               style={styles.editButton}

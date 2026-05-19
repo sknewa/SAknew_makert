@@ -50,7 +50,7 @@ const StatusTabScreen: React.FC = () => {
   // Story bubble: avatar + username below, fits within avatar width
   const renderStoryBubble = (item: UserStatus, isMe = false) => {
     const hasUnviewed = item.unviewed_count > 0;
-    const label = isMe ? 'My status' : item.user.username;
+    const label = isMe ? 'My Ads' : item.user.username;
     return (
       <TouchableOpacity
         key={item.user.id}
@@ -95,7 +95,7 @@ const StatusTabScreen: React.FC = () => {
                   }
                   <View style={styles.addBtn}><Ionicons name="add" size={13} color="#fff" /></View>
                 </View>
-                <Text style={styles.storyName} numberOfLines={1} ellipsizeMode="tail">My status</Text>
+                <Text style={styles.storyName} numberOfLines={1} ellipsizeMode="tail">My Ads</Text>
               </TouchableOpacity>
             )
         )}

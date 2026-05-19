@@ -28,30 +28,21 @@ export const sanitizeForLog = (input: any): string => {
  * Secure console.log wrapper
  */
 export const secureLog = (...args: any[]) => {
-  const sanitizedArgs = args.map(arg => 
-    typeof arg === 'string' ? sanitizeForLog(arg) : arg
-  );
-  console.log(...sanitizedArgs);
+  // Logging disabled globally per request — no-op
 };
 
 /**
  * Secure console.error wrapper
  */
 export const secureError = (...args: any[]) => {
-  const sanitizedArgs = args.map(arg => 
-    typeof arg === 'string' ? sanitizeForLog(arg) : arg
-  );
-  console.error(...sanitizedArgs);
+  // Error logging disabled globally per request — no-op
 };
 
 /**
  * Secure console.warn wrapper
  */
 export const secureWarn = (...args: any[]) => {
-  const sanitizedArgs = args.map(arg => 
-    typeof arg === 'string' ? sanitizeForLog(arg) : arg
-  );
-  console.warn(...sanitizedArgs);
+  // Warning logging disabled globally per request — no-op
 };
 
 // Export as safeLog, safeError, safeWarn for backward compatibility
