@@ -311,7 +311,6 @@ const ProductManagementScreen = () => {
         {/* Reviews Section */}
         <View style={styles.reviewsCard}>
           <Text style={styles.sectionTitle}>Customer Reviews ({reviews.length})</Text>
-          <Text style={styles.debugText}>Debug: reviewsLoading={reviewsLoading.toString()}, reviews.length={reviews.length}</Text>
           {reviewsLoading ? (
             <View style={styles.reviewsLoading}>
               <ActivityIndicator size="small" color={colors.primary} />
@@ -319,7 +318,6 @@ const ProductManagementScreen = () => {
             </View>
           ) : reviews.length > 0 ? (
             <>
-              <Text style={styles.debugText}>✅ Rendering {reviews.length} reviews</Text>
               <View style={styles.reviewsSummary}>
                 <View style={styles.averageRating}>
                   <Text style={styles.ratingNumber}>
@@ -351,7 +349,6 @@ const ProductManagementScreen = () => {
             </>
           ) : (
             <View>
-              <Text style={styles.debugText}>❌ No reviews - Array: {JSON.stringify(reviews)}</Text>
               <Text style={styles.noReviewsText}>No reviews yet. Be the first to review this product!</Text>
             </View>
           )}
@@ -677,15 +674,6 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
     marginTop: 4,
     fontFamily: typography.fontFamily,
-  },
-  debugText: {
-    fontSize: typography.fontSizeS,
-    color: colors.dangerAction,
-    marginBottom: 8,
-    fontFamily: typography.fontFamily,
-    backgroundColor: '#FFF3CD',
-    padding: 4,
-    borderRadius: 4,
   },
   
   // Reviews Section

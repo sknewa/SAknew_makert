@@ -137,7 +137,7 @@ const MainTabNavigator = () => {
         headerShown: false,
       })}
     >
-      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'SAknew' }} />
+      <Tab.Screen name="HomeTab" component={HomeScreen} options={{ title: 'SAMakert' }} />
       <Tab.Screen 
         name="CartTab" 
         component={CartScreen} 
@@ -205,7 +205,7 @@ const MainTabNavigator = () => {
       <Tab.Screen 
         name="ShopTab" 
         component={ShopTabContent} 
-        options={{ title: 'Shop' }}
+        options={{ title: 'MyShop' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             if (!isAuthenticated) {

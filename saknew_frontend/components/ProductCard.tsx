@@ -14,8 +14,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { requiresSize, getSizesForCategory, getSizeType } from '../utils/sizeUtils';
 
 const screenWidth = Dimensions.get('window').width;
-// Match HomeScreen: 4 columns layout
-const PRODUCT_COLUMNS = 4;
+// Match HomeScreen: 3 columns layout for larger cards
+const PRODUCT_COLUMNS = 3;
 const productCardWidth = Math.floor((screenWidth - (PRODUCT_COLUMNS + 1) * 2) / PRODUCT_COLUMNS);
 
 interface ProductCardProps {
@@ -28,6 +28,8 @@ interface ProductCardProps {
   shopLatitude?: string | null;
   shopLongitude?: string | null;
   isInShop?: boolean;
+  cardWidth?: number;
+  compactBadge?: boolean;
 }
 
 const ProductCard: React.FC<ProductCardProps> = ({ 
@@ -40,6 +42,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   shopLatitude,
   shopLongitude,
   isInShop,
+  cardWidth,
+  compactBadge,
 }) => {
   const [imageError, setImageError] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -55,6 +59,8 @@ const ProductCard: React.FC<ProductCardProps> = ({
   const sizeType = getSizeType(product?.category_name);
   const SIZES = getSizesForCategory(product?.category_name);
   const isFashionProduct = requiresSize(product?.category_name);
+  const resolvedCardWidth = cardWidth ?? productCardWidth;
+  const resolvedCardHeight = resolvedCardWidth * 1.25;
   
   const showAlert = (title: string, message: string, onConfirm?: () => void) => {
     setAlertConfig({title, message, onConfirm});
@@ -179,20 +185,20 @@ const ProductCard: React.FC<ProductCardProps> = ({
   return (
     <>
       <TouchableOpacity
-        style={styles.productCard}
+        style={[styles.productCard, { width: resolvedCardWidth }]}
         onPress={handleCardPress}
         activeOpacity={0.7}
       >
-      <View style={styles.imageContainer}>
+      <View style={[styles.imageContainer, { height: resolvedCardHeight }]}> 
         {allImages.length > 1 ? (
           <ScrollView
             horizontal
             pagingEnabled
             showsHorizontalScrollIndicator={false}
-            style={styles.imageScroller}
+            style={[styles.imageScroller, { width: resolvedCardWidth }]}
             onScroll={(event) => {
               const contentOffsetX = event.nativeEvent.contentOffset.x;
-              const newIndex = Math.round(contentOffsetX / productCardWidth);
+              const newIndex = Math.round(contentOffsetX / resolvedCardWidth);
               setCurrentImageIndex(newIndex);
             }}
             scrollEventThrottle={16}
@@ -201,7 +207,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
                 <Image
                   key={`${product.id}-${img.id}-${index}`}
                   source={{ uri: img.uri }}
-                  style={styles.productImage}
+                  style={[styles.productImage, { width: resolvedCardWidth }]}
                   resizeMode="cover"
                   onError={() => {
                     setImageError(true);
@@ -212,7 +218,7 @@ const ProductCard: React.FC<ProductCardProps> = ({
         ) : allImages.length === 1 ? (
           <Image
             source={{ uri: allImages[0].uri }}
-            style={styles.productImage}
+            style={[styles.productImage, { width: resolvedCardWidth }]}
             resizeMode="cover"
             onError={() => {
               setImageError(true);
@@ -250,18 +256,24 @@ const ProductCard: React.FC<ProductCardProps> = ({
             <TouchableOpacity 
               onPress={(e) => {
                 e.stopPropagation();
-                const shopSlug = product.shop_name.toLowerCase().replace(/[''\ s]/g, '-').replace(/-+/g, '-');
-                navigation?.navigate('PublicShop', { shopSlug });
+                const candidateSlug = product.shop_name ? product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-') : null;
+                try {
+                  safeLog('ProductCard: navigating to PublicShop, product id:', product.id, 'candidateSlug:', candidateSlug);
+                } catch (err) {}
+                navigation?.navigate('PublicShop', { shopSlug: candidateSlug });
               }}
             >
-              <Text style={styles.shopNameTop} numberOfLines={1}>{product.shop_name}</Text>
+              <Text style={styles.shopNameTop} numberOfLines={1} ellipsizeMode="tail">{product.shop_name}</Text>
             </TouchableOpacity>
           </View>
         )}
         
         {product.promotion && (
-          <View style={styles.discountBadge}>
-            <Text style={styles.discountBadgeText}>
+          <View style={[
+            styles.discountBadge,
+            compactBadge && { paddingHorizontal: 4, paddingVertical: 2, borderRadius: 4, right: 6, top: '42%' }
+          ]}>
+            <Text style={[styles.discountBadgeText, compactBadge && { fontSize: 10 }]}>
               {product.promotion.discount_percentage}% OFF
             </Text>
           </View>
@@ -283,11 +295,15 @@ const ProductCard: React.FC<ProductCardProps> = ({
       </View>
       
       {!isShopOwner && (
-        <View style={styles.priceRow}>
-          <View style={styles.priceContainer}>
-            <Text style={styles.productPrice}>R{product.display_price}</Text>
-            {product.promotion && product.price !== product.display_price && (
-              <Text style={styles.originalPrice}>R{product.price}</Text>
+        <View style={[styles.priceRow, { width: resolvedCardWidth }]}>
+          <View style={[styles.priceContainer, product.promotion ? styles.promotionPriceContainer : undefined]}>
+            {product.promotion && product.price !== product.display_price ? (
+              <>
+                <Text style={styles.originalPrice}>R{product.price}</Text>
+                <Text style={styles.productPrice}>R{product.display_price}</Text>
+              </>
+            ) : (
+              <Text style={styles.productPrice}>R{product.display_price}</Text>
             )}
           </View>
           <TouchableOpacity
@@ -310,18 +326,22 @@ const ProductCard: React.FC<ProductCardProps> = ({
       )}
       
       {isShopOwner && (
-        <View style={styles.productDetails}>
+        <View style={[styles.productDetails, { width: resolvedCardWidth }]}>
           <Text style={styles.productName} numberOfLines={2}>{product.name}</Text>
-          <View style={styles.priceRow}>
-            <View style={styles.priceContainer}>
-              <Text style={styles.productPrice}>R{product.display_price}</Text>
-              {product.promotion && product.price !== product.display_price && (
+          <View style={[styles.priceRow, { width: resolvedCardWidth }]}>
+            <View style={[styles.priceContainer, product.promotion ? styles.promotionPriceContainer : undefined]}>
+            {product.promotion && product.price !== product.display_price ? (
+              <>
                 <Text style={styles.originalPrice}>R{product.price}</Text>
-              )}
-            </View>
-            <Text style={[styles.stockText, product.stock === 0 && styles.outOfStockLabel]}>
-              {product.stock === 0 ? 'Out of stock' : `Stock: ${product.stock}`}
-            </Text>
+                <Text style={styles.productPrice}>R{product.display_price}</Text>
+              </>
+            ) : (
+              <Text style={styles.productPrice}>R{product.display_price}</Text>
+            )}
+          </View>
+          <Text style={[styles.stockText, product.stock === 0 && styles.outOfStockLabel]}>
+            {product.stock === 0 ? 'Out of stock' : `Stock: ${product.stock}`}
+          </Text>
           </View>
           <View style={styles.ownerActions}>
             <TouchableOpacity
@@ -492,8 +512,10 @@ const styles = StyleSheet.create({
   imageContainer: {
     position: 'relative',
     width: '100%',
-    height: productCardWidth * 1.1,
+    height: productCardWidth * 1.25,
     backgroundColor: '#F8F8F8',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
   },
   imageScroller: {
     width: '100%',
@@ -551,22 +573,27 @@ const styles = StyleSheet.create({
   },
   discountBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
+    top: '38%',
+    right: 6,
+    backgroundColor: 'rgba(0, 0, 0, 0.65)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    zIndex: 2,
   },
   discountBadgeText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#FFFFFF',
     fontWeight: '700',
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
-    paddingHorizontal: 3,
-    paddingVertical: 1,
   },
   shopNameBadge: {
     position: 'absolute',
     top: 4,
-    left: '50%',
-    transform: [{ translateX: -50 }],
+    left: 0,
+    right: 0,
+    paddingHorizontal: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   shopNameTop: {
     fontSize: 11,
@@ -579,6 +606,7 @@ const styles = StyleSheet.create({
     paddingVertical: 1,
     borderRadius: 4,
     overflow: 'hidden',
+    maxWidth: productCardWidth * 0.85,
   },
   bottomInfo: {
     position: 'absolute',
@@ -594,19 +622,21 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingVertical: 6,
     backgroundColor: '#fff',
+    width: productCardWidth,
   },
   productDetails: {
-    padding: 4,
+    padding: 8,
     backgroundColor: '#fff',
+    width: productCardWidth,
   },
   productName: {
-    fontSize: 12.5,
-    fontWeight: '400',
-    color: '#222',
-    marginBottom: 4,
-    lineHeight: 16.5,
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#121212',
+    marginBottom: 6,
+    lineHeight: 18,
   },
 
   distanceBadge: {
@@ -642,16 +672,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 4,
   },
+  promotionPriceContainer: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+  },
   productPrice: {
     fontSize: 15,
     fontWeight: '800',
     color: '#111111',
   },
   originalPrice: {
-    fontSize: 10.5,
-    color: '#FF0000',
+    fontSize: 11,
+    color: '#6B7280',
     textDecorationLine: 'line-through',
-    fontWeight: '700',
+    fontWeight: '600',
+    marginBottom: 2,
+  },
+  stockText: {
+    fontSize: 11,
+    color: '#4B5563',
+    fontWeight: '600',
+    textAlign: 'right',
+    flexShrink: 1,
   },
   ownerActions: {
     flexDirection: 'row',

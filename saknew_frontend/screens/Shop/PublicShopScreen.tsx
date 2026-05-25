@@ -152,13 +152,23 @@ const PublicShopScreen = () => {
       
       const enrichedProducts = await Promise.all(productList.map(async (product) => {
         try {
-          const shopData = await shopService.getShopBySlug(product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-'));
+          // Prefer explicit slug fields when available
+          const candidateSlug = (product as any).shop_slug || (product as any).shop?.slug ||
+            (product.shop_name ? product.shop_name.toLowerCase().replace(/[''\s]/g, '-').replace(/-+/g, '-') : null);
+          if (!candidateSlug) return product;
+          safeLog('PublicShopScreen: resolving shop for product id:', product.id, 'candidateSlug:', candidateSlug);
+          const shopData = await shopService.getShopBySlug(candidateSlug);
+          if (!shopData) {
+            safeLog('PublicShopScreen: getShopBySlug returned null for candidateSlug:', candidateSlug, 'product id:', product.id);
+          }
           return {
             ...product,
             shop_latitude: shopData?.latitude,
-            shop_longitude: shopData?.longitude
+            shop_longitude: shopData?.longitude,
+            shop_slug: candidateSlug,
           };
-        } catch {
+        } catch (err) {
+          // If getShopBySlug returned null (404) or failed, just return original product
           return product;
         }
       }));

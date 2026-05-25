@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import ProductCard from '../../components/ProductCard';
 import {
   View,
@@ -12,7 +12,8 @@ import {
   Image,
   StatusBar,
   RefreshControl,
-  Dimensions
+  Dimensions,
+  Animated,
 } from 'react-native';
 import { globalStyles, colors, spacing, radius, shadow } from '../../styles/globalStyles';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
@@ -41,6 +42,7 @@ const screenWidth = Dimensions.get('window').width;
 // Reduce product card size to fit more cards per row (4 columns)
 const PRODUCT_COLUMNS = 4;
 const productCardWidth = Math.floor((screenWidth - (PRODUCT_COLUMNS + 1) * 2) / PRODUCT_COLUMNS);
+const trendingCardWidth = Math.floor(productCardWidth * 0.9);
 
 const convertServiceProduct = (p: ServiceProduct): AppProduct => {
   return {
@@ -85,6 +87,12 @@ const HomeScreen = () => {
   const [showKmDropdown, setShowKmDropdown] = useState(false);
   const [priceFilter, setPriceFilter] = useState<'low' | 'high' | null>(null);
   const [showSearchInput, setShowSearchInput] = useState(false);
+
+  // Animated header scroll state
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+  const lastScrollY = useRef(0);
+  const scrollDirection = useRef<'up' | 'down'>('up');
+  const [headerHeight, setHeaderHeight] = useState<number>(0);
 
   const handleStatusPress = (userStatus: any) => {
     navigation.navigate('StatusViewer', { userStatus });
@@ -139,7 +147,25 @@ const HomeScreen = () => {
     } else if (priceFilter === 'high') {
       filtered = filtered.filter(product => parseFloat(product.display_price || product.price) >= 1500);
     }
-    
+    // If we have the user's location, sort remaining products from closest -> farthest
+    if (userLocation) {
+      try {
+        const withDistance = filtered.map(p => {
+          const shopLat = (p as any).shop_latitude;
+          const shopLon = (p as any).shop_longitude;
+          const dist = (shopLat && shopLon)
+            ? calculateDistance(userLocation.latitude, userLocation.longitude, parseFloat(shopLat), parseFloat(shopLon))
+            : Infinity;
+          return { __distance: dist, product: p } as any;
+        });
+
+        withDistance.sort((a: any, b: any) => a.__distance - b.__distance);
+        return withDistance.map((x: any) => x.product) as AppProduct[];
+      } catch (err) {
+        return filtered;
+      }
+    }
+
     return filtered;
   }, [products, distanceFilter, priceFilter, userLocation]);
 
@@ -505,12 +531,50 @@ const HomeScreen = () => {
     fetchProducts(categorySlug === 'all' ? undefined : categorySlug);
   }, [fetchProducts]);
 
+  // Handle scroll animation for header hide/show
+  const handleScroll = useCallback((event: any) => {
+    const currentScrollY = event.nativeEvent.contentOffset.y;
+    const SCROLL_THRESHOLD = 50; // Minimum scroll distance to trigger animation
+
+    if (currentScrollY - lastScrollY.current > SCROLL_THRESHOLD) {
+      // Scrolling down - hide header
+      if (scrollDirection.current !== 'down') {
+        scrollDirection.current = 'down';
+        Animated.timing(headerTranslateY, {
+          toValue: -(headerHeight || 200), // use measured header height
+          duration: 250,
+          useNativeDriver: false,
+        }).start();
+      }
+    } else if (lastScrollY.current - currentScrollY > SCROLL_THRESHOLD) {
+      // Scrolling up - show header
+      if (scrollDirection.current !== 'up') {
+        scrollDirection.current = 'up';
+        Animated.timing(headerTranslateY, {
+          toValue: 0,
+          duration: 250,
+          useNativeDriver: false,
+        }).start();
+      }
+    }
+
+    lastScrollY.current = currentScrollY;
+  }, [headerTranslateY, headerHeight]);
+
   return (
     <SafeAreaView style={globalStyles.safeContainer}>
       <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       
-      {/* Header */}
-      <View style={styles.header}>
+      {/* Animated Header Container */}
+      <Animated.View
+        onLayout={(e) => setHeaderHeight(e.nativeEvent.layout.height)}
+        style={[
+          { transform: [{ translateY: headerTranslateY }], position: 'absolute', top: 0, left: 0, right: 0 },
+          { zIndex: 100 }
+        ]}
+      >
+        {/* Header */}
+        <View style={styles.header}>
         <View style={styles.headerBrand}>
           <Image source={require('../../img/weblog.jpg')} style={styles.headerLogo} />
           <Text style={styles.headerTitle}>SAMakert</Text>
@@ -710,6 +774,7 @@ const HomeScreen = () => {
           />
         </View>
       )}
+      </Animated.View>
 
       {/* Main Content */}
       {productsLoading && !refreshing ? (
@@ -739,7 +804,10 @@ const HomeScreen = () => {
               />
             )}
             style={styles.productsContainer}
+            contentContainerStyle={{ paddingTop: headerHeight || 120 }}
             showsVerticalScrollIndicator={false}
+            onScroll={handleScroll}
+            scrollEventThrottle={16}
             refreshControl={
               <RefreshControl
                 refreshing={refreshing}
@@ -889,8 +957,8 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
               horizontal
               showsHorizontalScrollIndicator={false}
               renderItem={({ item }) => (
-                <View style={styles.horizontalProductCard}>
-                  <View style={styles.trendingProductCardContainer}>
+                <View style={[styles.horizontalProductCard, { width: trendingCardWidth }]}> 
+                  <View style={[styles.trendingProductCardContainer, { width: trendingCardWidth, height: trendingCardWidth * 1.25 }]}> 
                     <ProductCard
                       product={item}
                       isShopOwner={false}
@@ -898,6 +966,8 @@ const CategorySection: React.FC<CategorySectionProps> = React.memo(({
                       shopLatitude={(item as any).shop_latitude}
                       shopLongitude={(item as any).shop_longitude}
                       onCartUpdated={onCartUpdated}
+                      cardWidth={trendingCardWidth}
+                      compactBadge={true}
                     />
                   </View>
                 </View>
@@ -1386,8 +1456,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   trendingProductCardContainer: {
-    // Crop to image height so the price row is not visible
-    height: productCardWidth * 1.12,
+    height: productCardWidth * 1.25,
     width: productCardWidth,
     overflow: 'hidden',
   },

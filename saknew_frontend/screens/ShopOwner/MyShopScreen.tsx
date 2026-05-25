@@ -15,6 +15,7 @@ import {
   TextInput,
   Modal,
   ImageBackground,
+  FlatList,
 } from 'react-native';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAuth } from '../../context/AuthContext';
@@ -63,7 +64,6 @@ const STARS = Array.from({ length: 60 }, (_, i) => ({
 }));
 
 const screenWidth = Dimensions.get('window').width;
-const productCardWidth = (screenWidth - (20 * 2) - (10 * 2)) / 2;
 
 // Removed StatusCards component and related formatStatusTime function
 
@@ -688,35 +688,33 @@ const MyShopScreen: React.FC = () => {
                         {outOfStockCount > 0 && <Text style={styles.outOfStockText}> ({outOfStockCount})</Text>}
                       </Text>
                     </TouchableOpacity>
-                    <View style={styles.carouselWrapper}>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.productCarousel}
-                        scrollEventThrottle={16}
-                      >
-                        {group.products.map(product => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            isShopOwner={isShopOwner}
-                            navigation={navigation.getParent()}
-                            onPress={() => {
-                              if (isShopOwner) {
-                                navigation.getParent()?.navigate('ProductManagement', { productId: product.id });
-                              } else {
-                                navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
-                              }
-                            }}
-                               onProductDeleted={() => {
-                                 fetchShopData();
-                               }}
-                            shopLatitude={shop.latitude}
-                            shopLongitude={shop.longitude}
-                          />
-                        ))}
-                      </ScrollView>
-                    </View>
+                    <FlatList
+                      data={group.products}
+                      renderItem={({ item }) => (
+                        <ProductCard
+                          product={item}
+                          isShopOwner={isShopOwner}
+                          navigation={navigation.getParent()}
+                          onPress={() => {
+                            if (isShopOwner) {
+                              navigation.getParent()?.navigate('ProductManagement', { productId: item.id });
+                            } else {
+                              navigation.getParent()?.navigate('ProductDetail', { productId: item.id });
+                            }
+                          }}
+                          onProductDeleted={() => {
+                            fetchShopData();
+                          }}
+                          shopLatitude={shop.latitude}
+                          shopLongitude={shop.longitude}
+                        />
+                      )}
+                      keyExtractor={(item) => item.id.toString()}
+                      numColumns={3}
+                      scrollEnabled={false}
+                      contentContainerStyle={styles.productCarousel}
+                      columnWrapperStyle={styles.columnWrapper}
+                    />
                   </View>
                   );
                 })}
@@ -735,36 +733,33 @@ const MyShopScreen: React.FC = () => {
                         {outOfStockCount > 0 && <Text style={styles.outOfStockText}> ({outOfStockCount})</Text>}
                       </Text>
                     </TouchableOpacity>
-                    <View style={styles.carouselWrapper}>
-                      <ScrollView
-                        horizontal
-                        showsHorizontalScrollIndicator={false}
-                        contentContainerStyle={styles.productCarousel}
-                        scrollEventThrottle={16}
-                      >
-                        {filteredUngroupedProducts.map(product => (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            isShopOwner={isShopOwner}
-                            navigation={navigation.getParent()}
-                            onPress={() => {
-                              if (isShopOwner) {
-                                navigation.getParent()?.navigate('ProductManagement', { productId: product.id });
-                              } else {
-                                navigation.getParent()?.navigate('ProductDetail', { productId: product.id });
-                              }
-                            }}
-                            onProductDeleted={() => {
-
-                              fetchShopData();
-                            }}
-                            shopLatitude={shop.latitude}
-                            shopLongitude={shop.longitude}
-                          />
-                        ))}
-                      </ScrollView>
-                    </View>
+                    <FlatList
+                      data={filteredUngroupedProducts}
+                      renderItem={({ item }) => (
+                        <ProductCard
+                          product={item}
+                          isShopOwner={isShopOwner}
+                          navigation={navigation.getParent()}
+                          onPress={() => {
+                            if (isShopOwner) {
+                              navigation.getParent()?.navigate('ProductManagement', { productId: item.id });
+                            } else {
+                              navigation.getParent()?.navigate('ProductDetail', { productId: item.id });
+                            }
+                          }}
+                          onProductDeleted={() => {
+                            fetchShopData();
+                          }}
+                          shopLatitude={shop.latitude}
+                          shopLongitude={shop.longitude}
+                        />
+                      )}
+                      keyExtractor={(item) => item.id.toString()}
+                      numColumns={3}
+                      scrollEnabled={false}
+                      contentContainerStyle={styles.productCarousel}
+                      columnWrapperStyle={styles.columnWrapper}
+                    />
                   </View>
                   );
                 })()}
@@ -1091,8 +1086,12 @@ const styles = StyleSheet.create({
     marginHorizontal: -10, // Pull scrollview content to edges
   },
   productCarousel: {
-    paddingHorizontal: 10,
     paddingBottom: 10,
+    marginHorizontal: -10,
+  },
+  columnWrapper: {
+    justifyContent: 'space-between',
+    marginBottom: 8,
   },
   emptyStateContainer: {
     alignItems: 'center',

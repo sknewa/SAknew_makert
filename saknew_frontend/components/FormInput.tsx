@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  TextInput, 
-  Text, 
-  StyleSheet, 
-  TextInputProps, 
-  TouchableOpacity 
+import {
+  View,
+  TextInput,
+  Text,
+  StyleSheet,
+  TextInputProps,
+  TouchableOpacity,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { globalStyles, colors, spacing, radius } from '../styles/globalStyles';
 
 interface FormInputProps extends TextInputProps {
   label: string;
@@ -50,50 +51,50 @@ const FormInput: React.FC<FormInputProps> = ({
 
   return (
     <View style={[styles.container, containerStyle]}>
-      <Text style={styles.label}>{label}</Text>
+      <Text style={[styles.label, globalStyles.inputLabel]}>{label}</Text>
       <View style={[
         styles.inputContainer,
         isFocused && styles.inputFocused,
-        showError && styles.inputError
+        showError && styles.inputError,
       ]}>
         {leftIcon && (
-          <Ionicons 
-            name={leftIcon as any} 
-            size={20} 
-            color={showError ? '#DC3545' : isFocused ? '#28A745' : '#6C757D'} 
-            style={styles.leftIcon} 
+          <Ionicons
+            name={leftIcon as any}
+            size={20}
+            color={showError ? colors.error : isFocused ? colors.primary : colors.textMuted}
+            style={styles.leftIcon}
           />
         )}
-        
+
         <TextInput
-          style={styles.input}
+          style={[globalStyles.input, styles.input]}
           onFocus={handleFocus}
           onBlur={handleBlur}
-          placeholderTextColor="#ADB5BD"
+          placeholderTextColor={colors.textMuted}
           secureTextEntry={secureTextEntry && !isPasswordVisible}
           {...rest}
         />
         
         {secureTextEntry && (
           <TouchableOpacity onPress={togglePasswordVisibility} style={styles.rightIcon}>
-            <Ionicons 
-              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} 
-              size={20} 
-              color="#6C757D" 
+            <Ionicons
+              name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'}
+              size={20}
+              color={colors.textMuted}
             />
           </TouchableOpacity>
         )}
-        
+
         {rightIcon && !secureTextEntry && (
-          <TouchableOpacity 
-            onPress={onRightIconPress} 
+          <TouchableOpacity
+            onPress={onRightIconPress}
             style={styles.rightIcon}
             disabled={!onRightIconPress}
           >
-            <Ionicons 
-              name={rightIcon as any} 
-              size={20} 
-              color={showError ? '#DC3545' : isFocused ? '#28A745' : '#6C757D'} 
+            <Ionicons
+              name={rightIcon as any}
+              size={20}
+              color={showError ? colors.error : isFocused ? colors.primary : colors.textMuted}
             />
           </TouchableOpacity>
         )}
@@ -108,52 +109,44 @@ const FormInput: React.FC<FormInputProps> = ({
 
 const styles = StyleSheet.create({
   container: {
-    marginBottom: 16,
+    marginBottom: spacing.md,
   },
   label: {
-    fontSize: 14,
-    fontWeight: '500',
     marginBottom: 6,
-    color: '#212529',
+    marginTop: 2,
   },
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'center',
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: '#CED4DA',
-    borderRadius: 8,
-    backgroundColor: '#FFFFFF',
+    borderColor: colors.border,
+    borderRadius: radius.md,
   },
   inputFocused: {
-    borderColor: '#28A745',
-    shadowColor: '#28A745',
-    shadowOffset: { width: 0, height: 0 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-    elevation: 1,
+    borderColor: colors.primary,
+    backgroundColor: colors.surfaceAlt,
   },
   inputError: {
-    borderColor: '#DC3545',
+    borderColor: colors.error,
+    backgroundColor: colors.errorLight,
   },
   input: {
     flex: 1,
-    height: 44,
+    paddingVertical: 12,
     paddingHorizontal: 12,
-    color: '#212529',
-    fontSize: 14,
   },
   leftIcon: {
-    marginLeft: 12,
+    marginLeft: 14,
   },
   rightIcon: {
-    padding: 8,
+    padding: 10,
     marginRight: 4,
   },
   errorText: {
-    color: '#DC3545',
+    color: colors.error,
     fontSize: 12,
     marginTop: 4,
-    marginLeft: 4,
   },
 });
 

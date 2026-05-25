@@ -3,7 +3,6 @@ import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   Text,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -23,6 +22,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { AuthNavigationProp } from '../../navigation/types';
 import { globalStyles, colors, spacing, radius } from '../../styles/globalStyles';
 import { safeLog, safeError, safeWarn } from '../../utils/securityUtils';
+import FormInput from '../../components/FormInput';
+import PrimaryButton from '../../components/ui/PrimaryButton';
 
 
 const LoginScreen: React.FC = () => {
@@ -35,7 +36,6 @@ const LoginScreen: React.FC = () => {
   const [password, setPassword] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [showPassword, setShowPassword] = useState<boolean>(false);
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [emailFocused, setEmailFocused] = useState(false);
@@ -165,8 +165,8 @@ const LoginScreen: React.FC = () => {
   };
 
   return (
-    <SafeAreaView style={s.safe}>
-      <StatusBar barStyle="dark-content" backgroundColor="#F4F6FB" />
+    <SafeAreaView style={globalStyles.safeContainer}>
+      <StatusBar barStyle="dark-content" backgroundColor={colors.background} />
       {/* SA flag colour bar */}
       <View style={s.flagBar}>
         {['#007A4D','#FFB81C','#DE3831','#002395','#000000','#FFFFFF'].map((c, i) => (
@@ -185,79 +185,61 @@ const LoginScreen: React.FC = () => {
           </View>
 
           {/* Card */}
-          <View style={s.card}>
-            <Text style={s.cardTitle}>Welcome back 👋</Text>
-            <Text style={s.cardSub}>Sign in to continue shopping</Text>
+          <View style={[globalStyles.card, s.card]}>
+            <Text style={[s.cardTitle, globalStyles.h2]}>Welcome back 👋</Text>
+            <Text style={[s.cardSub, globalStyles.bodySmall]}>Sign in to continue shopping</Text>
 
             {error && (
-              <View style={[s.errorBox, { borderWidth: 2, borderColor: '#DC2626', backgroundColor: '#FEF2F2', marginBottom: 16, padding: 12 }]}>
-                <Ionicons name="alert-circle" size={20} color="#DC2626" style={{ marginRight: 8 }} />
-                <Text style={[s.errorText, { fontSize: 14, fontWeight: '600', color: '#DC2626', flex: 1 }]}>{error}</Text>
+              <View style={[s.errorBox, { borderWidth: 2, borderColor: colors.error, backgroundColor: colors.errorLight, marginBottom: spacing.md, padding: spacing.md }]}> 
+                <Ionicons name="alert-circle" size={20} color={colors.error} style={{ marginRight: 8 }} />
+                <Text style={[s.errorText, { fontSize: 14, fontWeight: '600', color: colors.error, flex: 1 }]}>{error}</Text>
               </View>
             )}
 
-            <Text style={s.label}>Email address</Text>
-            <View style={[s.inputWrap, emailFocused && s.inputWrapFocused, emailError && s.inputWrapError]}>
-              <Ionicons name="mail-outline" size={18} color={emailError ? '#EF4444' : emailFocused ? '#FFB81C' : '#94A3B8'} style={s.inputIcon} />
-              <TextInput
-                style={s.input}
-                placeholder="you@example.com"
-                placeholderTextColor="#94A3B8"
-                value={email}
-                onChangeText={(t) => { setEmail(t); setEmailError(null); setError(null); }}
-                onFocus={() => setEmailFocused(true)}
-                onBlur={() => setEmailFocused(false)}
-                autoCapitalize="none"
-                keyboardType="email-address"
-                textContentType="emailAddress"
-                editable={!loading}
-              />
-            </View>
-            {emailError && (
-              <View style={s.fieldErrorRow}>
-                <Ionicons name="alert-circle" size={13} color="#EF4444" />
-                <Text style={s.fieldErrorText}>{emailError}</Text>
-              </View>
-            )}
+            <FormInput
+              label="Email address"
+              leftIcon="mail-outline"
+              placeholder="you@example.com"
+              value={email}
+              onChangeText={(t) => { setEmail(t); setEmailError(null); setError(null); }}
+              onFocus={() => setEmailFocused(true)}
+              onBlur={() => setEmailFocused(false)}
+              error={emailError}
+              touched={!!emailError}
+              autoCapitalize="none"
+              keyboardType="email-address"
+              textContentType="emailAddress"
+              editable={!loading}
+            />
 
-            <Text style={s.label}>Password</Text>
-            <View style={[s.inputWrap, passwordFocused && s.inputWrapFocused, passwordError && s.inputWrapError]}>
-              <Ionicons name="lock-closed-outline" size={18} color={passwordError ? '#EF4444' : passwordFocused ? '#FFB81C' : '#94A3B8'} style={s.inputIcon} />
-              <TextInput
-                style={s.input}
-                placeholder="Your password"
-                placeholderTextColor="#94A3B8"
-                value={password}
-                onChangeText={(t) => { setPassword(t); setPasswordError(null); setError(null); }}
-                onFocus={() => setPasswordFocused(true)}
-                onBlur={() => setPasswordFocused(false)}
-                secureTextEntry={!showPassword}
-                autoCapitalize="none"
-                textContentType="password"
-                editable={!loading}
-              />
-              <TouchableOpacity onPress={() => setShowPassword(!showPassword)} style={s.eyeBtn}>
-                <Ionicons name={showPassword ? 'eye-off-outline' : 'eye-outline'} size={18} color="#94A3B8" />
-              </TouchableOpacity>
-            </View>
-            {passwordError && (
-              <View style={s.fieldErrorRow}>
-                <Ionicons name="alert-circle" size={13} color="#EF4444" />
-                <Text style={s.fieldErrorText}>{passwordError}</Text>
-              </View>
-            )}
+            <FormInput
+              label="Password"
+              leftIcon="lock-closed-outline"
+              placeholder="Your password"
+              value={password}
+              onChangeText={(t) => { setPassword(t); setPasswordError(null); setError(null); }}
+              onFocus={() => setPasswordFocused(true)}
+              onBlur={() => setPasswordFocused(false)}
+              error={passwordError}
+              touched={!!passwordError}
+              secureTextEntry
+              autoCapitalize="none"
+              textContentType="password"
+              editable={!loading}
+            />
 
             <TouchableOpacity onPress={() => navigation.navigate('PasswordResetRequest')} style={s.forgotWrap}>
               <Text style={s.forgotText}>Forgot password?</Text>
             </TouchableOpacity>
-            <View style={{ height: 8 }} />
+            <View style={{ height: spacing.sm }} />
 
-            <TouchableOpacity style={[s.btn, loading && s.btnDisabled]} onPress={handleLogin} disabled={loading} activeOpacity={0.85}>
-              {loading
-                ? <ActivityIndicator color="#fff" />
-                : <Text style={s.btnText}>Sign In</Text>
-              }
-            </TouchableOpacity>
+            <PrimaryButton
+              title="Sign In"
+              onPress={handleLogin}
+              loading={loading}
+              disabled={loading}
+              style={s.loginButton}
+            />
           </View>
 
           <View style={s.footer}>
@@ -369,6 +351,7 @@ const s = StyleSheet.create({
 
   forgotWrap: { alignSelf: 'flex-end', marginBottom: 12, marginTop: 4 },
   forgotText: { fontSize: 13, color: '#002395', fontWeight: '600' },
+  loginButton: { marginTop: spacing.sm },
 
   btn: {
     backgroundColor: '#007A4D', borderRadius: 14, height: 52,

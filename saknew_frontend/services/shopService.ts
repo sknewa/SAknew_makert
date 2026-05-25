@@ -66,7 +66,13 @@ const ShopService = {
       const response = await publicApiClient.get<Shop>(`/api/shops/${sanitizedSlug}/`);
       return response.data;
     } catch (error: any) {
-      console.error('Error fetching shop', error.response?.status);
+      const status = error.response?.status;
+      console.error('Error fetching shop', status);
+      // If shop not found, return null so callers can handle gracefully
+      if (status === 404) {
+        safeLog(`Shop not found for slug: ${slug}`);
+        return null as any;
+      }
       throw error;
     }
   },
@@ -215,9 +221,15 @@ const ShopService = {
 
   async updateShopFormData(shopSlug: string, formData: FormData): Promise<Shop> {
     try {
-      const response = await apiClient.patch<Shop>(`/api/shops/${shopSlug}/`, formData, {
-        headers: { 'Content-Type': undefined }, // let Axios set multipart boundary automatically
-      });
+      // Ensure we don't force a Content-Type here so the browser/node sets the
+      // correct multipart boundary. Axios instance has a default
+      // 'Content-Type': 'application/json' which would break FormData uploads.
+      const config: any = { headers: { ...apiClient.defaults.headers.common } };
+      // Remove Content-Type if present so the runtime (browser or RN) can set it
+      if (config.headers && config.headers['Content-Type']) {
+        delete config.headers['Content-Type'];
+      }
+      const response = await apiClient.patch<Shop>(`/api/shops/${shopSlug}/`, formData, config);
       return response.data;
     } catch (error: any) {
       console.error(`ShopService: Failed to update shop (formdata) ${shopSlug}:`, error.response?.data || error.message);

@@ -1,14 +1,9 @@
 import { registerRootComponent } from 'expo';
 
-// Silence console output in development to remove logs
+// Keep console output enabled so logs and errors are visible during development.
+// This is important for debugging backend/API status and email flows.
 if (typeof __DEV__ !== 'undefined' && __DEV__) {
-	const _noop = () => {};
-	// Replace common console methods with no-ops
-	console.log = _noop as any;
-	console.warn = _noop as any;
-	console.error = _noop as any;
-	console.debug = _noop as any;
-	console.info = _noop as any;
+  console.log('App starting in development mode. Console logging is enabled.');
 }
 
 import App from './App';

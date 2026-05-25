@@ -277,6 +277,31 @@ const EditShopScreen: React.FC = () => {
     setError(null);
   }, []);
 
+  const buildShopFormData = useCallback(async (data: Record<string, any>, bannerUri: string) => {
+    const formData = new FormData();
+
+    Object.entries(data).forEach(([key, value]) => {
+      if (value !== undefined) {
+        formData.append(key, typeof value === 'object' ? JSON.stringify(value) : String(value));
+      }
+    });
+
+    const filename = bannerUri.split('/').pop() || 'banner.jpg';
+    const extension = filename.split('.').pop()?.toLowerCase();
+    const mimeType = extension === 'png' ? 'image/png' : extension === 'gif' ? 'image/gif' : 'image/jpeg';
+
+    if (Platform.OS === 'web') {
+      const response = await fetch(bannerUri);
+      const blob = await response.blob();
+      const file = new File([blob], filename, { type: blob.type || mimeType });
+      formData.append('banner_image', file as any);
+    } else {
+      formData.append('banner_image', { uri: bannerUri, name: filename, type: mimeType } as any);
+    }
+
+    return formData;
+  }, []);
+
   const handleUpdateShop = useCallback(async () => {
     setError(null);
     Keyboard.dismiss();
@@ -336,13 +361,7 @@ const EditShopScreen: React.FC = () => {
       };
 
       if (bannerUri) {
-        // Send as FormData so the image file is included
-        const formData = new FormData();
-        Object.entries(shopData).forEach(([k, v]) => {
-          if (v !== undefined) formData.append(k, typeof v === 'object' ? JSON.stringify(v) : String(v));
-        });
-        const filename = bannerUri.split('/').pop() || 'banner.jpg';
-        formData.append('banner_image', { uri: bannerUri, name: filename, type: 'image/jpeg' } as any);
+        const formData = await buildShopFormData(shopData, bannerUri);
         await shopService.updateShopFormData(shopSlug, formData);
       } else {
         await shopService.updateShop(shopSlug, shopData);
@@ -386,7 +405,8 @@ const EditShopScreen: React.FC = () => {
     phoneNumber, emailContact, socialLinks,
     derivedLatitude, derivedLongitude,
     bannerUri,
-    navigation, refreshUserProfile, shopSlug
+    navigation, refreshUserProfile, shopSlug,
+    buildShopFormData,
   ]);
 
   const overallLoading = loading || locationLoading || geocodingLoading || shopLoading;
