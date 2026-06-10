@@ -8,9 +8,12 @@ import apiClient from '../../services/apiClient';
 import { useAuth } from '../../context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
+// `expo-file-system` is used only on native platforms. We dynamically import it below
+// when needed so the web bundler won't fail resolving the module.
 import { useNavigation, CommonActions } from '@react-navigation/native';
 import { MainNavigationProp } from '../../navigation/types';
 import shopService from '../../services/shopService';
+import AIListingAssistant from '../../components/AIListingAssistant';
 import { safeLog, safeError } from '../../utils/securityUtils';
 
 const SA = {
@@ -36,6 +39,7 @@ const AddProductScreen: React.FC = () => {
   const [isNameFocused, setIsNameFocused]       = useState(false);
   const [isDescFocused, setIsDescFocused]       = useState(false);
   const [isPriceFocused, setIsPriceFocused]     = useState(false);
+  const [showAiAssistant, setShowAiAssistant]   = useState(false);
 
   // Step 2 — Media
   const [selectedImages, setSelectedImages]     = useState<SelectedImage[]>([]);
@@ -140,9 +144,34 @@ const AddProductScreen: React.FC = () => {
   }, []);
 
   const createImageData = useCallback(async (uri: string, isMain: boolean) => {
-    const response = await fetch(uri);
-    const blob = await response.blob();
-    return { image: { uri, name: `image_${Date.now()}.jpg`, type: 'image/jpeg', blob }, is_main: isMain };
+    let finalUri = uri;
+    let blob: any = null;
+
+    if (uri.startsWith('data:')) {
+      const base64Data = uri.split(',')[1];
+      if (Platform.OS === 'web') {
+        // Browser-friendly conversion from base64 to Blob without expo-file-system
+        const byteCharacters = atob(base64Data);
+        const byteNumbers = new Array(byteCharacters.length);
+        for (let i = 0; i < byteCharacters.length; i++) byteNumbers[i] = byteCharacters.charCodeAt(i);
+        const byteArray = new Uint8Array(byteNumbers);
+        blob = new Blob([byteArray], { type: 'image/jpeg' });
+        finalUri = uri; // keep data URI for preview
+      } else {
+        // Native: write to cache using expo-file-system (imported dynamically)
+        const FileSystem = await import('expo-file-system');
+        const fileUri = `${FileSystem.cacheDirectory}ai_image_${Date.now()}.jpg`;
+        await FileSystem.writeAsStringAsync(fileUri, base64Data, { encoding: FileSystem.EncodingType.Base64 });
+        finalUri = fileUri;
+        const response = await fetch(finalUri);
+        blob = await response.blob();
+      }
+    } else {
+      const response = await fetch(finalUri);
+      blob = await response.blob();
+    }
+
+    return { image: { uri: finalUri, name: `image_${Date.now()}.jpg`, type: 'image/jpeg', blob }, is_main: isMain };
   }, []);
 
   // ── Step validation ──
@@ -164,6 +193,24 @@ const AddProductScreen: React.FC = () => {
     }
     return true;
   };
+
+  const handleAiSave = useCallback((draft: any) => {
+    if (draft?.title) setProductName(draft.title);
+    if (draft?.description) setProductDescription(draft.description);
+    if (draft?.image_png_b64) {
+      const dataUri = `data:image/png;base64,${draft.image_png_b64}`;
+      setSelectedImages(prev => {
+        const next = prev.map(img => ({ ...img, isMain: false }));
+        const alreadyExists = next.find(img => img.uri === dataUri);
+        if (alreadyExists) {
+          return next.map(img => img.uri === dataUri ? { ...img, isMain: true } : img);
+        }
+        return [{ uri: dataUri, isMain: true }, ...next];
+      });
+    }
+    setSuccessMessage('AI suggestion loaded. You can edit the details before publishing.');
+    setShowAiAssistant(false);
+  }, []);
 
   const goNext = () => { if (validateStep()) { setErrorMessage(''); setStep(s => s + 1); } };
   const goBack = () => { setErrorMessage(''); setStep(s => s - 1); };
@@ -254,6 +301,10 @@ const AddProductScreen: React.FC = () => {
         {step === 0 && (
           <View style={s.card}>
             <Text style={s.cardTitle}>Product Basics</Text>
+            <TouchableOpacity style={[s.aiActionBtn, overallLoading && s.btnDisabled]} onPress={() => setShowAiAssistant(true)} disabled={overallLoading}>
+              <Ionicons name="sparkles-outline" size={18} color="#fff" />
+              <Text style={s.aiActionText}>Use AI Listing Assistant</Text>
+            </TouchableOpacity>
             <Text style={s.label}>Product Name *</Text>
             <View style={[s.input, isNameFocused && s.inputFocus]}>
               <TextInput style={s.inputText} placeholder="e.g., Organic Honey 500g" placeholderTextColor="#888"
@@ -390,6 +441,7 @@ const AddProductScreen: React.FC = () => {
             </TouchableOpacity>
           )}
         </View>
+        <AIListingAssistant visible={showAiAssistant} onClose={() => setShowAiAssistant(false)} onSave={handleAiSave} />
       </ScrollView>
     </SafeAreaView>
   );
@@ -422,6 +474,8 @@ const s = StyleSheet.create({
   // Card
   card:      { backgroundColor: '#fff', borderRadius: 16, padding: 18, marginBottom: 16, shadowColor: '#C8A96E', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.12, shadowRadius: 12, elevation: 3 },
   cardTitle: { fontSize: 16, fontWeight: '800', color: '#111', marginBottom: 16 },
+  aiActionBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#2A6DCC', borderRadius: 10, paddingVertical: 12, marginBottom: 12, gap: 8 },
+  aiActionText: { color: '#fff', fontWeight: '700', fontSize: 14 },
 
   // Inputs
   label:     { fontSize: 12, fontWeight: '700', color: '#444', marginBottom: 6, marginTop: 10 },

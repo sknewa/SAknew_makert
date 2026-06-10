@@ -30,6 +30,9 @@ venv/
 env/
 ENV/
 
+# AI service data
+ai_service/data/
+
 # IDE
 .vscode/
 .idea/
@@ -43,5 +46,7 @@ Thumbs.db
 # Logs
 logs/
 *.log
+# Package archives
+*.tgz
 # Local Netlify folder
 .netlify

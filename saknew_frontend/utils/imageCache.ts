@@ -1,4 +1,3 @@
-import * as FileSystem from 'expo-file-system';
 import { Platform } from 'react-native';
 import { getImageUrl } from './imageUtils';
 import { safeLog, safeError, safeWarn } from '../utils/securityUtils';
@@ -14,20 +13,19 @@ const urlToPath: Record<string, string> = {};
 
 // Initialize cache directory
 export const initializeCache = async (): Promise<void> => {
-  if (Platform.OS === 'web' || isCacheInitialized) {
-    return;
-  }
-  
+  if (Platform.OS === 'web' || isCacheInitialized) return;
+
   try {
+    const FileSystem = await import('expo-file-system');
     const cacheFolder = await FileSystem.getInfoAsync(CACHE_FOLDER);
-    
+
     if (!cacheFolder.exists) {
       await FileSystem.makeDirectoryAsync(CACHE_FOLDER, { intermediates: true });
     }
-    
+
     isCacheInitialized = true;
     safeLog('Image cache initialized');
-    
+
     // Clean old cache entries in the background
     cleanCache().catch(err => safeError('Cache cleaning error:', err));
   } catch (error) {
@@ -42,45 +40,44 @@ export const getCachedImageUri = async (url: string | null): Promise<string> => 
   }
   
   // Web platform doesn't support file caching
-  if (Platform.OS === 'web' || !isCacheInitialized) {
-    return getImageUrl(url);
-  }
+  if (Platform.OS === 'web' || !isCacheInitialized) return getImageUrl(url);
   
   const fullUrl = getImageUrl(url);
   
   // Check if image is already cached
   if (urlToPath[fullUrl]) {
     try {
+      const FileSystem = await import('expo-file-system');
       const fileInfo = await FileSystem.getInfoAsync(urlToPath[fullUrl]);
-      if (fileInfo.exists) {
-        return urlToPath[fullUrl];
-      }
+      if (fileInfo.exists) return urlToPath[fullUrl];
     } catch (error) {
       safeError('Error checking cached file:', error);
     }
   }
   
   // Cache the image
-  try {
-    const filename = fullUrl.split('/').pop() || Date.now().toString();
-    const path = `${CACHE_FOLDER}${filename}`;
-    
-    await FileSystem.downloadAsync(fullUrl, path);
-    urlToPath[fullUrl] = path;
-    
-    return path;
-  } catch (error) {
-    safeError('Error caching image:', error);
-    return fullUrl; // Fallback to original URL
-  }
+    try {
+      const FileSystem = await import('expo-file-system');
+      const filename = fullUrl.split('/').pop() || Date.now().toString();
+      const path = `${CACHE_FOLDER}${filename}`;
+
+      await FileSystem.downloadAsync(fullUrl, path);
+      urlToPath[fullUrl] = path;
+
+      return path;
+    } catch (error) {
+      safeError('Error caching image:', error);
+      return fullUrl; // Fallback to original URL
+    }
 };
 
 // Clean old cache entries
 const cleanCache = async (): Promise<void> => {
   try {
+    const FileSystem = await import('expo-file-system');
     const now = Date.now();
     const cacheContents = await FileSystem.readDirectoryAsync(CACHE_FOLDER);
-    
+
     let totalSize = 0;
     const fileStats = await Promise.all(
       cacheContents.map(async filename => {
@@ -89,20 +86,20 @@ const cleanCache = async (): Promise<void> => {
         return { path, info, filename };
       })
     );
-    
+
     // Sort by modification time (oldest first)
     fileStats.sort((a, b) => {
       return (a.info.modificationTime || 0) - (b.info.modificationTime || 0);
     });
-    
+
     // Remove expired and excess files
     for (const file of fileStats) {
       const age = now - (file.info.modificationTime || 0) * 1000;
       totalSize += file.info.size || 0;
-      
+
       if (age > CACHE_EXPIRY || totalSize > MAX_CACHE_SIZE) {
         await FileSystem.deleteAsync(file.path);
-        
+
         // Remove from urlToPath mapping
         Object.keys(urlToPath).forEach(url => {
           if (urlToPath[url] === file.path) {
@@ -116,5 +113,5 @@ const cleanCache = async (): Promise<void> => {
   }
 };
 
-// Initialize cache on import
-initializeCache();
+// Note: Do not automatically call `initializeCache()` at module import time —
+// call it from app initialization on native platforms where desired.
